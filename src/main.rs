@@ -136,8 +136,7 @@ fn run_training(config: &TrainingConfig) {
         };
 
         config.log(&format!(
-            "Epoch {epoch}: train loss {loss}, {precision_log}{} edges changed {best_marker}{diag_log}",
-            updates.len(),
+            "Epoch {epoch}: train loss {loss} {diag_log} {best_marker} {precision_log}"
         ));
         updater.apply(&mut metric, &updates);
     }
