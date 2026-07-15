@@ -7,6 +7,10 @@ pub struct RegretStats {
     pub shortest_distance_sum: u128,
     pub data_loss_sum: u128,
     pub mean_data_loss: f64,
+    /// Model-relative regret: aggregate regret divided by the observed cost
+    /// under this same metric. Because that denominator changes with the
+    /// model's cost scale, this is not a fair sole ranking metric across
+    /// edge-only, frozen-edge turn-only, and joint edge-turn models.
     pub relative_data_loss: f64,
 }
 
@@ -129,6 +133,9 @@ fn finish_regret(
     } else {
         data_loss_sum as f64 / sample_count as f64
     };
+    // Preserve the historical model-relative diagnostic. Its denominator is
+    // the current metric's observed cost, so values from models with different
+    // learned cost scales are not directly comparable on their own.
     let relative_data_loss = if observed_cost_sum == 0 {
         0.0
     } else {

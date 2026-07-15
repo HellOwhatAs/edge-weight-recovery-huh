@@ -83,11 +83,12 @@ struct RestoreContext<'a> {
     initial_q_completed_updates: u64,
 }
 
-/// Run one of the three pre-registered expanded-graph experiment arms.
+/// Run one configured expanded-graph turn-residual update mode.
 ///
-/// All arms share the same topology, OD grouping, integer metric, validation
+/// All modes share the same topology, OD grouping, integer metric, validation
 /// selection, and logging. The arm enum controls only which latent blocks are
-/// updated after both gradients have been computed from the same query state.
+/// updated after both gradients have been computed from the same query state;
+/// it does not encode a scientific ranking among those modes.
 pub fn run_turn_training(
     config: &TurnTrainingConfig,
     output_dir: &Path,
@@ -286,6 +287,10 @@ pub fn run_turn_training(
                 &validation_observed_transitions,
                 &validation_oracle,
             )?;
+            // Preserve the archived protocol's checkpoint behavior exactly.
+            // This ratio uses the current model's observed cost as its
+            // denominator, so selecting it here must not be interpreted as a
+            // fair cross-model ranking of edge-only, turn-only, and joint.
             is_best = state.consider(ConsideredState {
                 step,
                 selection_value: validation_regret.relative_data_loss,

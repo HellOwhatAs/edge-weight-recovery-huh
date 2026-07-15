@@ -1,281 +1,180 @@
 # Edge-weight recovery from observed routes
 
-This repository learns one globally shared road-cost metric from historical
-routes. Its frozen reference is a regularized edge-only inverse shortest-path
-model trained with projected subgradient descent and a batched Customizable
-Contraction Hierarchy (CCH) oracle. A nested experimental model adds one
-nonnegative residual per legal directed-edge transition.
+This repository learns one globally shared road-cost metric from complete
+historical routes. The reliable main method is an edge-only inverse
+shortest-path model. A generic nonnegative per-transition residual model is
+also implemented and correctness-checked, but it has not yet been compared
+fairly enough to select a final turn-aware training method.
 
-The repository is intentionally narrow: both models use one training path, one
-standard evaluation path, and one generic edge-state graph. Historical
-exploratory branches are recoverable from the pre-cleanup archive rather than
-exposed through the main CLI.
+## Problem and objective
 
-## Problem
-
-Let `G=(V,E)` be a directed road network. Each edge `e` has a positive baseline
-cost `b_e`, and each observation is a complete, continuous sequence of original
-edge IDs from an origin `s_i` to a destination `t_i`.
-
-The goal is to learn shared costs under which the observed routes are close to
-shortest paths. The method does not learn a separate metric for each route,
-traveller, or time period.
-
-## Mathematical objective
-
-For learned edge costs `w`, the regret of observation `i` is
-
-```text
-regret_i(w)
-  = cost_w(observed_path_i) - shortest_distance_w(s_i, t_i).
-```
-
-The edge-only model learns dimensionless multipliers `q` around the baseline:
+For a directed graph `G=(V,E)`, edge `e` has positive baseline cost `b_e` and
+learned multiplier `q_e`:
 
 ```text
 w_e = b_e q_e
-
-J(q)
-  = (1/N) sum_i regret_i(b .* q)
-  + lambda_edge / (2|E|) ||q - 1||^2.
 ```
 
-If `h` is the aggregate observed edge count and `h_hat(q)` is the aggregate
-count on current shortest paths, their difference supplies a data subgradient.
-The optimizer applies
+For each observed complete edge sequence `P_i` from `s_i` to `t_i`, the route
+term is true shortest-path regret:
+
+```text
+regret_i(w) = cost_w(P_i) - distance_w(s_i, t_i).
+
+J(q) = mean_i regret_i(b .* q)
+     + lambda_edge / (2|E|) ||q - 1||^2.
+```
+
+The continuous objective is convex. Its data subgradient is obtained from
+observed minus predicted edge counts. The optimizer applies a square-root
+schedule and projects each multiplier to a positive box:
 
 ```text
 q[t+1] = project_[q_min,q_max](q[t] - eta0/sqrt(t+1) * g[t]).
 ```
 
-`count_residual_l1 = ||h_hat-h||_1` is reported only as a diagnostic. It is not
-the loss: shortest-path ties can give zero regret while deterministic path
-reconstruction still produces a nonzero count residual.
+`count_residual_l1` is a tie-dependent diagnostic only; it is not the loss.
 
-## Edge-only method
+## Established edge-only baseline
 
-`EdgeOnlyModel` owns continuous `f64` multipliers. CCH requires positive integer
-weights, so quantization is explicit and the continuous latent state remains
-separate from the integer oracle metric. No value may reach the CCH infinity
-sentinel.
+`EdgeOnlyModel` keeps the latent `f64` multipliers separate from positive
+integer CCH weights. Training uses full CCH customization. Observations sharing
+one OD pair use one query, with distances and predicted counts weighted by OD
+multiplicity.
 
-Training uses full CCH metric customization. In each epoch, observations with
-the same OD pair share one oracle query; predicted distances and edge counts are
-then weighted by the number of observations in that OD group. Checkpoints are
-selected only by aggregate validation relative regret:
+The training path has the following enforced contracts:
+
+- complete original edge-ID sequences, with continuity and endpoint checks;
+- a single positive-cost policy that drops cyclic observations;
+- validation-only checkpoint selection and no test-data read;
+- atomic checkpoints containing `q`, quantized weights, configuration,
+  selection state, and data/baseline identity;
+- exact reconstruction of integer metric state on checkpoint restore.
+
+The frozen Beijing baseline used 623,275 accepted training routes and selected
+epoch 99 within a bounded 100-epoch run. Its established development result is:
+
+| Scope | Routes | Relative regret | Mean regret | Edge F1 | Exact match |
+|---|---:|---:|---:|---:|---:|
+| Time-blocked development | 129,033 | 0.06348409 | 339,523.40 | 0.681488 | 0.371068 |
+| Spent AM/PM confirmation | 31,662 | 0.06302821 | — | 0.684512 | 0.376508 |
+
+The AM/PM blocks were validation-derived, source-index-disjoint confirmation
+blocks. They are spent evidence, not an untouched final test. The run selected
+its epoch-99 boundary, so full optimization convergence is not established.
+The authoritative baseline records remain
+[`experiments/configs/beijing_edge_only_full.json`](experiments/configs/beijing_edge_only_full.json)
+and
+[`experiments/summaries/beijing_edge_only.json`](experiments/summaries/beijing_edge_only.json).
+
+## Generic turn-expanded model
+
+The expanded topology uses each original directed edge as a state and every
+legal adjacent edge pair `(e,f)` as a transition. It provides stable transition
+IDs, bidirectional ID/pair mapping, and multi-source/multi-target handling for
+original-node OD queries.
+
+The retained nested model is:
 
 ```text
-sum(validation regret) / sum(validation observed-path cost).
-```
+kappa_(e,f) = b_f q_f + scale r_(e,f),    r_(e,f) >= 0
 
-The selected, already-evaluated state is saved atomically as one
-`checkpoint.json` containing `q`, quantized weights, epoch, complete
-configuration, selection value, train regret, and data/baseline identities.
-The training process never reads test data.
-
-## Per-transition residual extension
-
-The retained edge-state expansion assigns one state to each original directed
-edge and one stable transition ID to every legal adjacent pair `(e,f)`. It
-supports multi-source/multi-target OD queries and maps transition IDs back to
-their original edge pairs.
-
-The nested model is
-
-```text
-kappa_(e,f) = b_f q_f + scale r_(e,f),    r_(e,f) >= 0,
-```
-
-with `q` anchored at one and per-transition residuals `r` anchored at zero:
-
-```text
 J(q,r) = mean route regret
        + lambda_edge / (2|E|) ||q - 1||^2
        + lambda_turn / (2|T|) ||r||^2.
 ```
 
-The same projected-subgradient loop can continue `q`, freeze `q` and update
-only `r`, or update both blocks from the same pre-update feature counts. At
-`r=0`, expanded distances and observed-path costs match the edge-only model;
-path reconstruction may differ only at shortest-path ties.
+`TurnAwareModel` retains continuous residuals, projection to `[0,r_max]`, and
+regularization toward zero. The training implementation can update `r` with
+`q` frozen or update both blocks from the same pre-update predicted counts.
+Turn-aware checkpoints bind `q`, `r`, edge and transition weights, independent
+update clocks, data identity, and expanded-topology identity.
 
-The implementation binds each expanded query to its exact integer transition
-metric and topology identity. Checkpoints atomically save `q`, `r`, both
-quantized metrics, both update clocks, the configuration, and data/topology
-identities. A historical fixed global left-turn probe is not part of the formal
-method and is not exposed by the current training path.
+At `r=0`, expanded shortest distances and observed-path costs equal the
+edge-only values; reconstructed paths may differ only at ties. This is covered
+on synthetic graphs and by an ignored, validation-only Beijing correctness
+audit. The model implementation, transition counts, regret accounting,
+quantization, and checkpoint restore are retained.
 
-## Architecture
+## Turn-aware evidence boundary
 
-- `src/data.rs` loads the graph and complete paths, validates paths, groups ODs,
-  and computes observed edge counts.
-- `src/objective.rs` computes edge-only and expanded-graph regret plus
-  count-residual diagnostics; the model owns its normalized anchoring terms.
-- `src/optimizer.rs` implements projected updates for the edge and transition
-  parameter blocks.
-- `src/oracle/cch.rs` provides the production batched CCH oracle;
-  `src/oracle/dijkstra.rs` is a small exact correctness oracle.
-- `src/model/edge_only.rs` contains the frozen reference parameterization;
-  `src/model/turn_aware.rs` contains nonnegative per-transition residuals.
-- `src/turn_graph.rs` owns generic transition indexing, metric construction,
-  source/target states, and expanded-path decoding.
-- `src/training.rs` runs validation-selected training and structured logging.
-- `src/evaluation.rs` reports relative and mean regret, exact match, edge
-  precision/recall/F1, and edge Jaccard.
-- `src/config.rs` validates compact experiment configurations and the atomic
-  checkpoint schema.
-- `src/bin/train.rs` and `src/bin/evaluate.rs` are the two user-facing binaries.
+Current status:
 
-## Data contract
+> implemented, correctness-checked, promising but not yet fairly validated
 
-Route pickle entries must contain the complete sequence of original directed
-edge IDs. The loader never removes the first or last real edge.
+The archived Beijing development study observed higher edge F1 and exact match
+for one frozen-edge residual run than for its expanded-edge continuation
+control (`0.693069` versus `0.682444`, and `0.390234` versus `0.369874`). This
+suggests possible route-reproduction benefit. It is not a model-selection or
+generalization result. In the same comparison, raw mean regret increased from
+`317,952.34` to `327,845.80`.
 
-Every path is checked for an empty sequence, invalid edge IDs, discontinuous
-adjacent edges, and repeated nodes. Because a positive-cost cycle cannot belong
-to a shortest path, cyclic observations are dropped. This is the sole training
-data policy; alternative cycle policies are not CLI options.
+The old A/B/C conclusion is retired because:
 
-The OD pair is the tail of the first edge and the head of the last edge. Train
-and validation file identities are declared in each experiment JSON. Tracked
-configurations expect the corresponding preprocessed pickle files under
-`data/<city>_data/`; generated data remains outside version control.
+- joint learning received only a fixed 30-step simultaneous-update budget,
+  although every frozen-edge turn-only state is also feasible for the joint
+  continuous model;
+- the selection ratio used each model's own observed-path cost as denominator,
+  so residuals could change the scale being compared;
+- the 10% screen retained a full-data `q*` for turn-only but let joint updates
+  modify that representation using only the 10% subset;
+- no full-data joint endpoint was run;
+- development data selected checkpoints and supplied the reported metrics.
 
-## Quick start
+Therefore the repository does not establish that turn-only is better than
+joint, that joint is ineffective, that residuals reduce raw regret, that the
+effect generalizes independently, or that learned residuals are physical or
+causal turn costs.
 
-The bounded smoke configuration uses the existing deterministic Beijing 1%
-training subset and fixed validation subset:
+## Metric interpretation
 
-```bash
-cargo run --release --locked --bin train -- \
-  --config experiments/configs/smoke_1pct.json \
-  --output-dir /tmp/edge-weight-recovery-smoke
-```
-
-The output directory contains the atomic checkpoint and structured training
-log. Inspect the intentionally small CLI with:
-
-```bash
-cargo run --release --locked --bin train -- --help
-```
-
-## Reproducible full baseline
-
-The frozen full-Beijing configuration records the selected solver parameters
-and input identities:
-
-```bash
-cargo run --release --locked --bin train -- \
-  --config experiments/configs/beijing_edge_only_full.json \
-  --output-dir /tmp/edge-weight-recovery-beijing-full
-```
-
-This is a full 100-epoch reproduction, not the recommended smoke check for a
-routine code change. It requires the declared full training and development
-pickle files.
-
-## Current validated result
-
-The frozen strong baseline trained on 623,275 valid acyclic Beijing routes with
-`eta0=3e-4`, `lambda_edge=1e5`, box `[0.1,10]`, and at most 100 epochs. Aggregate
-validation relative regret selected epoch 99.
-
-| Evaluation scope | Routes | Relative regret | Edge F1 | Exact match |
-|---|---:|---:|---:|---:|
-| Time-blocked development | 129,033 | 0.06348409 | 0.681488 | 0.371068 |
-| Pooled one-shot AM/PM confirmation | 31,662 | 0.06302821 | 0.684512 | 0.376508 |
-
-The two confirmation blocks were source-index-disjoint temporal blocks from the
-validation source. They are spent confirmation data, not an untouched final
-test estimate. Formal training and confirmation did not evaluate test.
-
-For the same `eta0=1e-4` trajectory, development relative regret improved from
-`0.06826350` at epoch 19 to `0.06357497` at epoch 99. This establishes that the
-old 20-epoch horizon was too short. Because useful runs still selected the
-100-epoch boundary, the result does not establish full optimization convergence.
-
-The generic expanded graph has also passed exact zero-residual equivalence
-checks against the edge-only oracle. In the fixed real-data audit, all 15,812
-accepted routes had identical shortest distances and observed costs; four
-predicted paths differed at ties. The earlier uniform nonnegative global
-left-turn probe selected zero penalty; that narrow negative result is not the
-learned per-transition model.
-
-The preregistered residual study then screened exactly 13 cells on a fixed 10%
-training subset. All six turn-only cells passed the gate; no joint edge-turn
-cell passed. Only the expanded-edge control and the winning turn-only cell were
-therefore run on full train, both from the same frozen `q*`, fresh `r=0`, and a
-fixed 50-update budget:
-
-| Full-train development endpoint | Best step | Relative regret | Mean regret | Edge F1 | Exact match |
-|---|---:|---:|---:|---:|---:|
-| A: expanded edge continuation | 50 | 0.06203214 | 317,952.34 | 0.682444 | 0.369874 |
-| B: frozen-edge turn-only | 50 | **0.06041708** | 327,845.80 | **0.693069** | **0.390234** |
-
-Relative to A, B improved the preregistered relative-regret gate by
-`0.00161506`, edge F1 by `0.01062468`, and exact match by `0.02035913`; all
-three gates passed. Mean regret did not improve, so this is not an “all metrics
-improved” result. Both arms selected the step-50 boundary. The result supports
-additional development-set route-fit capacity from transition residuals, not
-optimization convergence, causal turn costs, or untouched-test generalization.
-
-## Repository structure
+Historical `relative_regret` is
 
 ```text
-src/
-  bin/                 train and evaluate entry points
-  model/               edge-only and per-transition residual models
-  oracle/              production CCH and exact small-graph Dijkstra
-  data.rs              graph/trip contract and OD grouping
-  objective.rs         regret and diagnostics
-  optimizer.rs         projected subgradient update
-  turn_graph.rs        generic edge-state transition graph
-  training.rs          reusable training loop
-  evaluation.rs        standard route metrics
-  config.rs            experiment and checkpoint contracts
-experiments/
-  configs/             compact reproducible configurations
-  summaries/           concise trusted results
-docs/
-  research_status.md   proved, open, and next-step claims
-  repository_cleanup_inventory.md
-tools/                 bounded preprocessing or benchmark utilities
+sum(model regret) / sum(model observed-path cost).
 ```
 
-Large generated checkpoints, logs, route-level outputs, and temporary subsets
-are intentionally ignored rather than committed.
+It remains useful for reproducing results within a fixed metric convention,
+but it is model-relative: both numerator and denominator use the current
+model. It must not be the sole fair ranking metric across edge-only,
+turn-only, and joint models. A future comparison should report raw mean regret
+or a denominator fixed across all models. Edge F1 and exact match are useful
+cost-scale-independent route-reproduction metrics.
 
-## Limitations
+## Repository guide
 
-- The validated result covers one city and a limited temporal source; it is not
-  a multi-city or untouched final-test estimate.
-- Epoch 99 and both turn-study step-50 endpoints are bounded checkpoints, not
-  evidence of convergence.
-- Integer quantization can change tie-breaking relative to the continuous
-  objective, so continuous convex statements do not transfer without this
-  qualification.
-- Dropping cyclic observations is mathematically consistent with the
-  positive-cost shortest-path model but excludes a meaningful part of the raw
-  trajectory population.
-- The turn result uses development data for checkpoint selection and evaluation;
-  it is not an independent confirmation result.
-- Turn-only passed the preregistered gates, but mean regret increased, the joint
-  arm did not pass screening, and learned residuals are not identified as
-  physical or causal turn costs.
+- `src/model/edge_only.rs`: reliable edge-only parameterization.
+- `src/model/turn_aware.rs`: nonnegative per-transition residual state.
+- `src/objective.rs` and `src/optimizer.rs`: regret, diagnostics, and projected
+  updates.
+- `src/turn_graph.rs` and `src/oracle/expanded.rs`: generic expansion and bound
+  expanded queries.
+- `src/training.rs` and `src/turn_training.rs`: validation-selected training.
+- `tests/`: behavioral, correctness, identity, and theoretical contracts.
+- `experiments/configs/`: active baseline and bounded smoke configurations.
+- `experiments/archive/turn_residual_abc_v1/`: original inconclusive A/B/C
+  protocol, configurations, and machine-readable results.
 
-## Status and citation
-
-The project is research code supporting a manuscript in preparation. Citation
-metadata will be added when the manuscript is released. See
-[`docs/research_status.md`](docs/research_status.md) for the current claim
-boundary and next milestone.
-
-The complete pre-cleanup convergence-study evidence remains available without
-history rewriting at immutable commit
-`8aacf2e8020bae13c6fad58f22ccb369f249e029`. A local annotated tag named
-`archive/pre-cleanup-convergence-study` is only a convenience and is not
-promised on the remote. For example:
+The CLIs can be inspected without reading data:
 
 ```bash
-git show 8aacf2e8020bae13c6fad58f22ccb369f249e029:experiments/convergence_study/RESULTS.md
+cargo run --locked --bin train -- --help
+cargo run --locked --bin evaluate -- --help
 ```
+
+## Historical recovery
+
+The A/B/C files are preserved byte-for-byte under
+[`experiments/archive/turn_residual_abc_v1/`](experiments/archive/turn_residual_abc_v1/README.md).
+The immutable pre-audit commit is
+`6b66eae329b0beea3546550292a4efd789276159`; this workspace also has the local
+annotated tag `pre-turn-abc-audit-20260715` pointing to it. For example:
+
+```bash
+git show 6b66eae329b0beea3546550292a4efd789276159:experiments/turn_residual_protocol.json
+```
+
+Earlier convergence, scale, and exploratory work remains recoverable as
+described in [`experiments/archive/README.md`](experiments/archive/README.md).
+See [`docs/research_status.md`](docs/research_status.md) for the exact current
+claim boundary and requirements for a future fair evaluation.

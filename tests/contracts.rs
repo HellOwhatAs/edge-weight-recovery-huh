@@ -1,8 +1,7 @@
 use edge_weight_recovery::config::{
     ExperimentConfig, TrainingConfig, TrainingState, TurnExperimentArm, load_checkpoint,
 };
-use serde_json::json;
-use std::collections::BTreeSet;
+use serde_json::{Value, json};
 use std::path::Path;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -69,133 +68,128 @@ fn atomic_checkpoint_pairs_model_state_config_and_identity() {
 }
 
 #[test]
-fn turn_screen_is_exactly_the_preregistered_thirteen_cells() {
-    let mut paths = std::fs::read_dir("experiments/configs")
-        .expect("read experiment configs")
-        .map(|entry| entry.expect("read config entry").path())
-        .filter(|path| {
-            path.file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with("turn_screen_") && name.ends_with(".json"))
-        })
-        .collect::<Vec<_>>();
-    paths.sort();
-    assert_eq!(paths.len(), 13);
-
-    let mut arm_counts = [0usize; 3];
-    let mut turn_grid = BTreeSet::new();
-    let mut joint_grid = BTreeSet::new();
-    for path in paths {
-        let ExperimentConfig::TurnAware(config) =
-            ExperimentConfig::load(&path).expect("load preregistered turn config")
-        else {
-            panic!("{} is not turn-aware", path.display());
+fn active_configs_do_not_expose_the_archived_turn_study() {
+    for entry in std::fs::read_dir("experiments/configs").expect("read active experiment configs") {
+        let path = entry.expect("read active config entry").path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
         };
-        assert_eq!(config.stage, "screen_10pct");
-        assert_eq!(config.updates, 30);
-        assert_eq!(config.validation_every, 10);
-        assert_eq!(config.rayon_threads, 4);
-        assert_eq!(config.residual_scale, 127_625.0);
-        assert_eq!(config.r_max, 10.0);
-        let cell = || {
-            (
-                (config.eta_r0.expect("turn eta") * 10_000.0).round() as i32,
-                config.lambda_turn.expect("turn lambda") as u64,
-            )
-        };
-        match config.arm {
-            TurnExperimentArm::ExpandedEdgeContinuation => arm_counts[0] += 1,
-            TurnExperimentArm::TurnOnly => {
-                arm_counts[1] += 1;
-                turn_grid.insert(cell());
-            }
-            TurnExperimentArm::JointEdgeTurn => {
-                arm_counts[2] += 1;
-                joint_grid.insert(cell());
-            }
-        }
+        assert!(
+            !(name.starts_with("turn_") && name.ends_with(".json")),
+            "archived turn-study config remains active: {}",
+            path.display()
+        );
     }
-    let expected_grid = BTreeSet::from([
-        (1, 1_000),
-        (1, 100_000),
-        (1, 10_000_000),
-        (3, 1_000),
-        (3, 100_000),
-        (3, 10_000_000),
-    ]);
-    assert_eq!(arm_counts, [1, 6, 6]);
-    assert_eq!(turn_grid, expected_grid);
-    assert_eq!(joint_grid, expected_grid);
 }
 
 #[test]
-fn full_endpoints_are_exactly_the_authorized_control_and_turn_only_winner() {
-    let mut paths = std::fs::read_dir("experiments/configs")
-        .expect("read experiment configs")
+fn archived_turn_study_preserves_execution_facts_without_ranking_models() {
+    let archive = Path::new("experiments/archive/turn_residual_abc_v1");
+    let mut paths = std::fs::read_dir(archive.join("configs"))
+        .expect("read archived turn-study configs")
         .map(|entry| entry.expect("read config entry").path())
         .filter(|path| {
             path.file_name()
                 .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with("turn_full_") && name.ends_with(".json"))
+                .is_some_and(|name| name.ends_with(".json"))
         })
         .collect::<Vec<_>>();
     paths.sort();
-    assert_eq!(paths.len(), 2);
+    assert_eq!(paths.len(), 16);
 
-    let configs = paths
-        .iter()
-        .map(
-            |path| match ExperimentConfig::load(path).expect("load full endpoint config") {
-                ExperimentConfig::TurnAware(config) => config,
-                ExperimentConfig::EdgeOnly(_) => panic!("{} is not turn-aware", path.display()),
-            },
-        )
-        .collect::<Vec<_>>();
-    for config in &configs {
-        assert_eq!(config.stage, "full_endpoint");
-        assert_eq!(config.train_variant, "all");
-        assert_eq!(config.updates, 50);
-        assert_eq!(config.validation_every, 10);
-        assert_eq!(config.rayon_threads, 4);
+    let mut stage_counts = [0usize; 3];
+    let mut screen_arm_counts = [0usize; 3];
+    let mut full_arm_counts = [0usize; 3];
+    for path in paths {
+        let ExperimentConfig::TurnAware(config) =
+            ExperimentConfig::load(&path).expect("parse archived turn-study config")
+        else {
+            panic!("{} is not turn-aware", path.display());
+        };
+        assert_eq!(config.as_json()["test_policy"], "never_read");
+        let arm_index = match config.arm {
+            TurnExperimentArm::ExpandedEdgeContinuation => 0,
+            TurnExperimentArm::TurnOnly => 1,
+            TurnExperimentArm::JointEdgeTurn => 2,
+        };
+        match config.stage.as_str() {
+            "correctness" => stage_counts[0] += 1,
+            "screen_10pct" => {
+                stage_counts[1] += 1;
+                screen_arm_counts[arm_index] += 1;
+            }
+            "full_endpoint" => {
+                stage_counts[2] += 1;
+                full_arm_counts[arm_index] += 1;
+            }
+            stage => panic!("unexpected archived stage {stage:?}"),
+        }
     }
-    assert_eq!(configs[0].arm, TurnExperimentArm::ExpandedEdgeContinuation);
-    assert_eq!(configs[0].eta_r0, None);
-    assert_eq!(configs[0].lambda_turn, None);
-    assert_eq!(configs[1].arm, TurnExperimentArm::TurnOnly);
-    assert_eq!(configs[1].eta_r0, Some(0.0003));
-    assert_eq!(configs[1].lambda_turn, Some(1_000.0));
+    assert_eq!(stage_counts, [1, 13, 2]);
+    assert_eq!(screen_arm_counts, [1, 6, 6]);
+    assert_eq!(full_arm_counts, [1, 1, 0]);
 
-    let protocol: serde_json::Value = serde_json::from_slice(
-        &std::fs::read("experiments/turn_residual_protocol.json").expect("read turn protocol"),
-    )
-    .expect("parse turn protocol");
-    assert_eq!(protocol["status"], "layer_3_complete_protocol_closed");
+    let protocol = read_json(&archive.join("turn_residual_protocol.json"));
     assert_eq!(
-        protocol["layer_3_full_endpoint"]["authorized_runs"]
-            .as_array()
-            .expect("authorized runs")
-            .len(),
-        2
+        protocol["decision"]["layer_2_outcome"]["completed_cells"],
+        13
     );
+    assert_eq!(protocol["layer_3_full_endpoint"]["completed_runs"], 2);
+    assert_eq!(protocol["layer_3_full_endpoint"]["test_read"], false);
     assert_eq!(
-        protocol["layer_3_full_endpoint"]["remaining_authorized_runs"],
-        json!([])
-    );
-    assert_eq!(
-        protocol["decision"]["additional_full_endpoint_runs_authorized"],
+        protocol["decision"]["layer_3_outcome"]["joint_edge_turn_full_run"],
         false
     );
 
-    let summary: serde_json::Value = serde_json::from_slice(
-        &std::fs::read("experiments/summaries/beijing_turn_residual_full.json")
-            .expect("read full turn summary"),
-    )
-    .expect("parse full turn summary");
-    assert_eq!(summary["status"], "layer_3_complete_protocol_closed");
-    assert_eq!(
-        summary["results"].as_array().expect("full results").len(),
-        2
+    let screen_summary = read_json(
+        &archive
+            .join("summaries")
+            .join("beijing_turn_residual_10pct.json"),
     );
-    assert_eq!(summary["comparison"]["passes_all_gates"], true);
-    assert_eq!(summary["outcome"]["additional_runs_authorized"], false);
+    assert_eq!(screen_summary["integrity"]["completed_cells"], 13);
+    assert_eq!(
+        screen_summary["results"]
+            .as_array()
+            .expect("screen results")
+            .len(),
+        13
+    );
+    assert_eq!(screen_summary["data"]["test_read"], false);
+
+    let full_summary = read_json(
+        &archive
+            .join("summaries")
+            .join("beijing_turn_residual_full.json"),
+    );
+    assert_eq!(full_summary["integrity"]["completed_runs"], 2);
+    assert_eq!(full_summary["integrity"]["all_test_read_false"], true);
+    assert_eq!(full_summary["data"]["test_read"], false);
+    let results = full_summary["results"]
+        .as_array()
+        .expect("full endpoint results");
+    assert_eq!(results.len(), 2);
+    assert!(results.iter().all(|result| {
+        result["selected_at_budget_boundary"].as_bool() == Some(true)
+            && result["best_step"].as_u64() == Some(50)
+    }));
+    assert!(
+        results
+            .iter()
+            .all(|result| result["arm"] != "joint_edge_turn")
+    );
+
+    let mean_regret = |arm: &str| {
+        results
+            .iter()
+            .find(|result| result["arm"] == arm)
+            .and_then(|result| result.pointer("/validation/mean_regret"))
+            .and_then(Value::as_f64)
+            .unwrap_or_else(|| panic!("missing mean regret for archived arm {arm}"))
+    };
+    assert!(mean_regret("turn_only") > mean_regret("expanded_edge_continuation"));
+}
+
+fn read_json(path: &Path) -> Value {
+    serde_json::from_slice(&std::fs::read(path).expect("read archived JSON"))
+        .expect("parse archived JSON")
 }

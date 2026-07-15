@@ -15,7 +15,10 @@ pub struct PathMetrics {
     pub edge_f1: f64,
     pub edge_jaccard: f64,
     pub mean_regret: f64,
-    /// Aggregate regret divided by aggregate observed path cost.
+    /// Aggregate regret divided by aggregate observed path cost under the
+    /// current model. This model-relative denominator changes with learned
+    /// cost scale, so the value must not be the sole cross-model ranking metric
+    /// for edge-only, frozen-edge turn-only, and joint edge-turn models.
     pub relative_regret: f64,
 }
 

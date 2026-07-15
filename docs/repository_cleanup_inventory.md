@@ -1,5 +1,12 @@
 # Repository cleanup inventory
 
+> Historical note: this inventory records the earlier cleanup protected at
+> `8aacf2e...`; it predates the per-transition residual implementation and is
+> not the current research-status document. See
+> [`research_status.md`](research_status.md) and the
+> [turn A/B/C archive](../experiments/archive/turn_residual_abc_v1/README.md)
+> for the present claim boundary.
+
 This inventory was written before the cleanup changed or removed tracked
 scientific code or evidence. It is the Phase 0 decision record for the
 behavior-preserving repository contraction.

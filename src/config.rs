@@ -58,7 +58,10 @@ impl TurnExperimentArm {
     }
 }
 
-/// Strict configuration for the pre-registered expanded-graph A/B/C study.
+/// Strict configuration for a turn-residual expanded-graph run.
+///
+/// This also supports exact replay of the archived historical A/B/C protocol;
+/// accepting one of its update modes does not establish a model ranking.
 #[derive(Clone, Debug)]
 pub struct TurnTrainingConfig {
     raw: Value,
@@ -561,9 +564,10 @@ impl RunOptions {
 fn print_help() {
     println!(
         "edge-weight-recovery train\n\
-         Train the registered edge-only baseline or turn-residual A/B/C protocol.\n\
+         Train the edge-only baseline or run a configured turn-residual job.\n\
          Training always drops cyclic complete paths, uses full CCH customization,\n\
-         selects by validation aggregate relative regret, and never reads test.\n\n\
+         selects checkpoints on validation only, and never reads test. Historical\n\
+         turn runs retain their model-relative metric for replay, not model ranking.\n\n\
          Usage:\n\
            train --config PATH --output-dir PATH\n\n\
          Options:\n\
@@ -882,7 +886,7 @@ mod tests {
     }
 
     #[test]
-    fn turn_config_exposes_only_the_three_preregistered_arms() {
+    fn turn_config_accepts_the_three_implemented_update_modes() {
         let turn_only = TurnTrainingConfig::from_value(turn_config_value("turn_only")).unwrap();
         assert_eq!(turn_only.arm, TurnExperimentArm::TurnOnly);
         assert_eq!(turn_only.updates, 30);
