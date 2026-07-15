@@ -1,7 +1,25 @@
-/target
-/data
+/target/
+/data/
+
+# Runtime outputs belong outside the source tree.
+/artifacts/
+/checkpoints/
+/outputs/
+/runs/
+/experiments/generated/
+/experiments/**/generated/
+
+# Retired study trees are available through the protected archive tag.
+/experiments/convergence_study/
+/experiments/scale_study/
+
+# Large derived evidence and route-level exports are never source artifacts.
+*.tar.gz
+/experiments/**/routes*.json
+/experiments/**/trajectories.*
+
+# Language/tool caches.
 __pycache__/
-*.pyc
-*.json
+*.py[cod]
 *.log
-!experiments/**/*.json
+.pytest_cache/

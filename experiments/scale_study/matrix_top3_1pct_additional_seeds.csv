@@ -1,7 +1,0 @@
-run_id,phase,scale,seed,eta0,lambda,train_variant,metric_update,epochs,patience
-top_e1m4_l1e5_s43,multiseed_1pct,1pct,43,1e-4,1e5,scale_1pct_seed43,full,20,5
-top_e1m4_l1e5_s44,multiseed_1pct,1pct,44,1e-4,1e5,scale_1pct_seed44,full,20,5
-top_e1m4_l1e7_s43,multiseed_1pct,1pct,43,1e-4,1e7,scale_1pct_seed43,full,20,5
-top_e1m4_l1e7_s44,multiseed_1pct,1pct,44,1e-4,1e7,scale_1pct_seed44,full,20,5
-top_e3m5_l1e5_s43,multiseed_1pct,1pct,43,3e-5,1e5,scale_1pct_seed43,full,20,5
-top_e3m5_l1e5_s44,multiseed_1pct,1pct,44,3e-5,1e5,scale_1pct_seed44,full,20,5

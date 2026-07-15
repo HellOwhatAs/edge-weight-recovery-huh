@@ -1,2 +1,0 @@
-run_id,phase,scale,seed,eta0,lambda,train_variant,metric_update,epochs,patience
-baseline_q1,baseline,1pct,42,1e-5,0,scale_1pct_seed42,full,1,1

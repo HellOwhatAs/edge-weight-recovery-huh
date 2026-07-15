@@ -1,4 +1,0 @@
-run_id,phase,scale,seed,eta0,lambda,train_variant,metric_update,epochs,patience,eval_every,eval_path_metrics,early_stop_min_delta
-conv_10pct_eta1e4,convergence_10pct,10pct,42,0.0001,100000,scale_10pct_seed42,full,100,4,5,true,0.00001
-conv_10pct_eta3e4,convergence_10pct,10pct,42,0.0003,100000,scale_10pct_seed42,full,100,4,5,true,0.00001
-conv_10pct_eta1e3,convergence_10pct,10pct,42,0.001,100000,scale_10pct_seed42,full,100,4,5,true,0.00001

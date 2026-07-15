@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "status": "frozen_strong_baseline",
+  "method": "edge_only_projected_subgradient",
+  "archive": {
+    "tag": "archive/pre-cleanup-convergence-study",
+    "commit": "8aacf2e8020bae13c6fad58f22ccb369f249e029"
+  },
+  "configuration": "experiments/configs/beijing_edge_only_full.json",
+  "development_selection": {
+    "split": "validation-derived development block",
+    "test_read": false,
+    "train_available": 785709,
+    "train_accepted_after_dropping_cycles": 623275,
+    "validation_available": 163614,
+    "validation_accepted_after_dropping_cycles": 129033,
+    "selected_epoch": 99,
+    "selection_metric": "aggregate_relative_regret",
+    "selection_loss": 0.063484090822,
+    "mean_regret": 339523.398169,
+    "relative_regret": 0.06348409,
+    "exact_match": 0.371068,
+    "edge_precision": 0.692053,
+    "edge_recall": 0.679015,
+    "edge_f1": 0.681488,
+    "edge_jaccard": 0.606961
+  },
+  "one_shot_confirmation": {
+    "scope": "pooled AM/PM validation-derived blocks",
+    "test_read": false,
+    "accepted_routes": 31662,
+    "relative_regret": 0.06302820811449493,
+    "edge_f1": 0.6845122892429949,
+    "exact_match": 0.37650811698566106
+  },
+  "scientific_interpretation": [
+    "The projected edge-only model is the frozen strong baseline.",
+    "Twenty epochs were insufficient; one hundred epochs did not establish full convergence.",
+    "Count residual is diagnostic only and is not the optimization loss.",
+    "The fixed global left-turn probe was not selected and is not part of the formal method.",
+    "The next planned model is a nonnegative per-transition residual on the generic turn graph."
+  ]
+}

@@ -1,6 +1,0 @@
-run_id,phase,scale,seed,eta0,lambda,train_variant,metric_update,epochs,patience,eval_every,eval_path_metrics,early_stop_min_delta
-baseline_full_q1,controls,full,42,0.0001,100000,all,full,1,100,5,true,0.00001
-control_full_eta1e4_t20,controls,full,42,0.0001,100000,all,full,20,100,5,true,0.00001
-conv_full_eta1e4,convergence_full,full,42,0.0001,100000,all,full,100,4,5,true,0.00001
-conv_full_eta3e4,convergence_full,full,42,0.0003,100000,all,full,100,4,5,true,0.00001
-conv_full_eta1e3,convergence_full,full,42,0.001,100000,all,full,100,4,5,true,0.00001
