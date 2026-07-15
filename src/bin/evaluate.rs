@@ -93,7 +93,7 @@ impl Arguments {
             .any(|value| value == "--help" || value == "-h")
         {
             println!(
-                "Usage: evaluate --checkpoint PATH [--split validation|test] \\\n+                 [--variant NAME] [--output PATH]\n\n\
+                "Usage: evaluate --checkpoint PATH [--split validation|test] [--variant NAME] [--output PATH]\n\n\
                  Defaults to the checkpoint's validation variant. Test is read only\n\
                  when --split test and --variant are both explicitly supplied."
             );

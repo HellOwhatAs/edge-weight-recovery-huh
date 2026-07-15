@@ -38,8 +38,7 @@
     "epochs": 100,
     "validation_every": 5,
     "early_stop_patience": 4,
-    "early_stop_min_delta": 0.00001,
-    "evaluate_path_metrics": true
+    "early_stop_min_delta": 0.00001
   },
   "selection": {
     "split": "validation",

@@ -233,6 +233,7 @@ pub fn run_training(config: &TrainingConfig, output_dir: &Path) -> Result<Traini
     let checkpoint_path = state.save_checkpoint(output_dir, config, &runtime_identity)?;
     let restore_started = Instant::now();
     metric = oracle.customize(&state.best_weights)?;
+    let restore_ms = milliseconds(restore_started);
     let validation_metrics = evaluate_paths(&metric, &validation.paths, thread_count)?;
     logger.log(json!({
         "event": "evaluation",
@@ -256,7 +257,7 @@ pub fn run_training(config: &TrainingConfig, output_dir: &Path) -> Result<Traini
         "best_regularization": regularization(&state.best_q, config.lambda_edge),
         "best_q": best_q,
         "train_regret_improvement_pct": improvement,
-        "restore_full_customization_ms": milliseconds(restore_started),
+        "restore_full_customization_ms": restore_ms,
         "peak_rss_kib": process_peak_rss_kib().unwrap_or(0),
         "checkpoint_path": checkpoint_path,
         "test_read": false,

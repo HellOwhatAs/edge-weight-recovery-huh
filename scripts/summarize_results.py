@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize standard edge-only metrics from structured training logs."""
+"""Extract final validation metrics from edge-only JSONL training logs."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ import argparse
 import json
 import os
 from pathlib import Path
-import shlex
 from typing import Any
 
 
 STANDARD_METRICS = (
+    "samples",
     "mean_regret",
     "relative_regret",
     "exact_match",
@@ -29,107 +29,84 @@ def arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def fields(line: str) -> tuple[str, dict[str, str]]:
-    pieces = shlex.split(line.strip())
-    if not pieces:
-        return "", {}
-    values: dict[str, str] = {}
-    for piece in pieces[1:]:
-        if "=" in piece:
-            key, value = piece.split("=", 1)
-            values[key] = value
-    return pieces[0], values
-
-
-def number(value: str | None) -> float | int | None:
-    if value is None:
-        return None
-    try:
-        integer = int(value)
-    except ValueError:
+def read_events(path: Path) -> list[dict[str, Any]]:
+    events = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        if not line.strip():
+            continue
         try:
-            return float(value)
-        except ValueError:
-            return None
-    return integer
+            event = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"{path}:{line_number}: invalid JSON: {error}") from error
+        if not isinstance(event, dict):
+            raise ValueError(f"{path}:{line_number}: expected a JSON object")
+        events.append(event)
+    return events
+
+
+def latest(events: list[dict[str, Any]], event_name: str) -> dict[str, Any]:
+    matches = [event for event in events if event.get("event") == event_name]
+    if not matches:
+        raise ValueError(f"missing {event_name!r} event")
+    return matches[-1]
 
 
 def summarize(path: Path) -> dict[str, Any]:
-    config: dict[str, str] = {}
-    data: dict[str, dict[str, int | float | None]] = {}
-    epochs: list[dict[str, int | float | None]] = []
-    validation: dict[str, int | float | None] | None = None
-    finished: dict[str, int | float | None] | None = None
-    test_skipped = False
+    events = read_events(path)
+    configuration = latest(events, "configuration")
+    evaluations = [
+        event
+        for event in events
+        if event.get("event") == "evaluation"
+        and event.get("split") == "validation_best"
+    ]
+    if not evaluations:
+        raise ValueError(f"{path}: missing validation_best evaluation")
+    evaluation = evaluations[-1]
+    finished = latest(events, "finished")
+    if configuration.get("test_read") is not False or finished.get("test_read") is not False:
+        raise ValueError(f"{path}: test_read must remain false")
 
-    for line in path.read_text(encoding="utf-8").splitlines():
-        kind, values = fields(line)
-        if kind == "CONFIG":
-            config = values
-        elif kind == "DATA" and "split" in values:
-            data[values["split"]] = {
-                key: number(values.get(key))
-                for key in ("available", "inspected", "accepted", "dropped", "cyclic")
-            }
-        elif kind == "EPOCH":
-            epochs.append(
-                {
-                    key: number(values.get(key))
-                    for key in (
-                        "epoch",
-                        "train_regret",
-                        "train_relative_regret",
-                        "validation_relative_regret",
-                        "selection_loss",
-                    )
-                }
-            )
-        elif kind == "EVAL" and values.get("split") == "validation_best":
-            validation = {key: number(values.get(key)) for key in STANDARD_METRICS}
-            validation["samples"] = number(values.get("samples"))
-        elif kind == "FINISHED":
-            finished = {
-                key: number(values.get(key))
-                for key in (
-                    "best_epoch",
-                    "selection_loss",
-                    "best_train_regret",
-                    "best_regularization",
-                    "best_q_min",
-                    "best_q_max",
-                )
-            }
-        elif kind == "TEST_SKIPPED":
-            test_skipped = True
+    metrics = evaluation.get("metrics")
+    if not isinstance(metrics, dict):
+        raise ValueError(f"{path}: validation metrics must be an object")
+    missing = [name for name in STANDARD_METRICS if name not in metrics]
+    if missing:
+        raise ValueError(f"{path}: missing validation metrics: {missing}")
+    if not isinstance(finished.get("best_epoch"), int):
+        raise ValueError(f"{path}: finished.best_epoch must be an integer")
 
-    if not config or not epochs or validation is None or finished is None:
-        raise ValueError(f"{path}: incomplete structured training log")
-    if not test_skipped or config.get("run_test") != "false":
-        raise ValueError(f"{path}: test was not demonstrably skipped")
     return {
-        "log": str(path),
-        "city": config.get("city"),
-        "train_variant": config.get("train"),
-        "validation_variant": config.get("validation"),
-        "data": data,
-        "epochs": epochs,
-        "selected": finished,
-        "validation": validation,
+        "run_id": configuration.get("run_id"),
+        "training_log": str(path),
+        "selected_epoch": finished["best_epoch"],
+        "selection_metric": finished.get("selection_metric"),
+        "selection_value": finished.get("selection_value"),
+        "validation": {name: metrics[name] for name in STANDARD_METRICS},
+        "checkpoint": finished.get("checkpoint_path"),
         "test_read": False,
     }
 
 
+def atomic_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + f".{os.getpid()}.tmp")
+    temporary.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
 def main() -> int:
     args = arguments()
-    result = {
-        "schema_version": 1,
-        "selection_metric": "aggregate_validation_relative_regret",
-        "runs": [summarize(path) for path in args.logs],
-    }
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    temporary = args.output.with_suffix(args.output.suffix + f".{os.getpid()}.tmp")
-    temporary.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(args.output)
+    atomic_json(
+        args.output,
+        {
+            "schema_version": 1,
+            "selection_metric": "aggregate_validation_relative_regret",
+            "runs": [summarize(path) for path in args.logs],
+        },
+    )
     return 0
 
 

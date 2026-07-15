@@ -1,254 +1,243 @@
-# Regularized inverse shortest-path learning
+# Edge-weight recovery from observed routes
 
-This project learns road-edge costs from observed routes. The main solver is a
-batch projected-subgradient method backed by a CCH shortest-path oracle. The old
-integer Adam + random-shock routine is retained as an explicit ablation.
+This repository learns one globally shared road-cost metric from historical
+routes. Its production method is a regularized edge-only inverse shortest-path
+model trained with projected subgradient descent and a batched Customizable
+Contraction Hierarchy (CCH) oracle.
 
-## Objective and update
+The repository is intentionally narrow: it contains one training path, one
+standard evaluation path, and a generic edge-state graph for the next planned
+turn-aware model. Historical exploratory branches are recoverable from the
+pre-cleanup archive rather than exposed through the main CLI.
 
-For observed route `i`, let `x_obs[i]` be its edge-incidence vector and let
-`d_w(s_i, t_i)` be the current shortest-path distance. The empirical regret is
+## Problem
 
-```text
-F(w) = (1/N) sum_i [w^T x_obs[i] - d_w(s_i, t_i)].
-```
+Let `G=(V,E)` be a directed road network. Each edge `e` has a positive baseline
+cost `b_e`, and each observation is a complete, continuous sequence of original
+edge IDs from an origin `s_i` to a destination `t_i`.
 
-If `h` is the observed aggregate edge count and `h_hat(w)` is the aggregate
-count on current shortest paths, then
+The goal is to learn shared costs under which the observed routes are close to
+shortest paths. The method does not learn a separate metric for each route,
+traveller, or time period.
 
-```text
-g_w = (h - h_hat(w)) / N
-```
+## Mathematical objective
 
-is a subgradient. The implementation learns dimensionless multipliers
-`q = w / b` relative to baseline costs `b`, with the regularized objective
-
-```text
-J(q) = F(b .* q) + lambda / (2m) * ||q - 1||^2
-```
-
-and update
+For learned edge costs `w`, the regret of observation `i` is
 
 ```text
-q[t+1] = project_[q_min,q_max](q[t] - eta0/sqrt(t+1) * g_q[t]).
+regret_i(w)
+  = cost_w(observed_path_i) - shortest_distance_w(s_i, t_i).
 ```
 
-The logged `count_residual_l1 = ||h_hat - h||_1` is a diagnostic, not the loss.
-With an exact oracle, a zero residual does imply zero unregularized regret,
-because `F(w) = w^T(h - h_hat)`. The converse fails under shortest-path ties:
-regret can be zero even when deterministic tie-breaking selects a different
-equal-cost path and the residual is nonzero. The residual magnitude is therefore
-not a sound progress measure, and it does not include the regularization term.
+The edge-only model learns dimensionless multipliers `q` around the baseline:
 
-## Continuous theory versus the CCH implementation
+```text
+w_e = b_e q_e
 
-The convex statement is exact for continuous weights `b .* q`. CCH consumes
-positive integer weights, so the program deliberately keeps two states:
+J(q)
+  = (1/N) sum_i regret_i(b .* q)
+  + lambda_edge / (2|E|) ||q - 1||^2.
+```
 
-- `best_multipliers.json`: continuous latent `q`;
-- `best_weights.json`: quantized integer weights used by CCH.
-- `checkpoint.json`: the authoritative atomic pairing of both arrays with the
-  selected epoch, losses, and experiment metadata.
+If `h` is the aggregate observed edge count and `h_hat(q)` is the aggregate
+count on current shortest paths, their difference supplies a data subgradient.
+The optimizer applies
 
-Because rounding can change which route is shortest, the CCH route is an
-approximate oracle for the continuous objective. The program reports maximum
-quantization error, and the test suite includes both an exact `f64` subgradient
-inequality test and a counterexample showing that quantization can change the
-shortest path. Convergence claims for the continuous projected method must not
-be transferred unqualified to the quantized training loop.
+```text
+q[t+1] = project_[q_min,q_max](q[t] - eta0/sqrt(t+1) * g[t]).
+```
 
-## Data policy
+`count_residual_l1 = ||h_hat-h||_1` is reported only as a diagnostic. It is not
+the loss: shortest-path ties can give zero regret while deterministic path
+reconstruction still produces a nonzero count residual.
 
-The pickle route field is already a complete vector of original edge IDs. The
-old implementation removed its first and last entries as though they were node
-sentinels; this changed almost every OD pair. Complete paths are now the default.
-`--trim-boundary-edges` remains available only as an explicit ablation for a
-possible partial-edge interpretation.
+## Edge-only method
 
-Every loaded route is checked for:
+`EdgeOnlyModel` owns continuous `f64` multipliers. CCH requires positive integer
+weights, so quantization is explicit and the continuous latent state remains
+separate from the integer oracle metric. No value may reach the CCH infinity
+sentinel.
 
-- empty paths and invalid edge IDs;
-- discontinuous adjacent edges;
-- repeated nodes (positive-cost cycles).
+Training uses full CCH metric customization. In each epoch, observations with
+the same OD pair share one oracle query; predicted distances and edge counts are
+then weighted by the number of observations in that OD group. Checkpoints are
+selected only by aggregate validation relative regret:
 
-Cyclic routes cannot be shortest under positive costs. Training therefore uses
-`--train-cycle-policy drop` by default; `erase` applies chronological loop
-erasure before learning, and `keep` is a deliberately misspecified
-noisy-observation ablation. The legacy `--keep-cycles` flag is a training-only
-alias for `keep`. Validation and test always use `drop`, so changing the training
-policy cannot silently change the evaluation task.
+```text
+sum(validation regret) / sum(validation observed-path cost).
+```
 
-## Safe quick start
+The selected, already-evaluated state is saved atomically as one
+`checkpoint.json` containing `q`, quantized weights, epoch, complete
+configuration, selection value, train regret, and data/baseline identities.
+The training process never reads test data.
 
-Defaults intentionally use the 10,000-route `small` splits and 20 epochs rather
-than the old hard-coded 4,000-epoch full-data run.
+## Planned turn-aware extension
+
+The retained edge-state expansion assigns one state to each original directed
+edge and one stable transition ID to every legal adjacent pair `(e,f)`. It
+supports multi-source/multi-target OD queries and maps transition IDs back to
+their original edge pairs.
+
+The next planned model is
+
+```text
+kappa_(e,f) = b_f q_f + scale r_(e,f),    r_(e,f) >= 0,
+```
+
+with `q` anchored at one and per-transition residuals `r` anchored at zero.
+At `r=0`, expanded distances, observed-path costs, path continuity, and OD
+endpoints must match the edge-only model exactly.
+
+The graph and zero-residual model placeholder are implemented. Learning the
+per-transition residuals is not implemented in this cleanup. A historical
+fixed global left-turn probe is not part of the formal method and is not
+exposed by the current training path.
+
+## Architecture
+
+- `src/data.rs` loads the graph and complete paths, validates paths, groups ODs,
+  and computes observed edge counts.
+- `src/objective.rs` computes shortest-path regret and the count-residual
+  diagnostic; the model owns its normalized anchoring term.
+- `src/optimizer.rs` implements the projected subgradient update.
+- `src/oracle/cch.rs` provides the production batched CCH oracle;
+  `src/oracle/dijkstra.rs` is a small exact correctness oracle.
+- `src/model/edge_only.rs` contains the production parameterization;
+  `src/model/turn_aware.rs` is the zero-residual structural placeholder.
+- `src/turn_graph.rs` owns generic transition indexing, metric construction,
+  source/target states, and expanded-path decoding.
+- `src/training.rs` runs validation-selected training and structured logging.
+- `src/evaluation.rs` reports relative and mean regret, exact match, edge
+  precision/recall/F1, and edge Jaccard.
+- `src/config.rs` validates compact experiment configurations and the atomic
+  checkpoint schema.
+- `src/bin/train.rs` and `src/bin/evaluate.rs` are the two user-facing binaries.
+
+## Data contract
+
+Route pickle entries must contain the complete sequence of original directed
+edge IDs. The loader never removes the first or last real edge.
+
+Every path is checked for an empty sequence, invalid edge IDs, discontinuous
+adjacent edges, and repeated nodes. Because a positive-cost cycle cannot belong
+to a shortest path, cyclic observations are dropped. This is the sole training
+data policy; alternative cycle policies are not CLI options.
+
+The OD pair is the tail of the first edge and the head of the last edge. Train
+and validation file identities are declared in the experiment JSON. The two
+provided configurations expect the corresponding preprocessed pickle files
+under `data/<city>_data/`; generated data remains outside version control.
+
+## Quick start
+
+The bounded smoke configuration uses the existing deterministic Beijing 1%
+training subset and fixed validation subset:
 
 ```bash
-cargo test --locked
-
-# Tiny smoke experiment
-RAYON_NUM_THREADS=4 cargo run --release --locked -- \
-  --city beijing \
-  --epochs 3 \
-  --max-train-samples 512 \
-  --max-validation-samples 512 \
-  --eval-every 1 \
-  --solver projected \
-  --metric-update full \
-  --selection-metric relative-regret \
-  --eta0 0.00001 \
-  --lambda 10000000 \
-  --output-prefix /tmp/beijing_pilot
+cargo run --release --locked --bin train -- \
+  --config experiments/configs/smoke_1pct.json \
+  --output-dir /tmp/edge-weight-recovery-smoke
 ```
 
-Use `cargo run --release -- --help` for all options. In particular:
-
-- `--solver projected|adam-shock` selects the scientific method or legacy
-  ablation;
-- `--metric-update full|partial` supports measured CCH customization studies;
-- `--selection-metric mean-regret|relative-regret` controls validation-only
-  checkpoint selection;
-- `--eval-path-metrics` reports exact-path and edge-overlap metrics at each
-  validation event, rather than only at final evaluation;
-- `--early-stop-min-delta` separates checkpoint improvements from the larger
-  improvement required to reset early-stopping patience;
-- `--train-cycle-policy drop|erase|keep` controls training observations only;
-- `--train-variant all_partial_1.0` uses an existing partial training file;
-- `--eval-every 0` disables validation during training;
-- `--run-test` explicitly enables the one final test evaluation after the
-  experiment protocol is frozen;
-- `--seed` makes the legacy shock reproducible.
-
-`--quantization-scale` scales the integer baseline. It consequently scales raw
-regret and the data gradient relative to `lambda`; changing it requires retuning
-both `eta0` and `lambda`, so it is not merely a harmless precision switch.
-
-The validation split selects checkpoints using validation regret alone. The
-randomized scale study uses aggregate relative regret so routes are weighted by
-their observed cost. Test is skipped by default; with `--run-test`, it is loaded
-and queried once after the chosen checkpoint is restored. This makes
-validation-only tuning the default and reduces accidental test leakage across
-repeated runs.
-
-## Logged measurements
-
-Each epoch reports:
-
-- mean train regret, regularization, and their objective sum;
-- the count-residual diagnostic;
-- unique OD queries and total oracle time (query, path reconstruction, counting,
-  consistency checks, and reduction);
-- changed integer edges and percentage;
-- optimizer and full/partial customization time;
-- latent multiplier range, box-boundary counts, and quantization error.
-
-Final validation/test output includes mean regret, exact path match, edge
-precision/recall/F1, and edge Jaccard. Standard set metrics replace the old
-one-sided baseline-weighted overlap score. `relative_regret` is the aggregate
-ratio `sum(regret) / sum(observed_cost)`, not a mean of per-route ratios.
-
-## Bounded convergence and error-attribution follow-up
-
-The latest Beijing study extended the edge-only solver from 20 to at most 100
-epochs on 10% and full train, with validation every five epochs, validation-path
-metrics, minimum-delta early stopping, and a hard 900-second limit per run. It
-used one complete time-blocked development set and two source-index-disjoint,
-one-shot AM/PM confirmation blocks. Formal training, diagnostics, confirmation,
-and the capacity probe did not load or evaluate test; no test contents or
-metrics were used.
-
-On the 129,033 valid development routes, the selected full-train checkpoint
-(`eta0=3e-4`, epoch 99) reached relative regret `0.06348409`, edge F1
-`0.681488`, and exact match `0.371068`. On the pooled 31,662 one-shot
-confirmation routes, it reached `0.06302821`, `0.684512`, and `0.376508`.
-The exact same-eta development trajectory improved from `0.06826350` at epoch
-19 to `0.06357497` at epoch 99, which establishes that the old horizon was too
-short. The final selected candidate also changed eta; relative to the frozen
-20-epoch control, its paired confirmation improvement was `0.00442438` absolute
-regret (95% bootstrap interval
-`[0.00405114, 0.00483054]`), `0.023606` F1, and `0.021793` exact match. The
-selected epoch is still the 100-epoch boundary, so the study does not establish
-full convergence.
-
-First-divergence diagnostics show that the remaining errors concentrate on
-long, junction-complex routes and frequently rejoin the observed route. A
-full-train audit also shows that dropping all cyclic records removes 20.67% of
-otherwise structurally valid observations, but chronological loop erasure did
-not improve the full-data checkpoint under the frozen edge-only hyperparameters.
-A preregistered fixed-edge single-left-turn-penalty probe then tested one minimal
-capacity extension on disjoint development tune/audit routes. All correctness
-gates passed, but the grid selected zero penalty: every positive penalty raised
-the primary tune regret. This rejects a uniform nonnegative left-turn penalty,
-not richer conditional or jointly learned turn models. The completed
-confirmation blocks were not reused.
-
-See [`experiments/convergence_study/RESULTS.md`](experiments/convergence_study/RESULTS.md)
-for the protocol, complete tables, artifact map, limitations, and bounded
-reproduction commands. Machine-readable results are in the same directory; a
-hash-manifested evidence bundle preserves the six existing one-shot route
-exports, three frozen checkpoints, and ten training logs without raw or test
-data.
-
-The matrix runner invalidates stale caches unless the complete matrix row,
-command, runner concurrency/timeout context, executable SHA-256,
-graph/train/validation input SHA-256 values, and checkpoint/log output SHA-256
-values all match. It never fingerprints the test split.
-
-## Reproducible randomized scale study
-
-The formal validation study is specified by CSV matrices in
-`experiments/scale_study/`. Generated pickle subsets remain ignored, while their
-source indices, fixed RNG algorithm, seeds, sizes, and SHA-256 hashes are kept
-in versioned manifests. Subsets with the same seed are nested, so 1%, 5%, and
-10% comparisons are paired by construction.
+The output directory contains the atomic checkpoint and structured training
+log. Inspect the intentionally small CLI with:
 
 ```bash
-# Build once and generate the seeded subsets serially (avoids concurrent full-file loads).
-cargo build --release --locked --all-targets
-python3 scripts/generate_scale_subsets.py \
-  --plan experiments/scale_study/subset_plan.csv \
-  --manifest-dir experiments/scale_study/subsets \
-  --aggregate-manifest experiments/scale_study/subset_manifest.json
-
-# Run any matrix. Completed checkpoints are cached; no --run-test is passed.
-python3 scripts/run_experiment_matrix.py \
-  --matrix experiments/scale_study/matrix_grid_1pct.csv \
-  --run-root /tmp/edge-weight-scale-study/runs \
-  --validation-variant scale_fixed_seed20260715 \
-  --summary-csv experiments/scale_study/results.csv \
-  --summary-json experiments/scale_study/results.json \
-  --jobs 3 --rayon-threads 4 --timeout-seconds 900
-
-# Rebuild aggregate grid and scale tables.
-python3 scripts/analyze_scale_results.py \
-  --results experiments/scale_study/results.json \
-  --coverage experiments/scale_study/coverage_all_seeds.json \
-  --coverage-audit experiments/scale_study/coverage_audit.json \
-  --output-json experiments/scale_study/aggregate_results.json \
-  --scale-csv experiments/scale_study/scale_curve.csv \
-  --grid-csv experiments/scale_study/grid_ranking.csv
+cargo run --release --locked --bin train -- --help
 ```
 
-The study followed this sequence:
+## Reproducible full baseline
 
-1. coverage audit at 1,000, 5,000, 1%, 5%, 10%, and full metadata;
-2. a fixed 20,000-record validation subset and nested train subsets for seeds
-   42, 43, and 44;
-3. a 15-point 1% grid, followed by top-three multi-seed replication;
-4. top-two configurations at 5% and 10%;
-5. one fixed-configuration full-train endpoint after its runtime was shown safe;
-6. per-route epsilon, seen/unseen, and route-length diagnostics;
-7. controlled full/partial customization timings at 1%, 5%, and 10% changed
-   edges.
+The frozen full-Beijing configuration records the selected solver parameters
+and input identities:
 
-See [EXPERIMENTS.md](EXPERIMENTS.md) for interpretation and
-`experiments/scale_study/aggregate_results.json` for exact values. Full Beijing
-was trained once with the already selected primary configuration; it was not a
-new hyperparameter-search stage.
+```bash
+cargo run --release --locked --bin train -- \
+  --config experiments/configs/beijing_edge_only_full.json \
+  --output-dir /tmp/edge-weight-recovery-beijing-full
+```
 
-Full Beijing train/validation/test contain roughly 786k/309k/322k samples, and
-deserializing the full collections can require well over one GiB of memory.
-The current pickle reader must deserialize a whole file before applying
-`--max-*-samples`, and a limit takes the first records rather than a random
-sample. Use the existing prebuilt partial/small files for memory-bounded runs;
-use the manifest-backed randomized subsets for formal statistical comparisons.
+This is a full 100-epoch reproduction, not the recommended smoke check for a
+routine code change. It requires the declared full training and development
+pickle files.
+
+## Current validated result
+
+The frozen strong baseline trained on 623,275 valid acyclic Beijing routes with
+`eta0=3e-4`, `lambda_edge=1e5`, box `[0.1,10]`, and at most 100 epochs. Aggregate
+validation relative regret selected epoch 99.
+
+| Evaluation scope | Routes | Relative regret | Edge F1 | Exact match |
+|---|---:|---:|---:|---:|
+| Time-blocked development | 129,033 | 0.06348409 | 0.681488 | 0.371068 |
+| Pooled one-shot AM/PM confirmation | 31,662 | 0.06302821 | 0.684512 | 0.376508 |
+
+The two confirmation blocks were source-index-disjoint temporal blocks from the
+validation source. They are spent confirmation data, not an untouched final
+test estimate. Formal training and confirmation did not evaluate test.
+
+For the same `eta0=1e-4` trajectory, development relative regret improved from
+`0.06826350` at epoch 19 to `0.06357497` at epoch 99. This establishes that the
+old 20-epoch horizon was too short. Because useful runs still selected the
+100-epoch boundary, the result does not establish full optimization convergence.
+
+The generic expanded graph has also passed exact zero-residual equivalence
+checks against the edge-only oracle. The earlier uniform nonnegative global
+left-turn probe selected zero penalty; that narrow negative result does not
+test the planned learned per-transition residual model.
+
+## Repository structure
+
+```text
+src/
+  bin/                 train and evaluate entry points
+  model/               edge-only model and turn-aware placeholder
+  oracle/              production CCH and exact small-graph Dijkstra
+  data.rs              graph/trip contract and OD grouping
+  objective.rs         regret and diagnostics
+  optimizer.rs         projected subgradient update
+  turn_graph.rs        generic edge-state transition graph
+  training.rs          reusable training loop
+  evaluation.rs        standard route metrics
+  config.rs            experiment and checkpoint contracts
+experiments/
+  configs/             compact reproducible configurations
+  summaries/           concise trusted results
+docs/
+  research_status.md   proved, open, and next-step claims
+  repository_cleanup_inventory.md
+tools/                 bounded preprocessing or benchmark utilities
+```
+
+Large generated checkpoints, logs, route-level outputs, and temporary subsets
+are intentionally ignored rather than committed.
+
+## Limitations
+
+- The validated result covers one city and a limited temporal source; it is not
+  a multi-city or untouched final-test estimate.
+- Epoch 99 is a bounded strong checkpoint, not evidence of convergence.
+- Integer quantization can change tie-breaking relative to the continuous
+  objective, so continuous convex statements do not transfer without this
+  qualification.
+- Dropping cyclic observations is mathematically consistent with the
+  positive-cost shortest-path model but excludes a meaningful part of the raw
+  trajectory population.
+- The production model is edge-only. Per-transition residual learning remains
+  the next scientific milestone.
+
+## Status and citation
+
+The project is research code supporting a manuscript in preparation. Citation
+metadata will be added when the manuscript is released. See
+[`docs/research_status.md`](docs/research_status.md) for the current claim
+boundary and next milestone.
+
+The complete pre-cleanup convergence-study evidence remains available without
+history rewriting at tag `archive/pre-cleanup-convergence-study`, commit
+`8aacf2e8020bae13c6fad58f22ccb369f249e029`. For example:
+
+```bash
+git show archive/pre-cleanup-convergence-study:experiments/convergence_study/RESULTS.md
+```

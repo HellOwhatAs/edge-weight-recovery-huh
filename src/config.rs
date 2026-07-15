@@ -30,10 +30,9 @@ impl TrainingConfig {
     }
 
     fn from_value(raw: Value) -> Result<Self, String> {
-        require_u64(&raw, "/schema_version")?
-            .eq(&1)
-            .then_some(())
-            .ok_or_else(|| "schema_version must be 1".to_string())?;
+        if require_u64(&raw, "/schema_version")? != 1 {
+            return Err("schema_version must be 1".to_string());
+        }
         for (pointer, expected) in [
             ("/data/path_contract", "complete_original_edge_id_sequence"),
             ("/data/cycle_policy", "drop"),
@@ -219,7 +218,6 @@ impl TrainingState {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,
         epoch: u64,
@@ -233,8 +231,10 @@ impl TrainingState {
         if is_best {
             self.best_selection_value = selection_value;
             self.best_train_mean_regret = train_mean_regret;
-            self.best_weights.clone_from(&weights.to_vec());
-            self.best_q.clone_from(&q.to_vec());
+            self.best_weights.clear();
+            self.best_weights.extend_from_slice(weights);
+            self.best_q.clear();
+            self.best_q.extend_from_slice(q);
             self.best_epoch = epoch;
         }
         if selection_value < self.early_stop_reference - early_stop_min_delta {
@@ -264,8 +264,8 @@ impl TrainingState {
             },
             "train_mean_regret": self.best_train_mean_regret,
             "runtime_identity": runtime_identity,
-            "q": self.best_q,
-            "quantized_metric_weights": self.best_weights,
+            "q": &self.best_q,
+            "quantized_metric_weights": &self.best_weights,
         });
         let bytes = serde_json::to_vec(&checkpoint)
             .map_err(|error| format!("failed to serialize checkpoint: {error}"))?;
