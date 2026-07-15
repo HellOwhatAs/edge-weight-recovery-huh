@@ -1,0 +1,281 @@
+{
+  "checkpoint_metadata": {
+    "best_epoch": 19,
+    "city": "beijing",
+    "eta0": 0.0001,
+    "lambda": 100000.0,
+    "metric_update_mode": "Full",
+    "schema_version": 1,
+    "selection_loss": 0.06826350093515333,
+    "selection_metric": "RelativeRegret",
+    "solver": "ProjectedSubgradient",
+    "train_variant": "all",
+    "validation_variant": "time_dev_20090513_excl_previous"
+  },
+  "checkpoint_path": "/tmp/edge-weight-convergence-study/runs/controls/control_full_eta1e4_t20/model_checkpoint.json",
+  "city": "beijing",
+  "evaluation": {
+    "contains_unseen_train_edge": {
+      "epsilon_optimal_rates": {
+        "0_percent": 0.1839080459770115,
+        "10_percent": 0.6666666666666666,
+        "1_percent": 0.3448275862068966,
+        "5_percent": 0.5632183908045977
+      },
+      "exact_match_rate": 0.1839080459770115,
+      "mean_edge_f1": 0.5944438368645447,
+      "mean_edge_jaccard": 0.5028187394270549,
+      "mean_edge_precision": 0.6143013865815832,
+      "mean_edge_recall": 0.5815610336787371,
+      "pearson_relative_regret_vs_one_minus_f1": 0.6370227262907547,
+      "raw_regret": {
+        "mean": 1350145.5862068965,
+        "median": 179745.0,
+        "p75": 1136281.5,
+        "p90": 3133308.0,
+        "p95": 6269719.400000008
+      },
+      "relative_regret": {
+        "aggregate": 0.16336169282286317,
+        "mean": 0.10655014412438461,
+        "median": 0.03914441553801681,
+        "p90": 0.29010986332042793
+      },
+      "sample_count": 87,
+      "zero_regret_but_nonexact_rate": 0.0
+    },
+    "length_quartiles": [
+      {
+        "lower_length_exclusive": null,
+        "observed_max_length": 15,
+        "observed_min_length": 3,
+        "quartile": 1,
+        "summary": {
+          "epsilon_optimal_rates": {
+            "0_percent": 0.6947660954145438,
+            "10_percent": 0.9136174154701251,
+            "1_percent": 0.8022232515053266,
+            "5_percent": 0.8839740620657712
+          },
+          "exact_match_rate": 0.6947660954145438,
+          "mean_edge_f1": 0.8318579598119191,
+          "mean_edge_jaccard": 0.794783512561447,
+          "mean_edge_precision": 0.8367645700481829,
+          "mean_edge_recall": 0.8313463683658204,
+          "pearson_relative_regret_vs_one_minus_f1": 0.5172628111045513,
+          "raw_regret": {
+            "mean": 70801.80106530801,
+            "median": 0.0,
+            "p75": 4156.0,
+            "p90": 150817.6,
+            "p95": 464210.79999999714
+          },
+          "relative_regret": {
+            "aggregate": 0.03546531559894201,
+            "mean": 0.030910923899880455,
+            "median": 0.0,
+            "p90": 0.06869850240114993
+          },
+          "sample_count": 4318,
+          "zero_regret_but_nonexact_rate": 0.0
+        },
+        "upper_length_inclusive": 15.0
+      },
+      {
+        "lower_length_exclusive": 15.0,
+        "observed_max_length": 26,
+        "observed_min_length": 16,
+        "quartile": 2,
+        "summary": {
+          "epsilon_optimal_rates": {
+            "0_percent": 0.4126984126984127,
+            "10_percent": 0.8528383104654291,
+            "1_percent": 0.6238902340597255,
+            "5_percent": 0.7785848802797956
+          },
+          "exact_match_rate": 0.4126984126984127,
+          "mean_edge_f1": 0.7043995564264721,
+          "mean_edge_jaccard": 0.6336225979012705,
+          "mean_edge_precision": 0.7137679213046632,
+          "mean_edge_recall": 0.7024074069685299,
+          "pearson_relative_regret_vs_one_minus_f1": 0.4876230992151267,
+          "raw_regret": {
+            "mean": 176695.71267150927,
+            "median": 6025.0,
+            "p75": 143403.0,
+            "p90": 606450.2000000002,
+            "p95": 994965.3999999971
+          },
+          "relative_regret": {
+            "aggregate": 0.04616870581980184,
+            "mean": 0.04616300671389463,
+            "median": 0.0017030236552832765,
+            "p90": 0.15515351237007968
+          },
+          "sample_count": 3717,
+          "zero_regret_but_nonexact_rate": 0.0
+        },
+        "upper_length_inclusive": 26.0
+      },
+      {
+        "lower_length_exclusive": 26.0,
+        "observed_max_length": 44,
+        "observed_min_length": 27,
+        "quartile": 3,
+        "summary": {
+          "epsilon_optimal_rates": {
+            "0_percent": 0.21394047316204529,
+            "10_percent": 0.8104807936911728,
+            "1_percent": 0.46909183413889594,
+            "5_percent": 0.6855761892648181
+          },
+          "exact_match_rate": 0.21394047316204529,
+          "mean_edge_f1": 0.6067339939575791,
+          "mean_edge_jaccard": 0.513787653053304,
+          "mean_edge_precision": 0.6220905591752363,
+          "mean_edge_recall": 0.6005251758836438,
+          "pearson_relative_regret_vs_one_minus_f1": 0.4858413765900629,
+          "raw_regret": {
+            "mean": 354956.29356397863,
+            "median": 77718.0,
+            "p75": 427443.5,
+            "p90": 1079026.0,
+            "p95": 1602718.5
+          },
+          "relative_regret": {
+            "aggregate": 0.05607871566023947,
+            "mean": 0.05723191283929296,
+            "median": 0.013046941733967412,
+            "p90": 0.17263137961748595
+          },
+          "sample_count": 3931,
+          "zero_regret_but_nonexact_rate": 0.0
+        },
+        "upper_length_inclusive": 44.0
+      },
+      {
+        "lower_length_exclusive": 44.0,
+        "observed_max_length": 212,
+        "observed_min_length": 45,
+        "quartile": 4,
+        "summary": {
+          "epsilon_optimal_rates": {
+            "0_percent": 0.06020408163265306,
+            "10_percent": 0.7456632653061225,
+            "1_percent": 0.2839285714285714,
+            "5_percent": 0.574234693877551
+          },
+          "exact_match_rate": 0.06020408163265306,
+          "mean_edge_f1": 0.4790813891940462,
+          "mean_edge_jaccard": 0.37180413025811954,
+          "mean_edge_precision": 0.5084245815006765,
+          "mean_edge_recall": 0.46300323297209595,
+          "pearson_relative_regret_vs_one_minus_f1": 0.4667506932695188,
+          "raw_regret": {
+            "mean": 1062213.286989796,
+            "median": 396203.0,
+            "p75": 1217121.25,
+            "p90": 2636573.0999999987,
+            "p95": 4122469.3999999953
+          },
+          "relative_regret": {
+            "aggregate": 0.08560278928656648,
+            "mean": 0.08072372206522355,
+            "median": 0.035504910007786994,
+            "p90": 0.21498906520609995
+          },
+          "sample_count": 3920,
+          "zero_regret_but_nonexact_rate": 0.0
+        },
+        "upper_length_inclusive": null
+      }
+    ],
+    "overall": {
+      "epsilon_optimal_rates": {
+        "0_percent": 0.3532040790633262,
+        "10_percent": 0.8324310713836082,
+        "1_percent": 0.5501699609719249,
+        "5_percent": 0.7337907591590079
+      },
+      "exact_match_rate": 0.3532040790633262,
+      "mean_edge_f1": 0.6592777412560029,
+      "mean_edge_jaccard": 0.5831689448825212,
+      "mean_edge_precision": 0.6738440843861264,
+      "mean_edge_recall": 0.6531687706127954,
+      "pearson_relative_regret_vs_one_minus_f1": 0.5060958214082732,
+      "raw_regret": {
+        "mean": 410531.8781316883,
+        "median": 27430.0,
+        "p75": 357185.5,
+        "p90": 1152210.5,
+        "p95": 1879139.5
+      },
+      "relative_regret": {
+        "aggregate": 0.06767404051851092,
+        "mean": 0.053284458342072655,
+        "median": 0.0055285965040029784,
+        "p90": 0.16624721205231394
+      },
+      "sample_count": 15886,
+      "zero_regret_but_nonexact_rate": 0.0
+    },
+    "route_length_quartile_cutoffs": [
+      15.0,
+      26.0,
+      44.0
+    ],
+    "seen_only": {
+      "epsilon_optimal_rates": {
+        "0_percent": 0.3541363377428951,
+        "10_percent": 0.8333438825242104,
+        "1_percent": 0.5513007152351415,
+        "5_percent": 0.734730046205456
+      },
+      "exact_match_rate": 0.3541363377428951,
+      "mean_edge_f1": 0.6596347606674882,
+      "mean_edge_jaccard": 0.5836114075620973,
+      "mean_edge_precision": 0.6741719668286227,
+      "mean_edge_recall": 0.6535630913364657,
+      "pearson_relative_regret_vs_one_minus_f1": 0.505235265910958,
+      "raw_regret": {
+        "mean": 405357.7283372365,
+        "median": 26851.0,
+        "p75": 355402.0,
+        "p90": 1140416.8,
+        "p95": 1864026.899999994
+      },
+      "relative_regret": {
+        "aggregate": 0.06695472619294554,
+        "mean": 0.0529911413813118,
+        "median": 0.005407474553608217,
+        "p90": 0.16515352514177747
+      },
+      "sample_count": 15799,
+      "zero_regret_but_nonexact_rate": 0.0
+    }
+  },
+  "peak_rss_kib": 1482404,
+  "routes_output": "/tmp/edge-weight-convergence-study/confirmation/edge_t20_eta1e4_pm_routes.json",
+  "schema_version": 1,
+  "train_validation_report": {
+    "accepted": 623275,
+    "available": 785709,
+    "cyclic": 162434,
+    "discontinuous": 0,
+    "empty_or_too_short": 0,
+    "inspected": 785709,
+    "out_of_bounds": 0
+  },
+  "train_variant": "all",
+  "validation_validation_report": {
+    "accepted": 15886,
+    "available": 20000,
+    "cyclic": 4114,
+    "discontinuous": 0,
+    "empty_or_too_short": 0,
+    "inspected": 20000,
+    "out_of_bounds": 0
+  },
+  "validation_variant": "time_confirm_pm_20090516_seed20260717",
+  "wall_seconds": 4.315959204
+}

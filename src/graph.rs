@@ -1,7 +1,7 @@
 use rayon::prelude::*;
 use routingkit_cch::shp_utils;
 use routingkit_cch::{CCHMetric, CCHQuery};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::File;
 use std::time::{Duration, Instant};
 
@@ -20,6 +20,22 @@ pub struct GraphData {
 pub enum CyclePolicy {
     Drop,
     Keep,
+    Erase,
+}
+
+impl std::str::FromStr for CyclePolicy {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "drop" => Ok(Self::Drop),
+            "keep" => Ok(Self::Keep),
+            "erase" => Ok(Self::Erase),
+            _ => Err(format!(
+                "unknown cycle policy {value:?}; expected drop, keep, or erase"
+            )),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -32,6 +48,12 @@ pub struct PathValidationReport {
     pub out_of_bounds: usize,
     pub discontinuous: usize,
     pub cyclic: usize,
+    /// Cyclic source records transformed by chronological loop erasure.
+    pub cycle_erased_records: usize,
+    /// Erased records dropped because their entire walk was a closed loop.
+    pub empty_after_cycle_transform: usize,
+    /// Original edge occurrences removed by chronological loop erasure.
+    pub cycle_edges_removed: usize,
 }
 
 impl PathValidationReport {
@@ -170,8 +192,24 @@ pub fn load_trips(
             }
             PathValidity::Cyclic => {
                 report.cyclic += 1;
-                if cycle_policy == CyclePolicy::Drop {
-                    continue;
+                match cycle_policy {
+                    CyclePolicy::Drop => continue,
+                    CyclePolicy::Keep => {}
+                    CyclePolicy::Erase => {
+                        let original_len = edge_path.len();
+                        edge_path =
+                            chronological_loop_erasure(&edge_path, &graph.tail, &graph.head)?;
+                        report.cycle_erased_records += 1;
+                        report.cycle_edges_removed += original_len - edge_path.len();
+                        if edge_path.is_empty() {
+                            report.empty_after_cycle_transform += 1;
+                            continue;
+                        }
+                        debug_assert_eq!(
+                            validate_edge_path(&edge_path, &graph.tail, &graph.head),
+                            PathValidity::Valid
+                        );
+                    }
                 }
             }
         }
@@ -183,6 +221,64 @@ pub fn load_trips(
     }
 
     Ok(LoadedTrips { paths, report })
+}
+
+/// Chronologically erase loops from a continuous edge walk.
+///
+/// Nodes are scanned in traversal order. When the next node is already on the
+/// retained walk, every retained edge after that node and the edge closing the
+/// loop are erased. The result is therefore a simple continuous path with the
+/// same start node and, unless it is empty, the same final node as the input.
+/// Empty, out-of-bounds, and discontinuous inputs are rejected; an all-loop
+/// walk may legitimately produce an empty result.
+pub fn chronological_loop_erasure(
+    path: &[usize],
+    tail: &[u32],
+    head: &[u32],
+) -> Result<Vec<usize>, String> {
+    let Some(&first_edge) = path.first() else {
+        return Err("cannot loop-erase an empty edge path".to_string());
+    };
+    if tail.len() != head.len() {
+        return Err(format!(
+            "tail/head length mismatch: {} != {}",
+            tail.len(),
+            head.len()
+        ));
+    }
+    if path.iter().any(|&edge| edge >= tail.len()) {
+        return Err("cannot loop-erase a path containing an out-of-bounds edge".to_string());
+    }
+    if path.windows(2).any(|pair| head[pair[0]] != tail[pair[1]]) {
+        return Err("cannot loop-erase a discontinuous edge path".to_string());
+    }
+
+    let mut kept_edges = Vec::with_capacity(path.len());
+    let mut kept_nodes = Vec::with_capacity(path.len() + 1);
+    let mut retained_position = HashMap::with_capacity(path.len() + 1);
+    kept_nodes.push(tail[first_edge]);
+    retained_position.insert(tail[first_edge], 0usize);
+
+    for &edge in path {
+        let next_node = head[edge];
+        if let Some(&repeat_position) = retained_position.get(&next_node) {
+            for removed_node in kept_nodes.drain(repeat_position + 1..) {
+                retained_position.remove(&removed_node);
+            }
+            kept_edges.truncate(repeat_position);
+        } else {
+            kept_edges.push(edge);
+            kept_nodes.push(next_node);
+            retained_position.insert(next_node, kept_nodes.len() - 1);
+        }
+    }
+
+    debug_assert!(
+        kept_edges.is_empty() || {
+            validate_edge_path(&kept_edges, tail, head) == PathValidity::Valid
+        }
+    );
+    Ok(kept_edges)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -575,6 +671,43 @@ mod tests {
             validate_edge_path(&[0, 1], &tail, &head),
             PathValidity::Valid
         );
+    }
+
+    #[test]
+    fn chronological_erasure_removes_nested_loops_and_self_loops() {
+        // 0 -> 1 -> 2 -> 1 -> 3 -> 3 -> 4 becomes 0 -> 1 -> 3 -> 4.
+        let tail = [0, 1, 2, 1, 3, 3];
+        let head = [1, 2, 1, 3, 3, 4];
+        let erased = chronological_loop_erasure(&[0, 1, 2, 3, 4, 5], &tail, &head).unwrap();
+        assert_eq!(erased, vec![0, 3, 5]);
+        assert_eq!(
+            validate_edge_path(&erased, &tail, &head),
+            PathValidity::Valid
+        );
+    }
+
+    #[test]
+    fn chronological_erasure_preserves_simple_paths_and_can_empty_closed_walks() {
+        let tail = [0, 1, 1];
+        let head = [1, 0, 2];
+        assert_eq!(
+            chronological_loop_erasure(&[0, 2], &tail, &head).unwrap(),
+            vec![0, 2]
+        );
+        assert!(
+            chronological_loop_erasure(&[0, 1], &tail, &head)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn chronological_erasure_rejects_structurally_invalid_inputs() {
+        let tail = [0, 1, 4];
+        let head = [1, 2, 5];
+        assert!(chronological_loop_erasure(&[], &tail, &head).is_err());
+        assert!(chronological_loop_erasure(&[99], &tail, &head).is_err());
+        assert!(chronological_loop_erasure(&[0, 2], &tail, &head).is_err());
     }
 
     #[test]

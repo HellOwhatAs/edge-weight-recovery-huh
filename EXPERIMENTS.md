@@ -1,3 +1,116 @@
+# Beijing convergence and error-attribution follow-up (2026-07-15)
+
+This follow-up asks whether the 20-epoch edge-only result below was an
+optimization-budget artifact or a stable representation limit. The protocol
+was frozen before reading the new development metrics. It uses full Beijing
+train, a time-blocked development set, and two later, source-index-disjoint
+one-shot confirmation blocks. Every training command had a hard 900-second
+per-run timeout; the smaller turn-capacity probe has a 180-second timeout. This
+follow-up kept test contents sealed: formal training, diagnostics, confirmation,
+and the capacity probe did not load or evaluate test, and no test contents or
+metrics were used.
+
+The new development block contains 163,614 raw / 129,033 valid routes after the
+unchanged positive-cycle filter. The learning-rate grid was
+`{1e-4, 3e-4, 1e-3}` at 10% and full train, with `lambda=1e5`, multiplier box
+`[0.1, 10]`, at most 100 epochs, validation every five epochs, and four-event
+early stopping with absolute minimum delta `1e-5`. The deterministic first 20
+epochs of the long `eta0=1e-4` run exactly matched the separate 20-epoch
+control.
+
+| Development model | Relative regret | Edge F1 | Exact | Best epoch |
+|---|---:|---:|---:|---:|
+| Unlearned `q=1` | 0.09352278 | 0.591144 | 0.337542 | 0 |
+| Full, `eta0=1e-4`, 20 epochs | 0.06826350 | 0.656391 | 0.346694 | 19 |
+| Full, `eta0=1e-4`, up to 100 | 0.06357497 | 0.677356 | 0.367921 | 99 |
+| Full, `eta0=3e-4`, up to 100 (selected) | **0.06348409** | **0.681488** | **0.371068** | 99 |
+
+The 100-epoch checkpoint clearly improves on the former budget, but both viable
+full-data trajectories selected epoch 99. Therefore the result is evidence
+that 20 epochs was too short, not a proof that optimization has converged. This
+horizon conclusion comes from the exact same-eta `1e-4` prefix comparison
+`0.06826350` to `0.06357497`; the ultimately selected `3e-4` checkpoint is a
+separate model-selection gain. The aggressive `eta0=1e-3` runs stopped after 20
+epochs and selected the unlearned epoch-0 checkpoint. No automatic extension
+beyond 100 epochs was allowed.
+
+After the primary checkpoint was frozen, `q=1`, the 20-epoch control, and the
+primary model were each evaluated exactly once on AM and PM confirmation
+blocks. After cycle filtering they contain 15,776 and 15,886 routes.
+
+| Confirmation scope | Model | Relative regret | Edge F1 | Exact |
+|---|---|---:|---:|---:|
+| AM | `q=1` | 0.09210652 | 0.599664 | 0.353892 |
+| AM | 20 epochs | 0.06724488 | 0.662546 | 0.356237 |
+| AM | 100 epochs | **0.06307110** | **0.686270** | **0.376331** |
+| PM | `q=1` | 0.09285387 | 0.593518 | 0.343573 |
+| PM | 20 epochs | 0.06767404 | 0.659278 | 0.353204 |
+| PM | 100 epochs | **0.06298240** | **0.682767** | **0.376684** |
+| Pooled | `q=1` | 0.09246791 | 0.596580 | 0.348715 |
+| Pooled | 20 epochs | 0.06745259 | 0.660906 | 0.354715 |
+| Pooled | 100 epochs | **0.06302821** | **0.684512** | **0.376508** |
+
+For the pooled paired comparison, 100 versus 20 epochs improved relative regret
+by `0.00442438` (95% stratified-bootstrap interval
+`[0.00405114, 0.00483054]`), F1 by `0.023606`
+(`[0.021152, 0.025967]`), and exact match by `0.021793`
+(`[0.017971, 0.025551]`). For this 20-to-100 comparison, each metric improved
+in all 2,000 paired replicates.
+
+This confirmation compares the complete frozen candidates, so it jointly
+reflects their different horizon and eta; it is not a same-eta causal estimate
+of the epoch budget.
+
+These blocks are source-index-disjoint confirmation within the validation
+source, not an untouched final test estimate, and they are now spent:
+loop-policy and turn-feature work may not use them for selection or
+confirmation.
+
+The selected model still diverges from the observed route on 62.89% of
+development routes, but this is lower than `q=1` (66.25%) and the 20-epoch model
+(65.33%). Its first-edge accuracy is 81.94%, mean common-prefix ratio is 50.13%,
+and mean edge F1 is 68.15%. Of divergent routes, 69.32% first diverge at a
+complex junction, 82.26% rejoin before the target, and the median relative
+suffix-cost gap is only 4.06%. The model predicts 9,855 left turns versus 8,531
+observed at classifiable first divergences. Route length remains a major
+difficulty axis. After conditioning on its first quartile, the 0 and 1--2
+complex-junction bins are a small nonmonotone exception, followed by much worse
+rates at higher complexity; the second quartile is monotone. This motivates a
+minimal turn-cost probe, but does not establish a causal turn-cost omission.
+
+A separate read-only audit found 162,434 cyclic records among 785,709
+structurally valid full-train records (20.67%). Default dropping retains 79.33%
+of records and 77.49% of graph edges. Chronological loop erasure retains 99.94%
+of records and 81.03% of graph edges while deleting 4.25% of edge occurrences.
+The dropped population is systematically longer and slower, so dropping induces
+a real selection effect. However, frozen-hyperparameter training with erased
+loops was not a stable improvement: at 10% it changed regret from `0.06430115`
+to `0.06412951` with essentially flat/slightly lower F1, while at full scale it
+worsened regret from `0.06348409` to `0.06486248`. `drop` therefore remains the
+default; `erase` is implemented for a future preregistered, matched-retuning
+study rather than promoted from this ablation.
+
+The final bounded capacity experiment froze the selected edge weights and added
+one nonnegative global left-turn penalty on an expanded edge-state graph. A
+deterministic 20,000-route development subset tuned
+`r={0,.05,.1,.2,.4}` and the next 10,000 routes were reserved for audit. All
+30,000 `r=0` expanded distances and observed costs exactly matched the original
+edge-only oracle, and every correctness gate passed. Tune regret was
+`0.06341452/0.06378618/0.06430391/0.06559292/0.06892272`; the primary rule
+therefore selected `r=0`. The predeclared regret and F1 improvement gates failed
+and no new confirmation block was opened. This is evidence against a single
+city-wide nonnegative left-turn penalty with fixed edge weights, not against
+conditional, node-specific, temporal, or jointly optimized turn models.
+
+Full protocol details, artifact paths, limitations, and bounded reproduction
+commands are in
+[`experiments/convergence_study/RESULTS.md`](experiments/convergence_study/RESULTS.md).
+The accompanying reproducibility bundle contains the already-created six
+one-shot route exports, three frozen checkpoints, and ten training logs; it
+contains no raw/test data and did not require rerunning confirmation.
+
+---
+
 # Randomized Beijing scale study (2026-07-15)
 
 This study supersedes the small ordered pilots below for statistical claims. It

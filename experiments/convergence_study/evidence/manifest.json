@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "created_date": "2026-07-15",
+  "purpose": "Persist the minimum route-level, checkpoint, and training-log evidence needed to recompute confirmation bootstrap statistics, the T20/T100 prefix check, and the fixed-edge turn probe without rerunning one-shot confirmation evaluations.",
+  "archive": {
+    "path": "experiments/convergence_study/evidence/reproducibility_bundle.tar.gz",
+    "sha256": "e8ba23b62e356afd3fdc8d2b5412e65cb62ba52e03a41b1322faa39e76f665d0",
+    "size_bytes": 6790676,
+    "extract_command": "tar -xzf experiments/convergence_study/evidence/reproducibility_bundle.tar.gz -C /tmp",
+    "archive_root": "edge-weight-convergence-study"
+  },
+  "data_policy": {
+    "contains_raw_trip_data": false,
+    "contains_test_data_or_test_metrics": false,
+    "confirmation_routes_are_existing_one_shot_outputs": true,
+    "confirmation_was_not_rerun_to_create_this_archive": true
+  },
+  "files": [
+    {
+      "path": "edge-weight-convergence-study/confirmation/baseline_q1_am_routes.json",
+      "sha256": "be447ca337f8e3b4a6740e6523cd0645b432588b7700765d33e3865615fb5316"
+    },
+    {
+      "path": "edge-weight-convergence-study/confirmation/baseline_q1_pm_routes.json",
+      "sha256": "7e3b908d005623397441d407390f067cdf506a5cb7b2f5c2ee0e0e6bdfc3e334"
+    },
+    {
+      "path": "edge-weight-convergence-study/confirmation/edge_t20_eta1e4_am_routes.json",
+      "sha256": "342dd326791ebebeab7b26194834aa0c69120604a292926cf350be352584a6b2"
+    },
+    {
+      "path": "edge-weight-convergence-study/confirmation/edge_t20_eta1e4_pm_routes.json",
+      "sha256": "6843c053719cedb3e08a0d29dbf7571c59ed19cc543b26e3a1dd64d756c86f74"
+    },
+    {
+      "path": "edge-weight-convergence-study/confirmation/edge_t100_eta3e4_am_routes.json",
+      "sha256": "a30057c9b756d6aaaedb0c03cbf51ac2d74cf42f4b7f7afd2b6a2ebc0d7956b4"
+    },
+    {
+      "path": "edge-weight-convergence-study/confirmation/edge_t100_eta3e4_pm_routes.json",
+      "sha256": "b0494a2c7e4fc5981aa1f3786a232bbc680ac880a3959e7f3cb5809241e37a48"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/controls/baseline_full_q1/model_checkpoint.json",
+      "sha256": "67786aab06afb8b934277b7eddcb8d3cfa6aec86bc669196df62c2f674023021"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/controls/control_full_eta1e4_t20/model_checkpoint.json",
+      "sha256": "f79593b6ae19cc0af6792046253a8a028bf7ebcaeeff588c02730ae15ebe6a2d"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/convergence_full/conv_full_eta3e4/model_checkpoint.json",
+      "sha256": "e9589ec899cd909430d3bf995e104cfeacb6f2463207b9ca7f4e54b666a2165c"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/controls/baseline_full_q1/model_training.log",
+      "sha256": "322b88f1be509e670d73dc7da53ab87001245d13a4a012c7becef9799b4c04ae"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/controls/control_full_eta1e4_t20/model_training.log",
+      "sha256": "276d4a9f6b38ccadf72834e0257db720c0b00ac2d0b14e06fcb1ff4fda13bc5c"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/convergence_10pct/conv_10pct_eta1e3/model_training.log",
+      "sha256": "f28363754299cf2c80689daf63a0e8f0dc500054e51d1ce3a6f7352b7e726e1d"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/convergence_10pct/conv_10pct_eta1e4/model_training.log",
+      "sha256": "a9acacc162b5a7b1c69d9d25f304df391ad7da11bd467ad24d6c63fddee3de92"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/convergence_10pct/conv_10pct_eta3e4/model_training.log",
+      "sha256": "d0e5e7d3685099b872178ca683885fd95df47b548849979694e13ae3bc95f3a8"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/convergence_full/conv_full_eta1e3/model_training.log",
+      "sha256": "7d9d4296fab7c210672addabbcb8e6bb11d885207b4696aa7f57bbaec299081d"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/convergence_full/conv_full_eta1e4/model_training.log",
+      "sha256": "74a162e110034fc83c183655d42f9ed1d6ba93b514c8a85060431e4aed3accce"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/convergence_full/conv_full_eta3e4/model_training.log",
+      "sha256": "3ea2b052b3e0cd39825b9b01c9875d1077cf67a35ff45703c799d6d3693037ee"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/loop_erasure_10pct/erase_10pct_eta1e4/model_training.log",
+      "sha256": "232866171be868b8f80fe4176d4e0773e41cc0071e140ae8dbb105cb8144d148"
+    },
+    {
+      "path": "edge-weight-convergence-study/runs/loop_erasure_full/erase_full_eta3e4/model_training.log",
+      "sha256": "d8f3e263af4f7a77d737a5c09a4bb2aea7ea67e3f9e640dbd2b9a1a7df7b1c7a"
+    }
+  ]
+}

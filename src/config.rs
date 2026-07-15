@@ -32,8 +32,11 @@ pub struct TrainingConfig {
     pub max_validation_samples: Option<usize>,
     pub max_test_samples: Option<usize>,
     pub run_test: bool,
+    pub eval_path_metrics: bool,
     pub trim_boundary_edges: bool,
-    pub cycle_policy: CyclePolicy,
+    /// Cycle handling applied only to the training split. Validation and test
+    /// are always evaluated with `CyclePolicy::Drop` for protocol stability.
+    pub train_cycle_policy: CyclePolicy,
     pub solver: SolverKind,
     pub metric_update_mode: MetricUpdateMode,
     pub selection_metric: SelectionMetric,
@@ -45,6 +48,7 @@ pub struct TrainingConfig {
     pub adam_learning_rate: f32,
     pub random_seed: u64,
     pub eval_every: u64,
+    pub early_stop_min_delta: f64,
     pub output_prefix: String,
     pub log_path: String,
     pub best_weights_path: String,
@@ -67,8 +71,9 @@ impl Default for TrainingConfig {
             max_validation_samples: None,
             max_test_samples: None,
             run_test: false,
+            eval_path_metrics: false,
             trim_boundary_edges: false,
-            cycle_policy: CyclePolicy::Drop,
+            train_cycle_policy: CyclePolicy::Drop,
             solver: SolverKind::ProjectedSubgradient,
             metric_update_mode: MetricUpdateMode::Full,
             selection_metric: SelectionMetric::MeanRegret,
@@ -80,6 +85,7 @@ impl Default for TrainingConfig {
             adam_learning_rate: 3_000.0,
             random_seed: 42,
             eval_every: 5,
+            early_stop_min_delta: 0.0,
             output_prefix,
             log_path: String::new(),
             best_weights_path: String::new(),
@@ -117,12 +123,19 @@ impl TrainingConfig {
                 continue;
             }
             if flag == "--keep-cycles" {
-                config.cycle_policy = CyclePolicy::Keep;
+                // Backwards-compatible, train-only alias. Validation and test
+                // remain fixed to Drop regardless of this option.
+                config.train_cycle_policy = CyclePolicy::Keep;
                 index += 1;
                 continue;
             }
             if flag == "--run-test" {
                 config.run_test = true;
+                index += 1;
+                continue;
+            }
+            if flag == "--eval-path-metrics" {
+                config.eval_path_metrics = true;
                 index += 1;
                 continue;
             }
@@ -141,6 +154,9 @@ impl TrainingConfig {
                     config.max_validation_samples = Some(parse(value, flag)?)
                 }
                 "--max-test-samples" => config.max_test_samples = Some(parse(value, flag)?),
+                "--train-cycle-policy" => {
+                    config.train_cycle_policy = value.parse::<CyclePolicy>()?;
+                }
                 "--solver" => {
                     config.solver = match value.as_str() {
                         "projected" => SolverKind::ProjectedSubgradient,
@@ -170,6 +186,7 @@ impl TrainingConfig {
                 "--adam-learning-rate" => config.adam_learning_rate = parse(value, flag)?,
                 "--seed" => config.random_seed = parse(value, flag)?,
                 "--eval-every" => config.eval_every = parse(value, flag)?,
+                "--early-stop-min-delta" => config.early_stop_min_delta = parse(value, flag)?,
                 "--output-prefix" => {
                     config.output_prefix = value.clone();
                     output_prefix_was_set = true;
@@ -215,6 +232,9 @@ impl TrainingConfig {
         }
         if self.patience == 0 {
             return Err("--patience must be at least 1".to_string());
+        }
+        if !self.early_stop_min_delta.is_finite() || self.early_stop_min_delta < 0.0 {
+            return Err("--early-stop-min-delta must be finite and non-negative".to_string());
         }
         for (flag, limit) in [
             ("--max-train-samples", self.max_train_samples),
@@ -278,9 +298,12 @@ fn print_help() {
            --quantization-scale FLOAT (also rescales data loss/gradient)\n\
            --seed N (legacy shock reproducibility)\n\
            --eval-every N (0 disables validation during training)\n\
+           --eval-path-metrics (log validation F1/exact at each validation epoch)\n\
+           --early-stop-min-delta FLOAT (substantial validation improvement threshold)\n\
            --run-test (evaluate test once after model selection)\n\
            --trim-boundary-edges (ablation; full paths are default)\n\
-           --keep-cycles (ablation; cycles are dropped by default)\n\
+           --train-cycle-policy drop|keep|erase (training only; default drop)\n\
+           --keep-cycles (legacy train-only alias for --train-cycle-policy keep; validation/test still drop)\n\
            --output-prefix PATH"
     );
 }
@@ -293,6 +316,7 @@ pub struct TrainingState {
     pub best_multipliers: Vec<f64>,
     pub best_epoch: u64,
     pub stale_evaluations: usize,
+    pub early_stop_reference_loss: f64,
 }
 
 impl TrainingState {
@@ -304,6 +328,7 @@ impl TrainingState {
             best_multipliers: initial_multipliers.to_vec(),
             best_epoch: 0,
             stale_evaluations: 0,
+            early_stop_reference_loss: f64::INFINITY,
         }
     }
 
@@ -314,19 +339,23 @@ impl TrainingState {
         train_data_loss: f64,
         weights: &[u32],
         multipliers: &[f64],
+        early_stop_min_delta: f64,
     ) -> bool {
-        if selection_loss < self.best_selection_loss {
+        let is_best = selection_loss < self.best_selection_loss;
+        if is_best {
             self.best_selection_loss = selection_loss;
             self.best_train_data_loss = train_data_loss;
             self.best_weights = weights.to_vec();
             self.best_multipliers = multipliers.to_vec();
             self.best_epoch = epoch;
+        }
+        if selection_loss < self.early_stop_reference_loss - early_stop_min_delta {
+            self.early_stop_reference_loss = selection_loss;
             self.stale_evaluations = 0;
-            true
         } else {
             self.stale_evaluations += 1;
-            false
         }
+        is_best
     }
 
     pub fn save(&self, config: &TrainingConfig) -> Result<(), String> {
@@ -341,16 +370,23 @@ impl TrainingState {
             "validation_variant": &config.validation_variant,
             "test_variant": &config.test_variant,
             "num_epochs": config.num_epochs,
+            "patience": config.patience,
             "eval_every": config.eval_every,
             "max_train_samples": config.max_train_samples,
             "max_validation_samples": config.max_validation_samples,
             "max_test_samples": config.max_test_samples,
             "run_test": config.run_test,
+            "eval_path_metrics": config.eval_path_metrics,
             "random_seed": config.random_seed,
             "solver": format!("{:?}", config.solver),
             "metric_update_mode": format!("{:?}", config.metric_update_mode),
             "selection_metric": format!("{:?}", config.selection_metric),
-            "cycle_policy": format!("{:?}", config.cycle_policy),
+            "early_stop_min_delta": config.early_stop_min_delta,
+            // `cycle_policy` is retained as a compatibility alias for readers
+            // of older checkpoints; the explicit fields define split scope.
+            "cycle_policy": format!("{:?}", config.train_cycle_policy),
+            "train_cycle_policy": format!("{:?}", config.train_cycle_policy),
+            "evaluation_cycle_policy": format!("{:?}", CyclePolicy::Drop),
             "trim_boundary_edges": config.trim_boundary_edges,
             "eta0": config.eta0,
             "lambda": config.lambda,
@@ -411,17 +447,44 @@ mod tests {
         assert_eq!(config.solver, SolverKind::LegacyAdamShock);
         assert_eq!(config.metric_update_mode, MetricUpdateMode::Full);
         assert_eq!(config.selection_metric, SelectionMetric::RelativeRegret);
+        assert_eq!(config.train_cycle_policy, CyclePolicy::Drop);
         assert!(config.run_test);
         assert_eq!(config.output_prefix, "porto_adam_shock");
     }
 
     #[test]
+    fn parses_train_only_cycle_policy_and_legacy_keep_alias() {
+        let erased = TrainingConfig::from_iter(["--train-cycle-policy", "erase"])
+            .unwrap()
+            .unwrap();
+        assert_eq!(erased.train_cycle_policy, CyclePolicy::Erase);
+
+        let legacy = TrainingConfig::from_iter(["--keep-cycles"])
+            .unwrap()
+            .unwrap();
+        assert_eq!(legacy.train_cycle_policy, CyclePolicy::Keep);
+
+        assert!(TrainingConfig::from_iter(["--train-cycle-policy", "unknown"]).is_err());
+    }
+
+    #[test]
     fn state_keeps_the_true_best_checkpoint() {
         let mut state = TrainingState::new(&[10, 20], &[1.0, 1.0]);
-        assert!(state.update(0, 5.0, 4.0, &[9, 21], &[0.9, 1.05]));
-        assert!(!state.update(1, 8.0, 3.0, &[1, 99], &[0.1, 4.95]));
+        assert!(state.update(0, 5.0, 4.0, &[9, 21], &[0.9, 1.05], 0.0));
+        assert!(!state.update(1, 8.0, 3.0, &[1, 99], &[0.1, 4.95], 0.0));
         assert_eq!(state.best_weights, vec![9, 21]);
         assert_eq!(state.best_epoch, 0);
+    }
+
+    #[test]
+    fn tiny_checkpoint_improvements_do_not_reset_early_stopping() {
+        let mut state = TrainingState::new(&[10], &[1.0]);
+        assert!(state.update(0, 1.0, 1.0, &[10], &[1.0], 0.01));
+        assert!(state.update(1, 0.995, 0.9, &[9], &[0.9], 0.01));
+        assert_eq!(state.best_epoch, 1);
+        assert_eq!(state.stale_evaluations, 1);
+        assert!(state.update(2, 0.98, 0.8, &[8], &[0.8], 0.01));
+        assert_eq!(state.stale_evaluations, 0);
     }
 
     #[test]
@@ -429,5 +492,6 @@ mod tests {
         assert!(TrainingConfig::from_iter(["--patience", "0"]).is_err());
         assert!(TrainingConfig::from_iter(["--adam-learning-rate", "NaN"]).is_err());
         assert!(TrainingConfig::from_iter(["--max-test-samples", "0"]).is_err());
+        assert!(TrainingConfig::from_iter(["--early-stop-min-delta", "NaN"]).is_err());
     }
 }

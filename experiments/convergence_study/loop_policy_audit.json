@@ -1,0 +1,828 @@
+{
+  "all_structurally_valid_originals": {
+    "edge_occurrences": 28277035,
+    "graph_edge_coverage": 0.8512944176506458,
+    "path_length_edges": {
+      "count": 785709,
+      "max": 2761,
+      "mean": 35.98919574549865,
+      "median": 29,
+      "min": 3,
+      "p25": 16,
+      "p75": 48,
+      "p90": 71,
+      "p95": 87,
+      "p99": 124
+    },
+    "source_records": 785709,
+    "time": {
+      "duration_seconds": {
+        "count": 785709,
+        "max": 86343,
+        "mean": 906.9784576732607,
+        "median": 679,
+        "min": 3,
+        "p25": 388,
+        "p75": 1147,
+        "p90": 1734,
+        "p95": 2183,
+        "p99": 3506
+      },
+      "end_before_start_records": 0,
+      "source_records": 785709,
+      "start_local_date_counts": {
+        "2009-05-01": 146263,
+        "2009-05-02": 129144,
+        "2009-05-04": 167962,
+        "2009-05-08": 195906,
+        "2009-05-09": 146434
+      },
+      "start_local_hour_counts_00_to_23": [
+        15760,
+        8091,
+        6407,
+        4272,
+        3926,
+        7431,
+        14241,
+        30452,
+        42858,
+        46355,
+        44176,
+        41723,
+        43332,
+        48531,
+        49685,
+        49323,
+        48655,
+        50088,
+        48148,
+        43834,
+        40973,
+        39575,
+        35130,
+        22743
+      ],
+      "start_local_weekday_counts_monday_to_sunday": [
+        167962,
+        0,
+        0,
+        0,
+        342169,
+        275578,
+        0
+      ],
+      "timestamp_interpretation": "Unix seconds, summarized in fixed UTC+08:00 (Asia/Shanghai has no DST during the observed period)",
+      "valid_duration_records": 785709
+    },
+    "unique_edges": 61426,
+    "unique_od": 708782
+  },
+  "audit": "train_loop_policy_comparison",
+  "city": "beijing",
+  "graph": {
+    "directed_edges": 72156,
+    "nodes": 31199
+  },
+  "loop_types": {
+    "chronological_loop_erasure": {
+      "removed_edge_occurrences": 1201100,
+      "removed_edges_per_cyclic_record": {
+        "count": 162434,
+        "max": 2690,
+        "mean": 7.39438787445978,
+        "median": 2,
+        "min": 1,
+        "p25": 2,
+        "p75": 5,
+        "p90": 11,
+        "p95": 19,
+        "p99": 59
+      },
+      "removed_fraction_per_cyclic_record": {
+        "count": 162434,
+        "max": 1.0,
+        "mean": 0.14839076622433908,
+        "median": 0.09183673469387756,
+        "min": 0.006666666666666667,
+        "p25": 0.05128205128205128,
+        "p75": 0.1794871794871795,
+        "p90": 0.3333333333333333,
+        "p95": 0.5,
+        "p99": 0.8736842105263158
+      },
+      "removed_rate_of_all_structurally_valid_edge_occurrences": 0.04247616484543022
+    },
+    "closed_trip_records": 446,
+    "closure_events": 384149,
+    "closure_span_buckets": {
+      "backtrack_2": 168187,
+      "long_gt_10": 93797,
+      "medium_6_to_10": 49646,
+      "self_loop_1": 538,
+      "short_3_to_5": 71981
+    },
+    "closure_span_definition": "edge distance since the preceding occurrence of the repeated node, using the unmodified original walk",
+    "closure_span_edges": {
+      "count": 384149,
+      "max": 2522,
+      "mean": 43.93565777862236,
+      "median": 4,
+      "min": 1,
+      "p25": 2,
+      "p75": 10,
+      "p90": 53,
+      "p95": 252,
+      "p99": 895
+    },
+    "cyclic_record_rate_of_structurally_valid": 0.20673557258476102,
+    "cyclic_records": 162434,
+    "distinct_repeated_nodes_per_cyclic_record": {
+      "count": 162434,
+      "max": 504,
+      "mean": 2.207487348707783,
+      "median": 1,
+      "min": 1,
+      "p25": 1,
+      "p75": 2,
+      "p90": 4,
+      "p95": 5,
+      "p99": 12
+    },
+    "multiple_closure_records": 64347,
+    "repeats_start_node_records": 41944,
+    "self_loop_edge_occurrences": 538,
+    "self_loop_records": 520
+  },
+  "max_samples": null,
+  "methodology": {
+    "chronological_loop_erasure": "scan in time order; when a node repeats, erase every edge after its previous retained occurrence through the edge that closes the loop",
+    "drop": "retain an original record iff its continuous node walk has no repeated node",
+    "greedy_split_at_repeated_nodes": "maintain a maximal simple contiguous segment; when the next node repeats in that segment, close the segment before the loop-closing edge and start a new segment with that edge; self-loop edges cannot belong to a nonempty simple path and are removed",
+    "important_comparability_note": "split output-path counts and ODs are not source-record counts or original ODs; both are reported separately",
+    "path_boundary_trimming": false
+  },
+  "policies": [
+    {
+      "graph_edge_coverage_after_policy": 0.7748766561339321,
+      "output_edge_occurrences": 20531866,
+      "output_path_length_edges": {
+        "count": 623275,
+        "max": 296,
+        "mean": 32.9419052585135,
+        "median": 27,
+        "min": 3,
+        "p25": 15,
+        "p75": 45,
+        "p90": 66,
+        "p95": 81,
+        "p99": 112
+      },
+      "output_paths": 623275,
+      "output_paths_per_retained_source_record": 1.0,
+      "policy": "drop_cyclic_original_records",
+      "policy_removed_edge_occurrences": 7745169,
+      "policy_removed_rate_of_considered_source_edges": 0.2739031514442727,
+      "records_with_no_output_path": 162434,
+      "retained_source_record_time": {
+        "duration_seconds": {
+          "count": 623275,
+          "max": 55472,
+          "mean": 811.7557354297862,
+          "median": 633,
+          "min": 3,
+          "p25": 362,
+          "p75": 1069,
+          "p90": 1597,
+          "p95": 2008,
+          "p99": 3012
+        },
+        "end_before_start_records": 0,
+        "source_records": 623275,
+        "start_local_date_counts": {
+          "2009-05-01": 116386,
+          "2009-05-02": 102973,
+          "2009-05-04": 133275,
+          "2009-05-08": 154631,
+          "2009-05-09": 116010
+        },
+        "start_local_hour_counts_00_to_23": [
+          12123,
+          6119,
+          4746,
+          3178,
+          3094,
+          5941,
+          11319,
+          23919,
+          34212,
+          36832,
+          34963,
+          33474,
+          34729,
+          38688,
+          39434,
+          39255,
+          38646,
+          39669,
+          38126,
+          34919,
+          32486,
+          31090,
+          27853,
+          18460
+        ],
+        "start_local_weekday_counts_monday_to_sunday": [
+          133275,
+          0,
+          0,
+          0,
+          271017,
+          218983,
+          0
+        ],
+        "timestamp_interpretation": "Unix seconds, summarized in fixed UTC+08:00 (Asia/Shanghai has no DST during the observed period)",
+        "valid_duration_records": 623275
+      },
+      "source_edge_occurrences_considered": 28277035,
+      "source_record_retention_rate": 0.793264427415239,
+      "source_records_considered": 785709,
+      "source_records_retained": 623275,
+      "unique_edges_after_policy": 55912,
+      "unique_od_after_policy": 561131
+    },
+    {
+      "graph_edge_coverage_after_policy": 0.810258329175675,
+      "output_edge_occurrences": 27075935,
+      "output_path_length_edges": {
+        "count": 785263,
+        "max": 655,
+        "mean": 34.48008501610288,
+        "median": 28,
+        "min": 1,
+        "p25": 15,
+        "p75": 47,
+        "p90": 69,
+        "p95": 85,
+        "p99": 119
+      },
+      "output_paths": 785263,
+      "output_paths_per_retained_source_record": 1.0,
+      "policy": "chronological_loop_erasure",
+      "policy_removed_edge_occurrences": 1201100,
+      "policy_removed_rate_of_considered_source_edges": 0.04247616484543022,
+      "records_with_no_output_path": 446,
+      "retained_source_record_time": {
+        "duration_seconds": {
+          "count": 785263,
+          "max": 86343,
+          "mean": 905.1131799155188,
+          "median": 679,
+          "min": 3,
+          "p25": 388,
+          "p75": 1147,
+          "p90": 1734,
+          "p95": 2182,
+          "p99": 3500
+        },
+        "end_before_start_records": 0,
+        "source_records": 785263,
+        "start_local_date_counts": {
+          "2009-05-01": 146197,
+          "2009-05-02": 129077,
+          "2009-05-04": 167867,
+          "2009-05-08": 195785,
+          "2009-05-09": 146337
+        },
+        "start_local_hour_counts_00_to_23": [
+          15736,
+          8085,
+          6399,
+          4269,
+          3919,
+          7426,
+          14232,
+          30436,
+          42834,
+          46330,
+          44152,
+          41708,
+          43305,
+          48502,
+          49659,
+          49290,
+          48635,
+          50060,
+          48125,
+          43816,
+          40948,
+          39551,
+          35110,
+          22736
+        ],
+        "start_local_weekday_counts_monday_to_sunday": [
+          167867,
+          0,
+          0,
+          0,
+          341982,
+          275414,
+          0
+        ],
+        "timestamp_interpretation": "Unix seconds, summarized in fixed UTC+08:00 (Asia/Shanghai has no DST during the observed period)",
+        "valid_duration_records": 785263
+      },
+      "source_edge_occurrences_considered": 28277035,
+      "source_record_retention_rate": 0.9994323598176933,
+      "source_records_considered": 785709,
+      "source_records_retained": 785263,
+      "unique_edges_after_policy": 58465,
+      "unique_od_after_policy": 708378
+    },
+    {
+      "graph_edge_coverage_after_policy": 0.8501718498808138,
+      "output_edge_occurrences": 28276497,
+      "output_path_length_edges": {
+        "count": 1007666,
+        "max": 423,
+        "mean": 28.061378472628828,
+        "median": 21,
+        "min": 1,
+        "p25": 9,
+        "p75": 40,
+        "p90": 63,
+        "p95": 78,
+        "p99": 111
+      },
+      "output_paths": 1007666,
+      "output_paths_per_retained_source_record": 1.2824926276776771,
+      "policy": "greedy_split_at_repeated_nodes",
+      "policy_removed_edge_occurrences": 538,
+      "policy_removed_rate_of_considered_source_edges": 0.00001902604003566852,
+      "records_with_no_output_path": 0,
+      "retained_source_record_time": {
+        "duration_seconds": {
+          "count": 785709,
+          "max": 86343,
+          "mean": 906.9784576732607,
+          "median": 679,
+          "min": 3,
+          "p25": 388,
+          "p75": 1147,
+          "p90": 1734,
+          "p95": 2183,
+          "p99": 3506
+        },
+        "end_before_start_records": 0,
+        "source_records": 785709,
+        "start_local_date_counts": {
+          "2009-05-01": 146263,
+          "2009-05-02": 129144,
+          "2009-05-04": 167962,
+          "2009-05-08": 195906,
+          "2009-05-09": 146434
+        },
+        "start_local_hour_counts_00_to_23": [
+          15760,
+          8091,
+          6407,
+          4272,
+          3926,
+          7431,
+          14241,
+          30452,
+          42858,
+          46355,
+          44176,
+          41723,
+          43332,
+          48531,
+          49685,
+          49323,
+          48655,
+          50088,
+          48148,
+          43834,
+          40973,
+          39575,
+          35130,
+          22743
+        ],
+        "start_local_weekday_counts_monday_to_sunday": [
+          167962,
+          0,
+          0,
+          0,
+          342169,
+          275578,
+          0
+        ],
+        "timestamp_interpretation": "Unix seconds, summarized in fixed UTC+08:00 (Asia/Shanghai has no DST during the observed period)",
+        "valid_duration_records": 785709
+      },
+      "source_edge_occurrences_considered": 28277035,
+      "source_record_retention_rate": 1.0,
+      "source_records_considered": 785709,
+      "source_records_retained": 785709,
+      "unique_edges_after_policy": 61345,
+      "unique_od_after_policy": 812468
+    }
+  ],
+  "runtime": {
+    "audit_seconds": 5.329786651,
+    "pickle_load_seconds": 2.440740397,
+    "total_seconds_before_write": 8.101256921
+  },
+  "schema_version": 1,
+  "selection_bias_if_cycles_are_dropped": {
+    "acyclic_originals": {
+      "duration_seconds": {
+        "count": 623275,
+        "max": 55472,
+        "mean": 811.7557354297862,
+        "median": 633,
+        "min": 3,
+        "p25": 362,
+        "p75": 1069,
+        "p90": 1597,
+        "p95": 2008,
+        "p99": 3012
+      },
+      "edge_occurrences": 20531866,
+      "path_length_edges": {
+        "count": 623275,
+        "max": 296,
+        "mean": 32.9419052585135,
+        "median": 27,
+        "min": 3,
+        "p25": 15,
+        "p75": 45,
+        "p90": 66,
+        "p95": 81,
+        "p99": 112
+      },
+      "records": 623275,
+      "unique_edges": 55912,
+      "unique_od": 561131
+    },
+    "acyclic_time_distribution": {
+      "duration_seconds": {
+        "count": 623275,
+        "max": 55472,
+        "mean": 811.7557354297862,
+        "median": 633,
+        "min": 3,
+        "p25": 362,
+        "p75": 1069,
+        "p90": 1597,
+        "p95": 2008,
+        "p99": 3012
+      },
+      "end_before_start_records": 0,
+      "source_records": 623275,
+      "start_local_date_counts": {
+        "2009-05-01": 116386,
+        "2009-05-02": 102973,
+        "2009-05-04": 133275,
+        "2009-05-08": 154631,
+        "2009-05-09": 116010
+      },
+      "start_local_hour_counts_00_to_23": [
+        12123,
+        6119,
+        4746,
+        3178,
+        3094,
+        5941,
+        11319,
+        23919,
+        34212,
+        36832,
+        34963,
+        33474,
+        34729,
+        38688,
+        39434,
+        39255,
+        38646,
+        39669,
+        38126,
+        34919,
+        32486,
+        31090,
+        27853,
+        18460
+      ],
+      "start_local_weekday_counts_monday_to_sunday": [
+        133275,
+        0,
+        0,
+        0,
+        271017,
+        218983,
+        0
+      ],
+      "timestamp_interpretation": "Unix seconds, summarized in fixed UTC+08:00 (Asia/Shanghai has no DST during the observed period)",
+      "valid_duration_records": 623275
+    },
+    "cyclic_originals": {
+      "duration_seconds": {
+        "count": 162434,
+        "max": 86343,
+        "mean": 1272.357271260943,
+        "median": 887,
+        "min": 13,
+        "p25": 518,
+        "p75": 1447,
+        "p90": 2193,
+        "p95": 2869,
+        "p99": 5347
+      },
+      "edge_occurrences": 7745169,
+      "path_length_edges": {
+        "count": 162434,
+        "max": 2761,
+        "mean": 47.68194466675696,
+        "median": 38,
+        "min": 3,
+        "p25": 22,
+        "p75": 61,
+        "p90": 88,
+        "p95": 108,
+        "p99": 163
+      },
+      "records": 162434,
+      "unique_edges": 58665,
+      "unique_od": 158894
+    },
+    "cyclic_rate_by_local_date": [
+      {
+        "acyclic_records": 116386,
+        "cyclic_rate": 0.20426902224075807,
+        "cyclic_records": 29877,
+        "local_date": "2009-05-01"
+      },
+      {
+        "acyclic_records": 102973,
+        "cyclic_rate": 0.20264975531189988,
+        "cyclic_records": 26171,
+        "local_date": "2009-05-02"
+      },
+      {
+        "acyclic_records": 133275,
+        "cyclic_rate": 0.2065169502625594,
+        "cyclic_records": 34687,
+        "local_date": "2009-05-04"
+      },
+      {
+        "acyclic_records": 154631,
+        "cyclic_rate": 0.21068777883270548,
+        "cyclic_records": 41275,
+        "local_date": "2009-05-08"
+      },
+      {
+        "acyclic_records": 116010,
+        "cyclic_rate": 0.20776595599382658,
+        "cyclic_records": 30424,
+        "local_date": "2009-05-09"
+      }
+    ],
+    "cyclic_rate_by_local_hour": [
+      {
+        "acyclic_records": 12123,
+        "cyclic_rate": 0.2307741116751269,
+        "cyclic_records": 3637,
+        "local_hour": 0
+      },
+      {
+        "acyclic_records": 6119,
+        "cyclic_rate": 0.24372759856630824,
+        "cyclic_records": 1972,
+        "local_hour": 1
+      },
+      {
+        "acyclic_records": 4746,
+        "cyclic_rate": 0.2592476978304979,
+        "cyclic_records": 1661,
+        "local_hour": 2
+      },
+      {
+        "acyclic_records": 3178,
+        "cyclic_rate": 0.25608614232209737,
+        "cyclic_records": 1094,
+        "local_hour": 3
+      },
+      {
+        "acyclic_records": 3094,
+        "cyclic_rate": 0.2119205298013245,
+        "cyclic_records": 832,
+        "local_hour": 4
+      },
+      {
+        "acyclic_records": 5941,
+        "cyclic_rate": 0.20051137128246535,
+        "cyclic_records": 1490,
+        "local_hour": 5
+      },
+      {
+        "acyclic_records": 11319,
+        "cyclic_rate": 0.20518222034969455,
+        "cyclic_records": 2922,
+        "local_hour": 6
+      },
+      {
+        "acyclic_records": 23919,
+        "cyclic_rate": 0.21453434913962957,
+        "cyclic_records": 6533,
+        "local_hour": 7
+      },
+      {
+        "acyclic_records": 34212,
+        "cyclic_rate": 0.20173596528069437,
+        "cyclic_records": 8646,
+        "local_hour": 8
+      },
+      {
+        "acyclic_records": 36832,
+        "cyclic_rate": 0.2054363067630245,
+        "cyclic_records": 9523,
+        "local_hour": 9
+      },
+      {
+        "acyclic_records": 34963,
+        "cyclic_rate": 0.20855215501629845,
+        "cyclic_records": 9213,
+        "local_hour": 10
+      },
+      {
+        "acyclic_records": 33474,
+        "cyclic_rate": 0.19770869784051961,
+        "cyclic_records": 8249,
+        "local_hour": 11
+      },
+      {
+        "acyclic_records": 34729,
+        "cyclic_rate": 0.1985368780577864,
+        "cyclic_records": 8603,
+        "local_hour": 12
+      },
+      {
+        "acyclic_records": 38688,
+        "cyclic_rate": 0.20281881683872163,
+        "cyclic_records": 9843,
+        "local_hour": 13
+      },
+      {
+        "acyclic_records": 39434,
+        "cyclic_rate": 0.20631981483345074,
+        "cyclic_records": 10251,
+        "local_hour": 14
+      },
+      {
+        "acyclic_records": 39255,
+        "cyclic_rate": 0.20412383674958945,
+        "cyclic_records": 10068,
+        "local_hour": 15
+      },
+      {
+        "acyclic_records": 38646,
+        "cyclic_rate": 0.20571369848936388,
+        "cyclic_records": 10009,
+        "local_hour": 16
+      },
+      {
+        "acyclic_records": 39669,
+        "cyclic_rate": 0.20801389554384284,
+        "cyclic_records": 10419,
+        "local_hour": 17
+      },
+      {
+        "acyclic_records": 38126,
+        "cyclic_rate": 0.208149871230373,
+        "cyclic_records": 10022,
+        "local_hour": 18
+      },
+      {
+        "acyclic_records": 34919,
+        "cyclic_rate": 0.2033809371720582,
+        "cyclic_records": 8915,
+        "local_hour": 19
+      },
+      {
+        "acyclic_records": 32486,
+        "cyclic_rate": 0.20713640690210627,
+        "cyclic_records": 8487,
+        "local_hour": 20
+      },
+      {
+        "acyclic_records": 31090,
+        "cyclic_rate": 0.21440303221730891,
+        "cyclic_records": 8485,
+        "local_hour": 21
+      },
+      {
+        "acyclic_records": 27853,
+        "cyclic_rate": 0.2071448904070595,
+        "cyclic_records": 7277,
+        "local_hour": 22
+      },
+      {
+        "acyclic_records": 18460,
+        "cyclic_rate": 0.18832168139647365,
+        "cyclic_records": 4283,
+        "local_hour": 23
+      }
+    ],
+    "cyclic_time_distribution": {
+      "duration_seconds": {
+        "count": 162434,
+        "max": 86343,
+        "mean": 1272.357271260943,
+        "median": 887,
+        "min": 13,
+        "p25": 518,
+        "p75": 1447,
+        "p90": 2193,
+        "p95": 2869,
+        "p99": 5347
+      },
+      "end_before_start_records": 0,
+      "source_records": 162434,
+      "start_local_date_counts": {
+        "2009-05-01": 29877,
+        "2009-05-02": 26171,
+        "2009-05-04": 34687,
+        "2009-05-08": 41275,
+        "2009-05-09": 30424
+      },
+      "start_local_hour_counts_00_to_23": [
+        3637,
+        1972,
+        1661,
+        1094,
+        832,
+        1490,
+        2922,
+        6533,
+        8646,
+        9523,
+        9213,
+        8249,
+        8603,
+        9843,
+        10251,
+        10068,
+        10009,
+        10419,
+        10022,
+        8915,
+        8487,
+        8485,
+        7277,
+        4283
+      ],
+      "start_local_weekday_counts_monday_to_sunday": [
+        34687,
+        0,
+        0,
+        0,
+        71152,
+        56595,
+        0
+      ],
+      "timestamp_interpretation": "Unix seconds, summarized in fixed UTC+08:00 (Asia/Shanghai has no DST during the observed period)",
+      "valid_duration_records": 162434
+    },
+    "edge_set_overlap": {
+      "acyclic_only": 2761,
+      "cyclic_only_lost_if_dropped": 5514,
+      "jaccard": 0.8652850584443069,
+      "shared": 53151,
+      "union": 61426
+    },
+    "interpretation": "differences below quantify the population selection induced by dropping every cyclic source record; they do not establish a causal effect",
+    "mean_differences_cyclic_minus_acyclic": {
+      "duration_seconds": 460.60153583115675,
+      "path_length_edges": 14.740039408243462
+    },
+    "original_od_set_overlap": {
+      "acyclic_only": 549888,
+      "cyclic_only_lost_if_dropped": 147651,
+      "jaccard": 0.0158624231427999,
+      "shared": 11243,
+      "union": 708782
+    }
+  },
+  "source_path": "data/beijing_data/preprocessed_train_trips_all.pkl",
+  "structural_validation": {
+    "available_records": 785709,
+    "discontinuous_records": 0,
+    "empty_records": 0,
+    "inspected_records": 785709,
+    "out_of_bounds_records": 0,
+    "valid_continuous_records": 785709
+  },
+  "test_data_read": false,
+  "train_variant": "all",
+  "training_performed": false
+}

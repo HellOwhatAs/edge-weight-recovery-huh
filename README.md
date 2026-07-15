@@ -71,8 +71,12 @@ Every loaded route is checked for:
 - discontinuous adjacent edges;
 - repeated nodes (positive-cost cycles).
 
-Cyclic routes cannot be shortest under positive costs, so they are dropped by
-default and counted in the log. `--keep-cycles` is a noisy-observation ablation.
+Cyclic routes cannot be shortest under positive costs. Training therefore uses
+`--train-cycle-policy drop` by default; `erase` applies chronological loop
+erasure before learning, and `keep` is a deliberately misspecified
+noisy-observation ablation. The legacy `--keep-cycles` flag is a training-only
+alias for `keep`. Validation and test always use `drop`, so changing the training
+policy cannot silently change the evaluation task.
 
 ## Safe quick start
 
@@ -88,14 +92,12 @@ RAYON_NUM_THREADS=4 cargo run --release --locked -- \
   --epochs 3 \
   --max-train-samples 512 \
   --max-validation-samples 512 \
-  --max-test-samples 512 \
   --eval-every 1 \
   --solver projected \
   --metric-update full \
   --selection-metric relative-regret \
   --eta0 0.00001 \
   --lambda 10000000 \
-  --run-test \
   --output-prefix /tmp/beijing_pilot
 ```
 
@@ -106,6 +108,11 @@ Use `cargo run --release -- --help` for all options. In particular:
 - `--metric-update full|partial` supports measured CCH customization studies;
 - `--selection-metric mean-regret|relative-regret` controls validation-only
   checkpoint selection;
+- `--eval-path-metrics` reports exact-path and edge-overlap metrics at each
+  validation event, rather than only at final evaluation;
+- `--early-stop-min-delta` separates checkpoint improvements from the larger
+  improvement required to reset early-stopping patience;
+- `--train-cycle-policy drop|erase|keep` controls training observations only;
 - `--train-variant all_partial_1.0` uses an existing partial training file;
 - `--eval-every 0` disables validation during training;
 - `--run-test` explicitly enables the one final test evaluation after the
@@ -118,10 +125,10 @@ both `eta0` and `lambda`, so it is not merely a harmless precision switch.
 
 The validation split selects checkpoints using validation regret alone. The
 randomized scale study uses aggregate relative regret so routes are weighted by
-their observed cost. Test is
-skipped by default; with `--run-test`, it is loaded and queried once after the
-chosen checkpoint is restored. This makes validation-only tuning the default
-and reduces accidental test leakage across repeated runs.
+their observed cost. Test is skipped by default; with `--run-test`, it is loaded
+and queried once after the chosen checkpoint is restored. This makes
+validation-only tuning the default and reduces accidental test leakage across
+repeated runs.
 
 ## Logged measurements
 
@@ -139,6 +146,53 @@ Final validation/test output includes mean regret, exact path match, edge
 precision/recall/F1, and edge Jaccard. Standard set metrics replace the old
 one-sided baseline-weighted overlap score. `relative_regret` is the aggregate
 ratio `sum(regret) / sum(observed_cost)`, not a mean of per-route ratios.
+
+## Bounded convergence and error-attribution follow-up
+
+The latest Beijing study extended the edge-only solver from 20 to at most 100
+epochs on 10% and full train, with validation every five epochs, validation-path
+metrics, minimum-delta early stopping, and a hard 900-second limit per run. It
+used one complete time-blocked development set and two source-index-disjoint,
+one-shot AM/PM confirmation blocks. Formal training, diagnostics, confirmation,
+and the capacity probe did not load or evaluate test; no test contents or
+metrics were used.
+
+On the 129,033 valid development routes, the selected full-train checkpoint
+(`eta0=3e-4`, epoch 99) reached relative regret `0.06348409`, edge F1
+`0.681488`, and exact match `0.371068`. On the pooled 31,662 one-shot
+confirmation routes, it reached `0.06302821`, `0.684512`, and `0.376508`.
+The exact same-eta development trajectory improved from `0.06826350` at epoch
+19 to `0.06357497` at epoch 99, which establishes that the old horizon was too
+short. The final selected candidate also changed eta; relative to the frozen
+20-epoch control, its paired confirmation improvement was `0.00442438` absolute
+regret (95% bootstrap interval
+`[0.00405114, 0.00483054]`), `0.023606` F1, and `0.021793` exact match. The
+selected epoch is still the 100-epoch boundary, so the study does not establish
+full convergence.
+
+First-divergence diagnostics show that the remaining errors concentrate on
+long, junction-complex routes and frequently rejoin the observed route. A
+full-train audit also shows that dropping all cyclic records removes 20.67% of
+otherwise structurally valid observations, but chronological loop erasure did
+not improve the full-data checkpoint under the frozen edge-only hyperparameters.
+A preregistered fixed-edge single-left-turn-penalty probe then tested one minimal
+capacity extension on disjoint development tune/audit routes. All correctness
+gates passed, but the grid selected zero penalty: every positive penalty raised
+the primary tune regret. This rejects a uniform nonnegative left-turn penalty,
+not richer conditional or jointly learned turn models. The completed
+confirmation blocks were not reused.
+
+See [`experiments/convergence_study/RESULTS.md`](experiments/convergence_study/RESULTS.md)
+for the protocol, complete tables, artifact map, limitations, and bounded
+reproduction commands. Machine-readable results are in the same directory; a
+hash-manifested evidence bundle preserves the six existing one-shot route
+exports, three frozen checkpoints, and ten training logs without raw or test
+data.
+
+The matrix runner invalidates stale caches unless the complete matrix row,
+command, runner concurrency/timeout context, executable SHA-256,
+graph/train/validation input SHA-256 values, and checkpoint/log output SHA-256
+values all match. It never fingerprints the test split.
 
 ## Reproducible randomized scale study
 

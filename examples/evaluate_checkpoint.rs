@@ -11,6 +11,7 @@ use std::time::Instant;
 struct Args {
     city: String,
     train_variant: String,
+    train_cycle_policy: CyclePolicy,
     validation_variant: String,
     checkpoint: PathBuf,
     summary_output: PathBuf,
@@ -35,7 +36,7 @@ fn run() -> Result<(), String> {
         &graph,
         None,
         false,
-        CyclePolicy::Drop,
+        args.train_cycle_policy,
     )?;
     let validation = load_trips(
         &args.city,
@@ -87,6 +88,8 @@ fn run() -> Result<(), String> {
                 "schema_version": 1,
                 "city": args.city,
                 "train_variant": args.train_variant,
+                "train_cycle_policy": format!("{:?}", args.train_cycle_policy),
+                "evaluation_cycle_policy": "Drop",
                 "validation_variant": args.validation_variant,
                 "checkpoint_path": args.checkpoint,
                 "checkpoint_metadata": checkpoint_metadata(&checkpoint),
@@ -105,6 +108,8 @@ fn run() -> Result<(), String> {
         "schema_version": 1,
         "city": args.city,
         "train_variant": args.train_variant,
+        "train_cycle_policy": format!("{:?}", args.train_cycle_policy),
+        "evaluation_cycle_policy": "Drop",
         "validation_variant": args.validation_variant,
         "checkpoint_path": args.checkpoint,
         "checkpoint_metadata": checkpoint_metadata(&checkpoint),
@@ -138,6 +143,8 @@ fn checkpoint_metadata(checkpoint: &Value) -> Value {
         "solver",
         "selection_metric",
         "metric_update_mode",
+        "train_cycle_policy",
+        "evaluation_cycle_policy",
         "eta0",
         "lambda",
         "best_epoch",
@@ -161,6 +168,9 @@ fn report_json(report: &PathValidationReport) -> Value {
         "inspected": report.inspected_samples,
         "accepted": report.accepted_samples,
         "cyclic": report.cyclic,
+        "cycle_erased_records": report.cycle_erased_records,
+        "empty_after_cycle_transform": report.empty_after_cycle_transform,
+        "cycle_edges_removed": report.cycle_edges_removed,
         "discontinuous": report.discontinuous,
         "out_of_bounds": report.out_of_bounds,
         "empty_or_too_short": report.empty_or_too_short,
@@ -190,6 +200,7 @@ fn parse_args() -> Result<Args, String> {
     let raw: Vec<String> = std::env::args().skip(1).collect();
     let mut city = None;
     let mut train_variant = None;
+    let mut train_cycle_policy = CyclePolicy::Drop;
     let mut validation_variant = None;
     let mut checkpoint = None;
     let mut summary_output = None;
@@ -203,6 +214,7 @@ fn parse_args() -> Result<Args, String> {
         match flag.as_str() {
             "--city" => city = Some(value.clone()),
             "--train-variant" => train_variant = Some(value.clone()),
+            "--train-cycle-policy" => train_cycle_policy = value.parse::<CyclePolicy>()?,
             "--validation-variant" => validation_variant = Some(value.clone()),
             "--checkpoint" => checkpoint = Some(PathBuf::from(value)),
             "--summary-output" => summary_output = Some(PathBuf::from(value)),
@@ -214,6 +226,7 @@ fn parse_args() -> Result<Args, String> {
     Ok(Args {
         city: city.ok_or_else(|| "missing --city".to_string())?,
         train_variant: train_variant.ok_or_else(|| "missing --train-variant".to_string())?,
+        train_cycle_policy,
         validation_variant: validation_variant
             .ok_or_else(|| "missing --validation-variant".to_string())?,
         checkpoint: checkpoint.ok_or_else(|| "missing --checkpoint".to_string())?,

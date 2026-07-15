@@ -1,0 +1,3412 @@
+{
+  "analysis": {
+    "definitions": {
+      "complex_junction": "directed edge indegree >= 2 and outdegree >= 2",
+      "divergence_rate": "fraction of routes whose complete edge sequence differs",
+      "first_choice_accuracy": "fraction whose first predicted edge equals the first observed edge",
+      "first_divergence_index": "zero-based edge index and number of common prefix edges",
+      "interpretation_warning": "These are descriptive associations and do not establish that turn costs cause route errors.",
+      "prefix_match_ratio": "common prefix edge count divided by observed path edge count",
+      "rejoin_before_target": "a shared downstream node after divergence, excluding the common target",
+      "suffix_cost_gap": "observed suffix cost minus predicted suffix cost under checkpoint weights",
+      "turn_angle": {
+        "method": "planar atan2(cross, dot) using graph x/y coordinates",
+        "sign": "positive is counter-clockwise (left)",
+        "straight_absolute_degrees_at_most": 30.0,
+        "unavailable_when": "incoming/outgoing edges are discontinuous or either coordinate vector is degenerate",
+        "uturn_absolute_degrees_at_least": 150.0
+      }
+    },
+    "overall": {
+      "divergence_rate": 0.6533057434919749,
+      "divergent_routes": {
+        "complex_junction_rate": 0.6857339438658094,
+        "divergence_node_indegree": {
+          "mean": 2.125613893568056,
+          "median": 2.0,
+          "p90": 3.0
+        },
+        "divergence_node_outdegree": {
+          "mean": 2.4716244750765144,
+          "median": 2.0,
+          "p90": 3.0
+        },
+        "first_divergence_index": {
+          "mean": 7.200040333103988,
+          "median": 3.0,
+          "p90": 21.0
+        },
+        "first_divergence_index_histogram": {
+          "0": 25071,
+          "1": 8043,
+          "10": 1893,
+          "11": 1773,
+          "12": 1543,
+          "13": 1393,
+          "14": 1240,
+          "15": 1228,
+          "16": 1040,
+          "17": 984,
+          "18": 984,
+          "19": 846,
+          "2": 6314,
+          "20": 763,
+          "21": 759,
+          "22": 668,
+          "23": 600,
+          "24": 557,
+          "25": 521,
+          "26": 408,
+          "27": 435,
+          "28": 409,
+          "29": 372,
+          "3": 4982,
+          "30": 319,
+          "31": 291,
+          "32": 270,
+          "33": 285,
+          "34": 231,
+          "35": 217,
+          "36": 200,
+          "37": 181,
+          "38": 144,
+          "39": 159,
+          "4": 4052,
+          "40": 159,
+          "41": 131,
+          "42": 120,
+          "43": 114,
+          "44": 94,
+          "45": 91,
+          "46": 92,
+          "47": 73,
+          "48": 65,
+          "49": 60,
+          "5": 3421,
+          "50": 48,
+          "51": 34,
+          "52": 58,
+          "53": 48,
+          "54": 32,
+          "55": 35,
+          "56": 32,
+          "57": 34,
+          "58": 24,
+          "59": 24,
+          "6": 3037,
+          "60": 17,
+          "61": 16,
+          "62": 24,
+          "63": 16,
+          "64": 14,
+          "65": 13,
+          "66": 8,
+          "67": 13,
+          "68": 4,
+          "69": 14,
+          "7": 2618,
+          "70": 10,
+          "71": 7,
+          "72": 3,
+          "73": 4,
+          "74": 6,
+          "75": 5,
+          "76": 2,
+          "77": 4,
+          "78": 3,
+          "79": 2,
+          "8": 2413,
+          "80": 1,
+          "81": 4,
+          "82": 1,
+          "83": 4,
+          "84": 1,
+          "85": 1,
+          "86": 1,
+          "87": 2,
+          "88": 1,
+          "89": 1,
+          "9": 2063,
+          "90": 1
+        },
+        "first_divergence_observed_path_fraction": {
+          "mean": 0.19457975224922408,
+          "median": 0.09090909090909091,
+          "p90": 0.5862068965517241
+        },
+        "observed_minus_predicted_suffix_cost": {
+          "mean": 661761.282402904,
+          "median": 203302.0,
+          "p90": 1597074.8
+        },
+        "observed_turn_available_rate": 0.7025908087973617,
+        "observed_turn_category_counts": {
+          "left": 7917,
+          "right": 11393,
+          "straight": 39798,
+          "uturn": 119
+        },
+        "predicted_turn_available_rate": 0.7025908087973617,
+        "predicted_turn_category_counts": {
+          "left": 11066,
+          "right": 11809,
+          "straight": 36273,
+          "uturn": 79
+        },
+        "rejoin_before_target_rate": 0.8221547367671831,
+        "relative_suffix_cost_gap": {
+          "mean": 0.1008753407523119,
+          "median": 0.04221485501537986,
+          "p90": 0.2729838511717778
+        },
+        "sample_count": 84298,
+        "turn_category_confusion_counts": {
+          "left->left": 430,
+          "left->right": 923,
+          "left->straight": 6555,
+          "left->uturn": 9,
+          "right->left": 856,
+          "right->right": 671,
+          "right->straight": 9857,
+          "right->uturn": 9,
+          "straight->left": 9769,
+          "straight->right": 10199,
+          "straight->straight": 19770,
+          "straight->uturn": 60,
+          "uturn->left": 11,
+          "uturn->right": 16,
+          "uturn->straight": 91,
+          "uturn->uturn": 1
+        },
+        "turn_category_match_rate_when_both_available": 0.3524068414743276
+      },
+      "exact_match_rate": 0.3466942565080251,
+      "first_choice_accuracy": 0.8057008672200134,
+      "mean_complex_junction_count": 18.35071648338022,
+      "mean_edge_f1": 0.6563914813649769,
+      "mean_observed_left_turn_count": 2.3100524671983136,
+      "mean_observed_path_length": 33.42524780482512,
+      "mean_prefix_match_ratio": 0.4738143262196904,
+      "sample_count": 129033,
+      "unseen_train_edge_route_rate": 0.00481272232684662
+    },
+    "route_length_quartile_cutoffs": [
+      15.0,
+      27.0,
+      46.0
+    ],
+    "strata": {
+      "complex_junction_count": [
+        {
+          "criteria": {
+            "maximum_inclusive": 0,
+            "minimum_inclusive": 0
+          },
+          "label": "0",
+          "summary": {
+            "divergence_rate": 0.14272970561998216,
+            "divergent_routes": {
+              "complex_junction_rate": 0.040625,
+              "divergence_node_indegree": {
+                "mean": 1.034375,
+                "median": 1.0,
+                "p90": 1.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.0125,
+                "median": 2.0,
+                "p90": 2.0
+              },
+              "first_divergence_index": {
+                "mean": 5.25,
+                "median": 2.0,
+                "p90": 16.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 114,
+                "1": 39,
+                "10": 9,
+                "11": 7,
+                "12": 2,
+                "13": 3,
+                "14": 7,
+                "15": 2,
+                "16": 4,
+                "17": 1,
+                "18": 2,
+                "2": 27,
+                "21": 2,
+                "22": 5,
+                "24": 5,
+                "25": 2,
+                "26": 3,
+                "28": 2,
+                "29": 1,
+                "3": 12,
+                "31": 1,
+                "32": 1,
+                "35": 1,
+                "39": 2,
+                "4": 17,
+                "43": 1,
+                "5": 18,
+                "6": 11,
+                "7": 9,
+                "8": 5,
+                "9": 5
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.27369384703013633,
+                "median": 0.15476190476190477,
+                "p90": 0.7142857142857143
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 132322.359375,
+                "median": 23845.0,
+                "p90": 286601.0
+              },
+              "observed_turn_available_rate": 0.64375,
+              "observed_turn_category_counts": {
+                "right": 2,
+                "straight": 204
+              },
+              "predicted_turn_available_rate": 0.64375,
+              "predicted_turn_category_counts": {
+                "left": 8,
+                "right": 9,
+                "straight": 189
+              },
+              "rejoin_before_target_rate": 0.696875,
+              "relative_suffix_cost_gap": {
+                "mean": 0.04379566107814847,
+                "median": 0.010107172885088209,
+                "p90": 0.09781411487145428
+              },
+              "sample_count": 320,
+              "turn_category_confusion_counts": {
+                "right->right": 1,
+                "right->straight": 1,
+                "straight->left": 8,
+                "straight->right": 8,
+                "straight->straight": 188
+              },
+              "turn_category_match_rate_when_both_available": 0.9174757281553398
+            },
+            "exact_match_rate": 0.8572702943800179,
+            "first_choice_accuracy": 0.9491525423728814,
+            "mean_complex_junction_count": 0.0,
+            "mean_edge_f1": 0.9241873485361055,
+            "mean_observed_left_turn_count": 0.3911685994647636,
+            "mean_observed_path_length": 11.328278322925959,
+            "mean_prefix_match_ratio": 0.8963345365966294,
+            "sample_count": 2242,
+            "unseen_train_edge_route_rate": 0.0
+          }
+        },
+        {
+          "criteria": {
+            "maximum_inclusive": 2,
+            "minimum_inclusive": 1
+          },
+          "label": "1_to_2",
+          "summary": {
+            "divergence_rate": 0.19598322666078127,
+            "divergent_routes": {
+              "complex_junction_rate": 0.31644144144144143,
+              "divergence_node_indegree": {
+                "mean": 1.5022522522522523,
+                "median": 1.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.2105855855855854,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 5.539414414414415,
+                "median": 2.0,
+                "p90": 18.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 316,
+                "1": 106,
+                "10": 14,
+                "11": 15,
+                "12": 16,
+                "13": 5,
+                "14": 7,
+                "15": 12,
+                "16": 3,
+                "17": 5,
+                "18": 8,
+                "19": 7,
+                "2": 62,
+                "20": 4,
+                "21": 5,
+                "22": 7,
+                "23": 6,
+                "24": 5,
+                "25": 1,
+                "26": 2,
+                "27": 6,
+                "28": 9,
+                "29": 4,
+                "3": 45,
+                "30": 9,
+                "31": 2,
+                "32": 5,
+                "34": 5,
+                "35": 1,
+                "36": 1,
+                "37": 1,
+                "38": 1,
+                "39": 1,
+                "4": 51,
+                "44": 1,
+                "5": 37,
+                "6": 27,
+                "63": 1,
+                "7": 29,
+                "8": 22,
+                "9": 24
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.2620522937134466,
+                "median": 0.16666666666666666,
+                "p90": 0.6956521739130435
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 205290.13851351352,
+                "median": 32605.5,
+                "p90": 505789.8000000003
+              },
+              "observed_turn_available_rate": 0.6441441441441441,
+              "observed_turn_category_counts": {
+                "left": 12,
+                "right": 42,
+                "straight": 518
+              },
+              "predicted_turn_available_rate": 0.6441441441441441,
+              "predicted_turn_category_counts": {
+                "left": 16,
+                "right": 51,
+                "straight": 504,
+                "uturn": 1
+              },
+              "rejoin_before_target_rate": 0.670045045045045,
+              "relative_suffix_cost_gap": {
+                "mean": 0.09032980442576546,
+                "median": 0.01581428311479143,
+                "p90": 0.2715938804606399
+              },
+              "sample_count": 888,
+              "turn_category_confusion_counts": {
+                "left->left": 1,
+                "left->right": 1,
+                "left->straight": 10,
+                "right->right": 3,
+                "right->straight": 38,
+                "right->uturn": 1,
+                "straight->left": 15,
+                "straight->right": 47,
+                "straight->straight": 456
+              },
+              "turn_category_match_rate_when_both_available": 0.8041958041958042
+            },
+            "exact_match_rate": 0.8040167733392187,
+            "first_choice_accuracy": 0.9302582211432355,
+            "mean_complex_junction_count": 1.6718163760759215,
+            "mean_edge_f1": 0.8976367764470973,
+            "mean_observed_left_turn_count": 0.5144559699845509,
+            "mean_observed_path_length": 10.001765614654602,
+            "mean_prefix_match_ratio": 0.8553746274150387,
+            "sample_count": 4531,
+            "unseen_train_edge_route_rate": 0.0028691238137276537
+          }
+        },
+        {
+          "criteria": {
+            "maximum_inclusive": 5,
+            "minimum_inclusive": 3
+          },
+          "label": "3_to_5",
+          "summary": {
+            "divergence_rate": 0.27322638757827916,
+            "divergent_routes": {
+              "complex_junction_rate": 0.5507064364207221,
+              "divergence_node_indegree": {
+                "mean": 1.9544740973312402,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.4304552590266875,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 4.275039246467818,
+                "median": 1.0,
+                "p90": 13.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 1246,
+                "1": 399,
+                "10": 50,
+                "11": 57,
+                "12": 37,
+                "13": 36,
+                "14": 28,
+                "15": 36,
+                "16": 32,
+                "17": 22,
+                "18": 20,
+                "19": 14,
+                "2": 269,
+                "20": 23,
+                "21": 12,
+                "22": 9,
+                "23": 7,
+                "24": 10,
+                "25": 3,
+                "26": 12,
+                "27": 2,
+                "28": 8,
+                "29": 6,
+                "3": 213,
+                "30": 4,
+                "31": 6,
+                "32": 2,
+                "33": 10,
+                "34": 4,
+                "35": 1,
+                "36": 3,
+                "37": 1,
+                "38": 2,
+                "39": 4,
+                "4": 152,
+                "40": 2,
+                "41": 1,
+                "42": 3,
+                "43": 1,
+                "45": 2,
+                "49": 2,
+                "5": 116,
+                "52": 1,
+                "6": 87,
+                "61": 1,
+                "65": 1,
+                "7": 91,
+                "8": 77,
+                "9": 60
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.22495632997380965,
+                "median": 0.125,
+                "p90": 0.6451612903225806
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 259544.76954474096,
+                "median": 48839.0,
+                "p90": 791653.0
+              },
+              "observed_turn_available_rate": 0.6087912087912087,
+              "observed_turn_category_counts": {
+                "left": 122,
+                "right": 285,
+                "straight": 1526,
+                "uturn": 6
+              },
+              "predicted_turn_available_rate": 0.6087912087912087,
+              "predicted_turn_category_counts": {
+                "left": 199,
+                "right": 359,
+                "straight": 1381
+              },
+              "rejoin_before_target_rate": 0.6941915227629514,
+              "relative_suffix_cost_gap": {
+                "mean": 0.1107491640793871,
+                "median": 0.026696855442342807,
+                "p90": 0.35380301997436225
+              },
+              "sample_count": 3185,
+              "turn_category_confusion_counts": {
+                "left->left": 14,
+                "left->right": 23,
+                "left->straight": 85,
+                "right->left": 13,
+                "right->right": 30,
+                "right->straight": 242,
+                "straight->left": 172,
+                "straight->right": 305,
+                "straight->straight": 1049,
+                "uturn->right": 1,
+                "uturn->straight": 5
+              },
+              "turn_category_match_rate_when_both_available": 0.5636926250644663
+            },
+            "exact_match_rate": 0.7267736124217209,
+            "first_choice_accuracy": 0.8931114351891567,
+            "mean_complex_junction_count": 4.083983872351377,
+            "mean_edge_f1": 0.8574772507926709,
+            "mean_observed_left_turn_count": 0.8062108604272111,
+            "mean_observed_path_length": 11.694346744445397,
+            "mean_prefix_match_ratio": 0.7882376178233332,
+            "sample_count": 11657,
+            "unseen_train_edge_route_rate": 0.0020588487604014756
+          }
+        },
+        {
+          "criteria": {
+            "maximum_inclusive": null,
+            "minimum_inclusive": 6
+          },
+          "label": "6_or_more",
+          "summary": {
+            "divergence_rate": 0.7224487581711165,
+            "divergent_routes": {
+              "complex_junction_rate": 0.6978036418246668,
+              "divergence_node_indegree": {
+                "mean": 2.1437331831549966,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.478005131093173,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 7.342894687441337,
+                "median": 3.0,
+                "p90": 21.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 23395,
+                "1": 7499,
+                "10": 1820,
+                "11": 1694,
+                "12": 1488,
+                "13": 1349,
+                "14": 1198,
+                "15": 1178,
+                "16": 1001,
+                "17": 956,
+                "18": 954,
+                "19": 825,
+                "2": 5956,
+                "20": 736,
+                "21": 740,
+                "22": 647,
+                "23": 587,
+                "24": 537,
+                "25": 515,
+                "26": 391,
+                "27": 427,
+                "28": 390,
+                "29": 361,
+                "3": 4712,
+                "30": 306,
+                "31": 282,
+                "32": 262,
+                "33": 275,
+                "34": 222,
+                "35": 214,
+                "36": 196,
+                "37": 179,
+                "38": 141,
+                "39": 152,
+                "4": 3832,
+                "40": 157,
+                "41": 130,
+                "42": 117,
+                "43": 112,
+                "44": 93,
+                "45": 89,
+                "46": 92,
+                "47": 73,
+                "48": 65,
+                "49": 58,
+                "5": 3250,
+                "50": 48,
+                "51": 34,
+                "52": 57,
+                "53": 48,
+                "54": 32,
+                "55": 35,
+                "56": 32,
+                "57": 34,
+                "58": 24,
+                "59": 24,
+                "6": 2912,
+                "60": 17,
+                "61": 15,
+                "62": 24,
+                "63": 15,
+                "64": 14,
+                "65": 12,
+                "66": 8,
+                "67": 13,
+                "68": 4,
+                "69": 14,
+                "7": 2489,
+                "70": 10,
+                "71": 7,
+                "72": 3,
+                "73": 4,
+                "74": 6,
+                "75": 5,
+                "76": 2,
+                "77": 4,
+                "78": 3,
+                "79": 2,
+                "8": 2309,
+                "80": 1,
+                "81": 4,
+                "82": 1,
+                "83": 4,
+                "84": 1,
+                "85": 1,
+                "86": 1,
+                "87": 2,
+                "88": 1,
+                "89": 1,
+                "9": 1974,
+                "90": 1
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.19230227865929922,
+                "median": 0.08860759493670886,
+                "p90": 0.5789473684210527
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 684986.6928853013,
+                "median": 218674.0,
+                "p90": 1645753.6000000008
+              },
+              "observed_turn_available_rate": 0.7072148175958951,
+              "observed_turn_category_counts": {
+                "left": 7783,
+                "right": 11064,
+                "straight": 37550,
+                "uturn": 113
+              },
+              "predicted_turn_available_rate": 0.7072148175958951,
+              "predicted_turn_category_counts": {
+                "left": 10843,
+                "right": 11390,
+                "straight": 34199,
+                "uturn": 78
+              },
+              "rejoin_before_target_rate": 0.8294474688692822,
+              "relative_suffix_cost_gap": {
+                "mean": 0.10082755658933071,
+                "median": 0.04343044380860118,
+                "p90": 0.2707262158077196
+              },
+              "sample_count": 79905,
+              "turn_category_confusion_counts": {
+                "left->left": 415,
+                "left->right": 899,
+                "left->straight": 6460,
+                "left->uturn": 9,
+                "right->left": 843,
+                "right->right": 637,
+                "right->straight": 9576,
+                "right->uturn": 8,
+                "straight->left": 9574,
+                "straight->right": 9839,
+                "straight->straight": 18077,
+                "straight->uturn": 60,
+                "uturn->left": 11,
+                "uturn->right": 15,
+                "uturn->straight": 86,
+                "uturn->uturn": 1
+              },
+              "turn_category_match_rate_when_both_available": 0.33852415501681116
+            },
+            "exact_match_rate": 0.27755124182888347,
+            "first_choice_accuracy": 0.7884777085612505,
+            "mean_complex_junction_count": 20.90961366328219,
+            "mean_edge_f1": 0.6198867068070087,
+            "mean_observed_left_turn_count": 2.5810059401643715,
+            "mean_observed_path_length": 37.123070802781115,
+            "mean_prefix_match_ratio": 0.41647978423977833,
+            "sample_count": 110603,
+            "unseen_train_edge_route_rate": 0.005280146108152582
+          }
+        }
+      ],
+      "route_length": [
+        {
+          "criteria": {
+            "lower_length_exclusive": null,
+            "upper_length_inclusive": 15.0
+          },
+          "label": "q1",
+          "summary": {
+            "divergence_rate": 0.297461959106039,
+            "divergent_routes": {
+              "complex_junction_rate": 0.8447397342391847,
+              "divergence_node_indegree": {
+                "mean": 2.4812668598261562,
+                "median": 3.0,
+                "p90": 4.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.6683984414027377,
+                "median": 3.0,
+                "p90": 4.0
+              },
+              "first_divergence_index": {
+                "mean": 2.391847337396343,
+                "median": 1.0,
+                "p90": 7.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 4099,
+                "1": 1351,
+                "10": 159,
+                "11": 97,
+                "12": 72,
+                "13": 33,
+                "14": 6,
+                "2": 1016,
+                "3": 769,
+                "4": 619,
+                "5": 542,
+                "6": 418,
+                "7": 327,
+                "8": 276,
+                "9": 225
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.21248203595341214,
+                "median": 0.1111111111111111,
+                "p90": 0.625
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 211247.23408931962,
+                "median": 45645.0,
+                "p90": 654525.2000000005
+              },
+              "observed_turn_available_rate": 0.5904685782795485,
+              "observed_turn_category_counts": {
+                "left": 913,
+                "right": 1401,
+                "straight": 3592,
+                "uturn": 4
+              },
+              "predicted_turn_available_rate": 0.5904685782795485,
+              "predicted_turn_category_counts": {
+                "left": 1275,
+                "right": 1599,
+                "straight": 3035,
+                "uturn": 1
+              },
+              "rejoin_before_target_rate": 0.6432211010090918,
+              "relative_suffix_cost_gap": {
+                "mean": 0.12489703853219737,
+                "median": 0.032821023379185854,
+                "p90": 0.3918869677195105
+              },
+              "sample_count": 10009,
+              "turn_category_confusion_counts": {
+                "left->left": 58,
+                "left->right": 96,
+                "left->straight": 759,
+                "right->left": 73,
+                "right->right": 54,
+                "right->straight": 1274,
+                "straight->left": 1143,
+                "straight->right": 1449,
+                "straight->straight": 1000,
+                "uturn->left": 1,
+                "uturn->straight": 2,
+                "uturn->uturn": 1
+              },
+              "turn_category_match_rate_when_both_available": 0.1883248730964467
+            },
+            "exact_match_rate": 0.702538040893961,
+            "first_choice_accuracy": 0.878179980979553,
+            "mean_complex_junction_count": 6.40620542082739,
+            "mean_edge_f1": 0.833939949754506,
+            "mean_observed_left_turn_count": 0.8493223965763196,
+            "mean_observed_path_length": 9.618550879695674,
+            "mean_prefix_match_ratio": 0.7657433635835085,
+            "sample_count": 33648,
+            "unseen_train_edge_route_rate": 0.004071564431764147
+          }
+        },
+        {
+          "criteria": {
+            "lower_length_exclusive": 15.0,
+            "upper_length_inclusive": 27.0
+          },
+          "label": "q2",
+          "summary": {
+            "divergence_rate": 0.5950507614213199,
+            "divergent_routes": {
+              "complex_junction_rate": 0.75042653017701,
+              "divergence_node_indegree": {
+                "mean": 2.239230113030497,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.5186073789720624,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 4.954254638515675,
+                "median": 3.0,
+                "p90": 14.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 5683,
+                "1": 1875,
+                "10": 545,
+                "11": 500,
+                "12": 453,
+                "13": 406,
+                "14": 349,
+                "15": 363,
+                "16": 258,
+                "17": 227,
+                "18": 222,
+                "19": 162,
+                "2": 1529,
+                "20": 142,
+                "21": 117,
+                "22": 75,
+                "23": 47,
+                "24": 26,
+                "25": 20,
+                "26": 6,
+                "3": 1230,
+                "4": 956,
+                "5": 874,
+                "6": 831,
+                "7": 684,
+                "8": 617,
+                "9": 559
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.23005628956922813,
+                "median": 0.125,
+                "p90": 0.6538461538461539
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 297878.48208573257,
+                "median": 93030.0,
+                "p90": 876663.0
+              },
+              "observed_turn_available_rate": 0.6970036255065046,
+              "observed_turn_category_counts": {
+                "left": 1878,
+                "right": 2810,
+                "straight": 8361,
+                "uturn": 24
+              },
+              "predicted_turn_available_rate": 0.6970036255065046,
+              "predicted_turn_category_counts": {
+                "left": 2662,
+                "right": 3002,
+                "straight": 7387,
+                "uturn": 22
+              },
+              "rejoin_before_target_rate": 0.7786308381317978,
+              "relative_suffix_cost_gap": {
+                "mean": 0.10296594788693773,
+                "median": 0.035615586776242755,
+                "p90": 0.2988391862015466
+              },
+              "sample_count": 18756,
+              "turn_category_confusion_counts": {
+                "left->left": 132,
+                "left->right": 192,
+                "left->straight": 1551,
+                "left->uturn": 3,
+                "right->left": 180,
+                "right->right": 117,
+                "right->straight": 2507,
+                "right->uturn": 6,
+                "straight->left": 2347,
+                "straight->right": 2690,
+                "straight->straight": 3311,
+                "straight->uturn": 13,
+                "uturn->left": 3,
+                "uturn->right": 3,
+                "uturn->straight": 18
+              },
+              "turn_category_match_rate_when_both_available": 0.2723169892144114
+            },
+            "exact_match_rate": 0.4049492385786802,
+            "first_choice_accuracy": 0.8197017766497462,
+            "mean_complex_junction_count": 13.330615482233503,
+            "mean_edge_f1": 0.7024374605738543,
+            "mean_observed_left_turn_count": 1.748286802030457,
+            "mean_observed_path_length": 21.21180203045685,
+            "mean_prefix_match_ratio": 0.5418444088566188,
+            "sample_count": 31520,
+            "unseen_train_edge_route_rate": 0.00440989847715736
+          }
+        },
+        {
+          "criteria": {
+            "lower_length_exclusive": 27.0,
+            "upper_length_inclusive": 46.0
+          },
+          "label": "q3",
+          "summary": {
+            "divergence_rate": 0.7978736479842674,
+            "divergent_routes": {
+              "complex_junction_rate": 0.6705692058846183,
+              "divergence_node_indegree": {
+                "mean": 2.08391743048602,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.4473542324578297,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 7.580759454671494,
+                "median": 4.0,
+                "p90": 22.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 7164,
+                "1": 2281,
+                "10": 617,
+                "11": 564,
+                "12": 524,
+                "13": 486,
+                "14": 459,
+                "15": 435,
+                "16": 405,
+                "17": 377,
+                "18": 381,
+                "19": 323,
+                "2": 1806,
+                "20": 315,
+                "21": 324,
+                "22": 291,
+                "23": 273,
+                "24": 267,
+                "25": 267,
+                "26": 207,
+                "27": 239,
+                "28": 188,
+                "29": 170,
+                "3": 1481,
+                "30": 143,
+                "31": 116,
+                "32": 105,
+                "33": 105,
+                "34": 75,
+                "35": 59,
+                "36": 61,
+                "37": 54,
+                "38": 42,
+                "39": 38,
+                "4": 1194,
+                "40": 30,
+                "41": 18,
+                "42": 12,
+                "43": 8,
+                "44": 3,
+                "5": 1006,
+                "6": 893,
+                "7": 782,
+                "8": 762,
+                "9": 616
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.20922635208837861,
+                "median": 0.10344827586206896,
+                "p90": 0.6190476190476191
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 468125.24870985135,
+                "median": 182957.5,
+                "p90": 1260797.0
+              },
+              "observed_turn_available_rate": 0.7241007471308635,
+              "observed_turn_category_counts": {
+                "left": 2548,
+                "right": 3572,
+                "straight": 12651,
+                "uturn": 31
+              },
+              "predicted_turn_available_rate": 0.7241007471308635,
+              "predicted_turn_category_counts": {
+                "left": 3492,
+                "right": 3716,
+                "straight": 11570,
+                "uturn": 24
+              },
+              "rejoin_before_target_rate": 0.8473388276977586,
+              "relative_suffix_cost_gap": {
+                "mean": 0.09133664710734613,
+                "median": 0.039056123257119296,
+                "p90": 0.2461905484862422
+              },
+              "sample_count": 25966,
+              "turn_category_confusion_counts": {
+                "left->left": 129,
+                "left->right": 325,
+                "left->straight": 2090,
+                "left->uturn": 4,
+                "right->left": 289,
+                "right->right": 236,
+                "right->straight": 3047,
+                "straight->left": 3070,
+                "straight->right": 3147,
+                "straight->straight": 6414,
+                "straight->uturn": 20,
+                "uturn->left": 4,
+                "uturn->right": 8,
+                "uturn->straight": 19
+              },
+              "turn_category_match_rate_when_both_available": 0.3605467503457079
+            },
+            "exact_match_rate": 0.20212635201573254,
+            "first_choice_accuracy": 0.7798672566371682,
+            "mean_complex_junction_count": 20.368455014749262,
+            "mean_edge_f1": 0.6031257902708702,
+            "mean_observed_left_turn_count": 2.659660766961652,
+            "mean_observed_path_length": 36.11823992133726,
+            "mean_prefix_match_ratio": 0.369062544810929,
+            "sample_count": 32544,
+            "unseen_train_edge_route_rate": 0.004547689282202556
+          }
+        },
+        {
+          "criteria": {
+            "lower_length_exclusive": 46.0,
+            "upper_length_inclusive": null
+          },
+          "label": "q4",
+          "summary": {
+            "divergence_rate": 0.9439992337409406,
+            "divergent_routes": {
+              "complex_junction_rate": 0.6041871004836473,
+              "divergence_node_indegree": {
+                "mean": 1.9697635877836777,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.3965231508100246,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 9.917982886325971,
+                "median": 4.0,
+                "p90": 30.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 8125,
+                "1": 2536,
+                "10": 572,
+                "11": 612,
+                "12": 494,
+                "13": 468,
+                "14": 426,
+                "15": 430,
+                "16": 377,
+                "17": 380,
+                "18": 381,
+                "19": 361,
+                "2": 1963,
+                "20": 306,
+                "21": 318,
+                "22": 302,
+                "23": 280,
+                "24": 264,
+                "25": 234,
+                "26": 195,
+                "27": 196,
+                "28": 221,
+                "29": 202,
+                "3": 1502,
+                "30": 176,
+                "31": 175,
+                "32": 165,
+                "33": 180,
+                "34": 156,
+                "35": 158,
+                "36": 139,
+                "37": 127,
+                "38": 102,
+                "39": 121,
+                "4": 1283,
+                "40": 129,
+                "41": 113,
+                "42": 108,
+                "43": 106,
+                "44": 91,
+                "45": 91,
+                "46": 92,
+                "47": 73,
+                "48": 65,
+                "49": 60,
+                "5": 999,
+                "50": 48,
+                "51": 34,
+                "52": 58,
+                "53": 48,
+                "54": 32,
+                "55": 35,
+                "56": 32,
+                "57": 34,
+                "58": 24,
+                "59": 24,
+                "6": 895,
+                "60": 17,
+                "61": 16,
+                "62": 24,
+                "63": 16,
+                "64": 14,
+                "65": 13,
+                "66": 8,
+                "67": 13,
+                "68": 4,
+                "69": 14,
+                "7": 825,
+                "70": 10,
+                "71": 7,
+                "72": 3,
+                "73": 4,
+                "74": 6,
+                "75": 5,
+                "76": 2,
+                "77": 4,
+                "78": 3,
+                "79": 2,
+                "8": 758,
+                "80": 1,
+                "81": 4,
+                "82": 1,
+                "83": 4,
+                "84": 1,
+                "85": 1,
+                "86": 1,
+                "87": 2,
+                "88": 1,
+                "89": 1,
+                "9": 663,
+                "90": 1
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.15315196102956682,
+                "median": 0.05970149253731343,
+                "p90": 0.4666666666666667
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 1215153.0422430413,
+                "median": 484887.0,
+                "p90": 2852777.8000000007
+              },
+              "observed_turn_available_rate": 0.725200392329286,
+              "observed_turn_category_counts": {
+                "left": 2578,
+                "right": 3610,
+                "straight": 15194,
+                "uturn": 60
+              },
+              "predicted_turn_available_rate": 0.725200392329286,
+              "predicted_turn_category_counts": {
+                "left": 3637,
+                "right": 3492,
+                "straight": 14281,
+                "uturn": 32
+              },
+              "rejoin_before_target_rate": 0.8882199749720973,
+              "relative_suffix_cost_gap": {
+                "mean": 0.09979430847610211,
+                "median": 0.051119446187971894,
+                "p90": 0.24834099380733715
+              },
+              "sample_count": 29567,
+              "turn_category_confusion_counts": {
+                "left->left": 111,
+                "left->right": 310,
+                "left->straight": 2155,
+                "left->uturn": 2,
+                "right->left": 314,
+                "right->right": 264,
+                "right->straight": 3029,
+                "right->uturn": 3,
+                "straight->left": 3209,
+                "straight->right": 2913,
+                "straight->straight": 9045,
+                "straight->uturn": 27,
+                "uturn->left": 3,
+                "uturn->right": 5,
+                "uturn->straight": 52
+              },
+              "turn_category_match_rate_when_both_available": 0.4393246898610204
+            },
+            "exact_match_rate": 0.05600076625905942,
+            "first_choice_accuracy": 0.7405893809265349,
+            "mean_complex_junction_count": 34.13811819545992,
+            "mean_edge_f1": 0.4746590501503431,
+            "mean_observed_left_turn_count": 4.081383097602248,
+            "mean_observed_path_length": 68.49356661664697,
+            "mean_prefix_match_ratio": 0.20057610011689317,
+            "sample_count": 31321,
+            "unseen_train_edge_route_rate": 0.006289709779381245
+          }
+        }
+      ],
+      "route_length_by_complex_junction_count": [
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 0,
+              "minimum_inclusive": 0
+            },
+            "route_length_quartile": 1
+          },
+          "label": "q1_complex_0",
+          "summary": {
+            "divergence_rate": 0.10657596371882086,
+            "divergent_routes": {
+              "complex_junction_rate": 0.06382978723404255,
+              "divergence_node_indegree": {
+                "mean": 1.0585106382978724,
+                "median": 1.0,
+                "p90": 1.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.021276595744681,
+                "median": 2.0,
+                "p90": 2.0
+              },
+              "first_divergence_index": {
+                "mean": 1.9787234042553192,
+                "median": 1.0,
+                "p90": 5.300000000000011
+              },
+              "first_divergence_index_histogram": {
+                "0": 88,
+                "1": 25,
+                "10": 3,
+                "14": 1,
+                "2": 17,
+                "3": 10,
+                "4": 14,
+                "5": 15,
+                "6": 5,
+                "7": 5,
+                "8": 2,
+                "9": 3
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.2253977700786212,
+                "median": 0.09166666666666667,
+                "p90": 0.6666666666666666
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 83169.14361702128,
+                "median": 21567.0,
+                "p90": 241725.0
+              },
+              "observed_turn_available_rate": 0.5319148936170213,
+              "observed_turn_category_counts": {
+                "right": 1,
+                "straight": 99
+              },
+              "predicted_turn_available_rate": 0.5319148936170213,
+              "predicted_turn_category_counts": {
+                "right": 4,
+                "straight": 96
+              },
+              "rejoin_before_target_rate": 0.6063829787234043,
+              "relative_suffix_cost_gap": {
+                "mean": 0.04951909323413089,
+                "median": 0.01554407161015027,
+                "p90": 0.0990269243424311
+              },
+              "sample_count": 188,
+              "turn_category_confusion_counts": {
+                "right->straight": 1,
+                "straight->right": 4,
+                "straight->straight": 95
+              },
+              "turn_category_match_rate_when_both_available": 0.95
+            },
+            "exact_match_rate": 0.8934240362811792,
+            "first_choice_accuracy": 0.9501133786848073,
+            "mean_complex_junction_count": 0.0,
+            "mean_edge_f1": 0.9341829261735958,
+            "mean_observed_left_turn_count": 0.25170068027210885,
+            "mean_observed_path_length": 7.373015873015873,
+            "mean_prefix_match_ratio": 0.9174460208473817,
+            "sample_count": 1764,
+            "unseen_train_edge_route_rate": 0.0
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 2,
+              "minimum_inclusive": 1
+            },
+            "route_length_quartile": 1
+          },
+          "label": "q1_complex_1_to_2",
+          "summary": {
+            "divergence_rate": 0.13069741900054915,
+            "divergent_routes": {
+              "complex_junction_rate": 0.47478991596638653,
+              "divergence_node_indegree": {
+                "mean": 1.7899159663865547,
+                "median": 1.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.350840336134454,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 1.9243697478991597,
+                "median": 1.0,
+                "p90": 6.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 225,
+                "1": 78,
+                "10": 7,
+                "11": 4,
+                "12": 3,
+                "2": 40,
+                "3": 23,
+                "4": 33,
+                "5": 22,
+                "6": 14,
+                "7": 13,
+                "8": 4,
+                "9": 10
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.21438311921505204,
+                "median": 0.09090909090909091,
+                "p90": 0.6666666666666666
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 147961.7100840336,
+                "median": 26759.5,
+                "p90": 464933.0
+              },
+              "observed_turn_available_rate": 0.5273109243697479,
+              "observed_turn_category_counts": {
+                "left": 10,
+                "right": 31,
+                "straight": 210
+              },
+              "predicted_turn_available_rate": 0.5273109243697479,
+              "predicted_turn_category_counts": {
+                "left": 12,
+                "right": 31,
+                "straight": 208
+              },
+              "rejoin_before_target_rate": 0.5021008403361344,
+              "relative_suffix_cost_gap": {
+                "mean": 0.13102354668363198,
+                "median": 0.02322635222107459,
+                "p90": 0.4537641332538609
+              },
+              "sample_count": 476,
+              "turn_category_confusion_counts": {
+                "left->left": 1,
+                "left->right": 1,
+                "left->straight": 8,
+                "right->right": 2,
+                "right->straight": 29,
+                "straight->left": 11,
+                "straight->right": 28,
+                "straight->straight": 171
+              },
+              "turn_category_match_rate_when_both_available": 0.6932270916334662
+            },
+            "exact_match_rate": 0.8693025809994509,
+            "first_choice_accuracy": 0.9382207578253706,
+            "mean_complex_junction_count": 1.6935749588138385,
+            "mean_edge_f1": 0.9200044702165388,
+            "mean_observed_left_turn_count": 0.3478857770455793,
+            "mean_observed_path_length": 6.177649643053267,
+            "mean_prefix_match_ratio": 0.8973219013581452,
+            "sample_count": 3642,
+            "unseen_train_edge_route_rate": 0.0032948929159802307
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 5,
+              "minimum_inclusive": 3
+            },
+            "route_length_quartile": 1
+          },
+          "label": "q1_complex_3_to_5",
+          "summary": {
+            "divergence_rate": 0.2011117287381879,
+            "divergent_routes": {
+              "complex_junction_rate": 0.7551133222775014,
+              "divergence_node_indegree": {
+                "mean": 2.3360972913211717,
+                "median": 2.0,
+                "p90": 4.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.6097291321171916,
+                "median": 2.0,
+                "p90": 4.0
+              },
+              "first_divergence_index": {
+                "mean": 1.7230514096185738,
+                "median": 1.0,
+                "p90": 5.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 869,
+                "1": 288,
+                "10": 14,
+                "11": 6,
+                "12": 5,
+                "13": 5,
+                "14": 1,
+                "2": 181,
+                "3": 150,
+                "4": 89,
+                "5": 56,
+                "6": 47,
+                "7": 50,
+                "8": 28,
+                "9": 20
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.19425972498111818,
+                "median": 0.08333333333333333,
+                "p90": 0.6
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 204718.53676064123,
+                "median": 40011.0,
+                "p90": 644459.4
+              },
+              "observed_turn_available_rate": 0.5196241017136539,
+              "observed_turn_category_counts": {
+                "left": 90,
+                "right": 219,
+                "straight": 630,
+                "uturn": 1
+              },
+              "predicted_turn_available_rate": 0.5196241017136539,
+              "predicted_turn_category_counts": {
+                "left": 148,
+                "right": 253,
+                "straight": 539
+              },
+              "rejoin_before_target_rate": 0.593698175787728,
+              "relative_suffix_cost_gap": {
+                "mean": 0.1447844479065785,
+                "median": 0.03673428720005132,
+                "p90": 0.46773954751405933
+              },
+              "sample_count": 1809,
+              "turn_category_confusion_counts": {
+                "left->left": 11,
+                "left->right": 15,
+                "left->straight": 64,
+                "right->left": 10,
+                "right->right": 18,
+                "right->straight": 191,
+                "straight->left": 127,
+                "straight->right": 220,
+                "straight->straight": 283,
+                "uturn->straight": 1
+              },
+              "turn_category_match_rate_when_both_available": 0.33191489361702126
+            },
+            "exact_match_rate": 0.7988882712618122,
+            "first_choice_accuracy": 0.903390772651473,
+            "mean_complex_junction_count": 4.05414118954975,
+            "mean_edge_f1": 0.8822171903374162,
+            "mean_observed_left_turn_count": 0.619455252918288,
+            "mean_observed_path_length": 7.502501389660923,
+            "mean_prefix_match_ratio": 0.8379561803769676,
+            "sample_count": 8995,
+            "unseen_train_edge_route_rate": 0.0023346303501945525
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": null,
+              "minimum_inclusive": 6
+            },
+            "route_length_quartile": 1
+          },
+          "label": "q1_complex_6_or_more",
+          "summary": {
+            "divergence_rate": 0.3915415389411337,
+            "divergent_routes": {
+              "complex_junction_rate": 0.9091029723991507,
+              "divergence_node_indegree": {
+                "mean": 2.595276008492569,
+                "median": 3.0,
+                "p90": 4.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.718683651804671,
+                "median": 3.0,
+                "p90": 4.0
+              },
+              "first_divergence_index": {
+                "mean": 2.592223991507431,
+                "median": 1.0,
+                "p90": 7.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 2917,
+                "1": 960,
+                "10": 135,
+                "11": 87,
+                "12": 64,
+                "13": 28,
+                "14": 4,
+                "2": 778,
+                "3": 586,
+                "4": 483,
+                "5": 449,
+                "6": 352,
+                "7": 259,
+                "8": 242,
+                "9": 192
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.21641397423642522,
+                "median": 0.125,
+                "p90": 0.625
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 220006.92144373673,
+                "median": 50527.0,
+                "p90": 680930.5
+              },
+              "observed_turn_available_rate": 0.6129246284501062,
+              "observed_turn_category_counts": {
+                "left": 813,
+                "right": 1150,
+                "straight": 2653,
+                "uturn": 3
+              },
+              "predicted_turn_available_rate": 0.6129246284501062,
+              "predicted_turn_category_counts": {
+                "left": 1115,
+                "right": 1311,
+                "straight": 2192,
+                "uturn": 1
+              },
+              "rejoin_before_target_rate": 0.6649416135881104,
+              "relative_suffix_cost_gap": {
+                "mean": 0.12161658633974748,
+                "median": 0.0329999669275577,
+                "p90": 0.3750008084987603
+              },
+              "sample_count": 7536,
+              "turn_category_confusion_counts": {
+                "left->left": 46,
+                "left->right": 80,
+                "left->straight": 687,
+                "right->left": 63,
+                "right->right": 34,
+                "right->straight": 1053,
+                "straight->left": 1005,
+                "straight->right": 1197,
+                "straight->straight": 451,
+                "uturn->left": 1,
+                "uturn->straight": 1,
+                "uturn->uturn": 1
+              },
+              "turn_category_match_rate_when_both_available": 0.11517644511799091
+            },
+            "exact_match_rate": 0.6084584610588664,
+            "first_choice_accuracy": 0.8484439133371434,
+            "mean_complex_junction_count": 8.98430924299891,
+            "mean_edge_f1": 0.7859049638881654,
+            "mean_observed_left_turn_count": 1.106406193172962,
+            "mean_observed_path_length": 11.464384059853483,
+            "mean_prefix_match_ratio": 0.6931935215797687,
+            "sample_count": 19247,
+            "unseen_train_edge_route_rate": 0.005403439497064478
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 0,
+              "minimum_inclusive": 0
+            },
+            "route_length_quartile": 2
+          },
+          "label": "q2_complex_0",
+          "summary": {
+            "divergence_rate": 0.22324159021406728,
+            "divergent_routes": {
+              "complex_junction_rate": 0.0136986301369863,
+              "divergence_node_indegree": {
+                "mean": 1.0,
+                "median": 1.0,
+                "p90": 1.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.0,
+                "median": 2.0,
+                "p90": 2.0
+              },
+              "first_divergence_index": {
+                "mean": 6.904109589041096,
+                "median": 6.0,
+                "p90": 15.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 19,
+                "1": 6,
+                "10": 6,
+                "11": 5,
+                "12": 2,
+                "13": 3,
+                "14": 4,
+                "15": 2,
+                "16": 2,
+                "18": 2,
+                "2": 4,
+                "21": 1,
+                "24": 1,
+                "26": 1,
+                "3": 2,
+                "4": 2,
+                "5": 2,
+                "6": 4,
+                "7": 2,
+                "8": 2,
+                "9": 1
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.33472592440983157,
+                "median": 0.29411764705882354,
+                "p90": 0.7384615384615383
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 164682.32876712328,
+                "median": 31746.0,
+                "p90": 294504.0
+              },
+              "observed_turn_available_rate": 0.7397260273972602,
+              "observed_turn_category_counts": {
+                "right": 1,
+                "straight": 53
+              },
+              "predicted_turn_available_rate": 0.7397260273972602,
+              "predicted_turn_category_counts": {
+                "left": 3,
+                "right": 3,
+                "straight": 48
+              },
+              "rejoin_before_target_rate": 0.7808219178082192,
+              "relative_suffix_cost_gap": {
+                "mean": 0.044997720541799596,
+                "median": 0.009700967002159487,
+                "p90": 0.07719617921284191
+              },
+              "sample_count": 73,
+              "turn_category_confusion_counts": {
+                "right->right": 1,
+                "straight->left": 3,
+                "straight->right": 2,
+                "straight->straight": 48
+              },
+              "turn_category_match_rate_when_both_available": 0.9074074074074074
+            },
+            "exact_match_rate": 0.7767584097859327,
+            "first_choice_accuracy": 0.9418960244648318,
+            "mean_complex_junction_count": 0.0,
+            "mean_edge_f1": 0.8983685297705613,
+            "mean_observed_left_turn_count": 0.672782874617737,
+            "mean_observed_path_length": 20.232415902140673,
+            "mean_prefix_match_ratio": 0.8514831574370572,
+            "sample_count": 327,
+            "unseen_train_edge_route_rate": 0.0
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 2,
+              "minimum_inclusive": 1
+            },
+            "route_length_quartile": 2
+          },
+          "label": "q2_complex_1_to_2",
+          "summary": {
+            "divergence_rate": 0.382306477093207,
+            "divergent_routes": {
+              "complex_junction_rate": 0.1652892561983471,
+              "divergence_node_indegree": {
+                "mean": 1.21900826446281,
+                "median": 1.0,
+                "p90": 2.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.06198347107438,
+                "median": 2.0,
+                "p90": 2.0
+              },
+              "first_divergence_index": {
+                "mean": 5.706611570247934,
+                "median": 4.0,
+                "p90": 14.900000000000006
+              },
+              "first_divergence_index_histogram": {
+                "0": 68,
+                "1": 15,
+                "10": 5,
+                "11": 8,
+                "12": 10,
+                "13": 4,
+                "14": 5,
+                "15": 8,
+                "16": 2,
+                "17": 4,
+                "18": 6,
+                "19": 3,
+                "2": 17,
+                "21": 1,
+                "22": 1,
+                "3": 12,
+                "4": 13,
+                "5": 9,
+                "6": 9,
+                "7": 13,
+                "8": 15,
+                "9": 14
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.28153852876407526,
+                "median": 0.2,
+                "p90": 0.7033333333333334
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 177139.52066115703,
+                "median": 40159.5,
+                "p90": 456198.40000000014
+              },
+              "observed_turn_available_rate": 0.71900826446281,
+              "observed_turn_category_counts": {
+                "left": 2,
+                "right": 7,
+                "straight": 165
+              },
+              "predicted_turn_available_rate": 0.71900826446281,
+              "predicted_turn_category_counts": {
+                "left": 2,
+                "right": 13,
+                "straight": 158,
+                "uturn": 1
+              },
+              "rejoin_before_target_rate": 0.8471074380165289,
+              "relative_suffix_cost_gap": {
+                "mean": 0.04930298438982257,
+                "median": 0.014390671216328513,
+                "p90": 0.13187042167401464
+              },
+              "sample_count": 242,
+              "turn_category_confusion_counts": {
+                "left->straight": 2,
+                "right->right": 1,
+                "right->straight": 5,
+                "right->uturn": 1,
+                "straight->left": 2,
+                "straight->right": 12,
+                "straight->straight": 151
+              },
+              "turn_category_match_rate_when_both_available": 0.8735632183908046
+            },
+            "exact_match_rate": 0.617693522906793,
+            "first_choice_accuracy": 0.8925750394944708,
+            "mean_complex_junction_count": 1.6303317535545023,
+            "mean_edge_f1": 0.8348905523819117,
+            "mean_observed_left_turn_count": 1.0205371248025277,
+            "mean_observed_path_length": 19.81358609794629,
+            "mean_prefix_match_ratio": 0.7253275260045915,
+            "sample_count": 633,
+            "unseen_train_edge_route_rate": 0.001579778830963665
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 5,
+              "minimum_inclusive": 3
+            },
+            "route_length_quartile": 2
+          },
+          "label": "q2_complex_3_to_5",
+          "summary": {
+            "divergence_rate": 0.4524449220849006,
+            "divergent_routes": {
+              "complex_junction_rate": 0.3004750593824228,
+              "divergence_node_indegree": {
+                "mean": 1.486935866983373,
+                "median": 1.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.209026128266033,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 5.438242280285036,
+                "median": 3.0,
+                "p90": 15.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 251,
+                "1": 79,
+                "10": 27,
+                "11": 39,
+                "12": 23,
+                "13": 22,
+                "14": 15,
+                "15": 20,
+                "16": 17,
+                "17": 15,
+                "18": 10,
+                "19": 7,
+                "2": 62,
+                "20": 10,
+                "21": 4,
+                "22": 3,
+                "23": 1,
+                "24": 2,
+                "25": 1,
+                "3": 39,
+                "4": 42,
+                "5": 44,
+                "6": 29,
+                "7": 26,
+                "8": 28,
+                "9": 26
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.2606724826396117,
+                "median": 0.16666666666666666,
+                "p90": 0.6956521739130435
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 231196.22684085512,
+                "median": 46323.0,
+                "p90": 736672.9999999998
+              },
+              "observed_turn_available_rate": 0.7019002375296912,
+              "observed_turn_category_counts": {
+                "left": 21,
+                "right": 49,
+                "straight": 519,
+                "uturn": 2
+              },
+              "predicted_turn_available_rate": 0.7019002375296912,
+              "predicted_turn_category_counts": {
+                "left": 22,
+                "right": 76,
+                "straight": 493
+              },
+              "rejoin_before_target_rate": 0.8135391923990499,
+              "relative_suffix_cost_gap": {
+                "mean": 0.06946606098227787,
+                "median": 0.017899771430893913,
+                "p90": 0.20493599436097182
+              },
+              "sample_count": 842,
+              "turn_category_confusion_counts": {
+                "left->left": 3,
+                "left->right": 6,
+                "left->straight": 12,
+                "right->left": 1,
+                "right->right": 9,
+                "right->straight": 39,
+                "straight->left": 18,
+                "straight->right": 60,
+                "straight->straight": 441,
+                "uturn->right": 1,
+                "uturn->straight": 1
+              },
+              "turn_category_match_rate_when_both_available": 0.766497461928934
+            },
+            "exact_match_rate": 0.5475550779150994,
+            "first_choice_accuracy": 0.8651262761955938,
+            "mean_complex_junction_count": 4.16335303600215,
+            "mean_edge_f1": 0.8024924918415091,
+            "mean_observed_left_turn_count": 1.22837184309511,
+            "mean_observed_path_length": 20.284255776464267,
+            "mean_prefix_match_ratio": 0.6654950190126552,
+            "sample_count": 1861,
+            "unseen_train_edge_route_rate": 0.0010746910263299302
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": null,
+              "minimum_inclusive": 6
+            },
+            "route_length_quartile": 2
+          },
+          "label": "q2_complex_6_or_more",
+          "summary": {
+            "divergence_rate": 0.6132269417052859,
+            "divergent_routes": {
+              "complex_junction_rate": 0.7830558554463322,
+              "divergence_node_indegree": {
+                "mean": 2.2943917268026595,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.541848968691403,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 4.912665492357521,
+                "median": 3.0,
+                "p90": 14.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 5345,
+                "1": 1775,
+                "10": 507,
+                "11": 448,
+                "12": 418,
+                "13": 377,
+                "14": 325,
+                "15": 333,
+                "16": 237,
+                "17": 208,
+                "18": 204,
+                "19": 152,
+                "2": 1446,
+                "20": 132,
+                "21": 111,
+                "22": 71,
+                "23": 46,
+                "24": 23,
+                "25": 19,
+                "26": 5,
+                "3": 1177,
+                "4": 899,
+                "5": 819,
+                "6": 789,
+                "7": 643,
+                "8": 572,
+                "9": 518
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.22744941305387106,
+                "median": 0.125,
+                "p90": 0.65
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 303281.5508267515,
+                "median": 98386.0,
+                "p90": 889407.2000000002
+              },
+              "observed_turn_available_rate": 0.6962895619069265,
+              "observed_turn_category_counts": {
+                "left": 1855,
+                "right": 2753,
+                "straight": 7624,
+                "uturn": 22
+              },
+              "predicted_turn_available_rate": 0.6962895619069265,
+              "predicted_turn_category_counts": {
+                "left": 2635,
+                "right": 2910,
+                "straight": 6688,
+                "uturn": 21
+              },
+              "rejoin_before_target_rate": 0.7760100005682141,
+              "relative_suffix_cost_gap": {
+                "mean": 0.10554706173069127,
+                "median": 0.037539585341053644,
+                "p90": 0.3052415511851154
+              },
+              "sample_count": 17599,
+              "turn_category_confusion_counts": {
+                "left->left": 129,
+                "left->right": 186,
+                "left->straight": 1537,
+                "left->uturn": 3,
+                "right->left": 179,
+                "right->right": 106,
+                "right->straight": 2463,
+                "right->uturn": 5,
+                "straight->left": 2324,
+                "straight->right": 2616,
+                "straight->straight": 2671,
+                "straight->uturn": 13,
+                "uturn->left": 3,
+                "uturn->right": 2,
+                "uturn->straight": 17
+              },
+              "turn_category_match_rate_when_both_available": 0.2371470540231761
+            },
+            "exact_match_rate": 0.3867730582947141,
+            "first_choice_accuracy": 0.813756576884212,
+            "mean_complex_junction_count": 14.335029095090421,
+            "mean_edge_f1": 0.6907954284497,
+            "mean_observed_left_turn_count": 1.810306979337259,
+            "mean_observed_path_length": 21.313948221192376,
+            "mean_prefix_match_ratio": 0.5262511662544079,
+            "sample_count": 28699,
+            "unseen_train_edge_route_rate": 0.0047388410746019025
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 0,
+              "minimum_inclusive": 0
+            },
+            "route_length_quartile": 3
+          },
+          "label": "q3_complex_0",
+          "summary": {
+            "divergence_rate": 0.3253968253968254,
+            "divergent_routes": {
+              "complex_junction_rate": 0.0,
+              "divergence_node_indegree": {
+                "mean": 1.0,
+                "median": 1.0,
+                "p90": 1.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.0,
+                "median": 2.0,
+                "p90": 2.0
+              },
+              "first_divergence_index": {
+                "mean": 13.0,
+                "median": 11.0,
+                "p90": 28.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 4,
+                "1": 5,
+                "11": 2,
+                "14": 2,
+                "16": 2,
+                "2": 4,
+                "21": 1,
+                "22": 3,
+                "24": 4,
+                "26": 1,
+                "28": 2,
+                "29": 1,
+                "31": 1,
+                "32": 1,
+                "35": 1,
+                "4": 1,
+                "5": 1,
+                "6": 1,
+                "7": 2,
+                "8": 1,
+                "9": 1
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.38430450503885405,
+                "median": 0.275,
+                "p90": 0.8571428571428571
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 218000.46341463414,
+                "median": 32415.0,
+                "p90": 338418.0
+              },
+              "observed_turn_available_rate": 0.9024390243902439,
+              "observed_turn_category_counts": {
+                "straight": 37
+              },
+              "predicted_turn_available_rate": 0.9024390243902439,
+              "predicted_turn_category_counts": {
+                "left": 2,
+                "right": 2,
+                "straight": 33
+              },
+              "rejoin_before_target_rate": 0.8536585365853658,
+              "relative_suffix_cost_gap": {
+                "mean": 0.024684315508075958,
+                "median": 0.004481640604812575,
+                "p90": 0.05883522624562926
+              },
+              "sample_count": 41,
+              "turn_category_confusion_counts": {
+                "straight->left": 2,
+                "straight->right": 2,
+                "straight->straight": 33
+              },
+              "turn_category_match_rate_when_both_available": 0.8918918918918919
+            },
+            "exact_match_rate": 0.6746031746031746,
+            "first_choice_accuracy": 0.9682539682539683,
+            "mean_complex_junction_count": 0.0,
+            "mean_edge_f1": 0.8777742321096084,
+            "mean_observed_left_turn_count": 1.3174603174603174,
+            "mean_observed_path_length": 35.12698412698413,
+            "mean_prefix_match_ratio": 0.7996546405285161,
+            "sample_count": 126,
+            "unseen_train_edge_route_rate": 0.0
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 2,
+              "minimum_inclusive": 1
+            },
+            "route_length_quartile": 3
+          },
+          "label": "q3_complex_1_to_2",
+          "summary": {
+            "divergence_rate": 0.6060606060606061,
+            "divergent_routes": {
+              "complex_junction_rate": 0.1,
+              "divergence_node_indegree": {
+                "mean": 1.125,
+                "median": 1.0,
+                "p90": 1.1000000000000085
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.033333333333333,
+                "median": 2.0,
+                "p90": 2.0
+              },
+              "first_divergence_index": {
+                "mean": 13.883333333333333,
+                "median": 13.5,
+                "p90": 30.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 17,
+                "1": 10,
+                "10": 2,
+                "11": 3,
+                "12": 1,
+                "13": 1,
+                "14": 1,
+                "15": 3,
+                "16": 1,
+                "17": 1,
+                "18": 2,
+                "19": 4,
+                "2": 2,
+                "20": 4,
+                "21": 3,
+                "22": 5,
+                "23": 6,
+                "24": 5,
+                "25": 1,
+                "26": 2,
+                "27": 3,
+                "28": 3,
+                "29": 3,
+                "3": 9,
+                "30": 5,
+                "32": 4,
+                "34": 3,
+                "35": 1,
+                "4": 2,
+                "5": 5,
+                "6": 3,
+                "7": 3,
+                "8": 2
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.3810851694600481,
+                "median": 0.38662486938349006,
+                "p90": 0.75
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 361722.3,
+                "median": 35876.5,
+                "p90": 737600.8000000005
+              },
+              "observed_turn_available_rate": 0.8583333333333333,
+              "observed_turn_category_counts": {
+                "right": 3,
+                "straight": 100
+              },
+              "predicted_turn_available_rate": 0.8583333333333333,
+              "predicted_turn_category_counts": {
+                "left": 1,
+                "right": 5,
+                "straight": 97
+              },
+              "rejoin_before_target_rate": 0.875,
+              "relative_suffix_cost_gap": {
+                "mean": 0.034420307239118604,
+                "median": 0.007998947991160452,
+                "p90": 0.09188713374533813
+              },
+              "sample_count": 120,
+              "turn_category_confusion_counts": {
+                "right->straight": 3,
+                "straight->left": 1,
+                "straight->right": 5,
+                "straight->straight": 94
+              },
+              "turn_category_match_rate_when_both_available": 0.912621359223301
+            },
+            "exact_match_rate": 0.3939393939393939,
+            "first_choice_accuracy": 0.9141414141414141,
+            "mean_complex_junction_count": 1.4696969696969697,
+            "mean_edge_f1": 0.7661473885696025,
+            "mean_observed_left_turn_count": 1.5101010101010102,
+            "mean_observed_path_length": 35.07575757575758,
+            "mean_prefix_match_ratio": 0.6249001027030596,
+            "sample_count": 198,
+            "unseen_train_edge_route_rate": 0.0
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 5,
+              "minimum_inclusive": 3
+            },
+            "route_length_quartile": 3
+          },
+          "label": "q3_complex_3_to_5",
+          "summary": {
+            "divergence_rate": 0.6304347826086957,
+            "divergent_routes": {
+              "complex_junction_rate": 0.26354679802955666,
+              "divergence_node_indegree": {
+                "mean": 1.4310344827586208,
+                "median": 1.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.187192118226601,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 9.169950738916256,
+                "median": 5.5,
+                "p90": 24.5
+              },
+              "first_divergence_index_histogram": {
+                "0": 101,
+                "1": 27,
+                "10": 8,
+                "11": 9,
+                "12": 8,
+                "13": 9,
+                "14": 8,
+                "15": 10,
+                "16": 11,
+                "17": 7,
+                "18": 8,
+                "19": 6,
+                "2": 22,
+                "20": 10,
+                "21": 5,
+                "22": 3,
+                "23": 5,
+                "24": 6,
+                "25": 1,
+                "26": 9,
+                "27": 2,
+                "28": 4,
+                "29": 6,
+                "3": 22,
+                "30": 3,
+                "31": 3,
+                "32": 1,
+                "33": 4,
+                "34": 2,
+                "36": 2,
+                "37": 1,
+                "38": 1,
+                "39": 2,
+                "4": 19,
+                "5": 12,
+                "6": 9,
+                "7": 11,
+                "8": 18,
+                "9": 11
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.26596763614941943,
+                "median": 0.15388257575757575,
+                "p90": 0.7048387096774194
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 446899.66502463055,
+                "median": 117936.0,
+                "p90": 1173267.0
+              },
+              "observed_turn_available_rate": 0.7512315270935961,
+              "observed_turn_category_counts": {
+                "left": 7,
+                "right": 14,
+                "straight": 281,
+                "uturn": 3
+              },
+              "predicted_turn_available_rate": 0.7512315270935961,
+              "predicted_turn_category_counts": {
+                "left": 25,
+                "right": 28,
+                "straight": 252
+              },
+              "rejoin_before_target_rate": 0.8472906403940886,
+              "relative_suffix_cost_gap": {
+                "mean": 0.06669099692438336,
+                "median": 0.018965660946331602,
+                "p90": 0.18069833950152123
+              },
+              "sample_count": 406,
+              "turn_category_confusion_counts": {
+                "left->right": 2,
+                "left->straight": 5,
+                "right->left": 2,
+                "right->right": 3,
+                "right->straight": 9,
+                "straight->left": 23,
+                "straight->right": 23,
+                "straight->straight": 235,
+                "uturn->straight": 3
+              },
+              "turn_category_match_rate_when_both_available": 0.780327868852459
+            },
+            "exact_match_rate": 0.3695652173913043,
+            "first_choice_accuracy": 0.843167701863354,
+            "mean_complex_junction_count": 4.220496894409938,
+            "mean_edge_f1": 0.7287829512818692,
+            "mean_observed_left_turn_count": 1.8214285714285714,
+            "mean_observed_path_length": 33.97360248447205,
+            "mean_prefix_match_ratio": 0.537240466268112,
+            "sample_count": 644,
+            "unseen_train_edge_route_rate": 0.0015527950310559005
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": null,
+              "minimum_inclusive": 6
+            },
+            "route_length_quartile": 3
+          },
+          "label": "q3_complex_6_or_more",
+          "summary": {
+            "divergence_rate": 0.8043767418292374,
+            "divergent_routes": {
+              "complex_junction_rate": 0.6808535769124768,
+              "divergence_node_indegree": {
+                "mean": 2.100633883223749,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.454191109886216,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 7.516831371313831,
+                "median": 4.0,
+                "p90": 22.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 7042,
+                "1": 2239,
+                "10": 607,
+                "11": 550,
+                "12": 515,
+                "13": 476,
+                "14": 448,
+                "15": 422,
+                "16": 391,
+                "17": 369,
+                "18": 371,
+                "19": 313,
+                "2": 1778,
+                "20": 301,
+                "21": 315,
+                "22": 280,
+                "23": 262,
+                "24": 252,
+                "25": 265,
+                "26": 195,
+                "27": 234,
+                "28": 179,
+                "29": 160,
+                "3": 1450,
+                "30": 135,
+                "31": 112,
+                "32": 99,
+                "33": 101,
+                "34": 70,
+                "35": 57,
+                "36": 59,
+                "37": 53,
+                "38": 41,
+                "39": 36,
+                "4": 1172,
+                "40": 30,
+                "41": 18,
+                "42": 12,
+                "43": 8,
+                "44": 3,
+                "5": 988,
+                "6": 880,
+                "7": 766,
+                "8": 741,
+                "9": 604
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.2072247684164078,
+                "median": 0.1,
+                "p90": 0.6129032258064516
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 469371.00866175833,
+                "median": 184604.0,
+                "p90": 1266345.0000000005
+              },
+              "observed_turn_available_rate": 0.7227449899602346,
+              "observed_turn_category_counts": {
+                "left": 2541,
+                "right": 3555,
+                "straight": 12233,
+                "uturn": 28
+              },
+              "predicted_turn_available_rate": 0.7227449899602346,
+              "predicted_turn_category_counts": {
+                "left": 3464,
+                "right": 3681,
+                "straight": 11188,
+                "uturn": 24
+              },
+              "rejoin_before_target_rate": 0.8471987086105752,
+              "relative_suffix_cost_gap": {
+                "mean": 0.09210710422589574,
+                "median": 0.039708208626627474,
+                "p90": 0.24789578986557073
+              },
+              "sample_count": 25399,
+              "turn_category_confusion_counts": {
+                "left->left": 129,
+                "left->right": 323,
+                "left->straight": 2085,
+                "left->uturn": 4,
+                "right->left": 287,
+                "right->right": 233,
+                "right->straight": 3035,
+                "straight->left": 3044,
+                "straight->right": 3117,
+                "straight->straight": 6052,
+                "straight->uturn": 20,
+                "uturn->left": 4,
+                "uturn->right": 8,
+                "uturn->straight": 16
+              },
+              "turn_category_match_rate_when_both_available": 0.34940349730348097
+            },
+            "exact_match_rate": 0.1956232581707626,
+            "first_choice_accuracy": 0.7769825183683811,
+            "mean_complex_junction_count": 20.897580440841146,
+            "mean_edge_f1": 0.5984447923032403,
+            "mean_observed_left_turn_count": 2.6893210032936405,
+            "mean_observed_path_length": 36.17247276412465,
+            "mean_prefix_match_ratio": 0.3623100422158723,
+            "sample_count": 31576,
+            "unseen_train_edge_route_rate": 0.004655434507220674
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 0,
+              "minimum_inclusive": 0
+            },
+            "route_length_quartile": 4
+          },
+          "label": "q4_complex_0",
+          "summary": {
+            "divergence_rate": 0.72,
+            "divergent_routes": {
+              "complex_junction_rate": 0.0,
+              "divergence_node_indegree": {
+                "mean": 1.0,
+                "median": 1.0,
+                "p90": 1.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.0,
+                "median": 2.0,
+                "p90": 2.0
+              },
+              "first_divergence_index": {
+                "mean": 15.055555555555555,
+                "median": 11.5,
+                "p90": 39.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 3,
+                "1": 3,
+                "17": 1,
+                "2": 2,
+                "22": 2,
+                "25": 2,
+                "26": 1,
+                "39": 2,
+                "43": 1,
+                "6": 1
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.2786540603528976,
+                "median": 0.22916666666666666,
+                "p90": 0.763888888888889
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 319307.05555555556,
+                "median": 62080.5,
+                "p90": 748066.2000000011
+              },
+              "observed_turn_available_rate": 0.8333333333333334,
+              "observed_turn_category_counts": {
+                "straight": 15
+              },
+              "predicted_turn_available_rate": 0.8333333333333334,
+              "predicted_turn_category_counts": {
+                "left": 3,
+                "straight": 12
+              },
+              "rejoin_before_target_rate": 0.9444444444444444,
+              "relative_suffix_cost_gap": {
+                "mean": 0.022673971200467966,
+                "median": 0.003325594317348655,
+                "p90": 0.054430818056265234
+              },
+              "sample_count": 18,
+              "turn_category_confusion_counts": {
+                "straight->left": 3,
+                "straight->straight": 12
+              },
+              "turn_category_match_rate_when_both_available": 0.8
+            },
+            "exact_match_rate": 0.28,
+            "first_choice_accuracy": 0.88,
+            "mean_complex_junction_count": 0.0,
+            "mean_edge_f1": 0.7905316466776435,
+            "mean_observed_left_turn_count": 1.88,
+            "mean_observed_path_length": 54.0,
+            "mean_prefix_match_ratio": 0.48063092345408626,
+            "sample_count": 25,
+            "unseen_train_edge_route_rate": 0.0
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 2,
+              "minimum_inclusive": 1
+            },
+            "route_length_quartile": 4
+          },
+          "label": "q4_complex_1_to_2",
+          "summary": {
+            "divergence_rate": 0.8620689655172413,
+            "divergent_routes": {
+              "complex_junction_rate": 0.06,
+              "divergence_node_indegree": {
+                "mean": 1.04,
+                "median": 1.0,
+                "p90": 1.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.02,
+                "median": 2.0,
+                "p90": 2.0
+              },
+              "first_divergence_index": {
+                "mean": 19.12,
+                "median": 24.5,
+                "p90": 36.1
+              },
+              "first_divergence_index_histogram": {
+                "0": 6,
+                "1": 3,
+                "12": 2,
+                "14": 1,
+                "15": 1,
+                "2": 3,
+                "21": 1,
+                "22": 1,
+                "27": 3,
+                "28": 6,
+                "29": 1,
+                "3": 1,
+                "30": 4,
+                "31": 2,
+                "32": 1,
+                "34": 2,
+                "36": 1,
+                "37": 1,
+                "38": 1,
+                "39": 1,
+                "4": 3,
+                "44": 1,
+                "5": 1,
+                "6": 1,
+                "63": 1,
+                "8": 1
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.33587055550128286,
+                "median": 0.4040088638195004,
+                "p90": 0.6798392732354996
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 511868.58,
+                "median": 86933.5,
+                "p90": 1606640.2000000004
+              },
+              "observed_turn_available_rate": 0.88,
+              "observed_turn_category_counts": {
+                "right": 1,
+                "straight": 43
+              },
+              "predicted_turn_available_rate": 0.88,
+              "predicted_turn_category_counts": {
+                "left": 1,
+                "right": 2,
+                "straight": 41
+              },
+              "rejoin_before_target_rate": 0.92,
+              "relative_suffix_cost_gap": {
+                "mean": 0.03567798035279185,
+                "median": 0.009272180661373038,
+                "p90": 0.10252234751347504
+              },
+              "sample_count": 50,
+              "turn_category_confusion_counts": {
+                "right->straight": 1,
+                "straight->left": 1,
+                "straight->right": 2,
+                "straight->straight": 40
+              },
+              "turn_category_match_rate_when_both_available": 0.9090909090909091
+            },
+            "exact_match_rate": 0.13793103448275862,
+            "first_choice_accuracy": 0.896551724137931,
+            "mean_complex_junction_count": 1.4482758620689655,
+            "mean_edge_f1": 0.6267767406659616,
+            "mean_observed_left_turn_count": 2.0517241379310347,
+            "mean_observed_path_length": 57.44827586206897,
+            "mean_prefix_match_ratio": 0.42747461681145077,
+            "sample_count": 58,
+            "unseen_train_edge_route_rate": 0.0
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": 5,
+              "minimum_inclusive": 3
+            },
+            "route_length_quartile": 4
+          },
+          "label": "q4_complex_3_to_5",
+          "summary": {
+            "divergence_rate": 0.8152866242038217,
+            "divergent_routes": {
+              "complex_junction_rate": 0.21875,
+              "divergence_node_indegree": {
+                "mean": 1.296875,
+                "median": 1.0,
+                "p90": 2.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.125,
+                "median": 2.0,
+                "p90": 2.299999999999997
+              },
+              "first_divergence_index": {
+                "mean": 17.1640625,
+                "median": 15.0,
+                "p90": 40.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 25,
+                "1": 5,
+                "10": 1,
+                "11": 3,
+                "12": 1,
+                "14": 4,
+                "15": 6,
+                "16": 4,
+                "18": 2,
+                "19": 1,
+                "2": 4,
+                "20": 3,
+                "21": 3,
+                "22": 3,
+                "23": 1,
+                "24": 2,
+                "25": 1,
+                "26": 3,
+                "28": 4,
+                "3": 2,
+                "30": 1,
+                "31": 3,
+                "32": 1,
+                "33": 6,
+                "34": 2,
+                "35": 1,
+                "36": 1,
+                "38": 1,
+                "39": 2,
+                "4": 2,
+                "40": 2,
+                "41": 1,
+                "42": 3,
+                "43": 1,
+                "45": 2,
+                "49": 2,
+                "5": 4,
+                "52": 1,
+                "6": 2,
+                "61": 1,
+                "65": 1,
+                "7": 4,
+                "8": 3,
+                "9": 3
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.29375763919157205,
+                "median": 0.25270655270655273,
+                "p90": 0.688146551724138
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 626607.5859375,
+                "median": 240624.0,
+                "p90": 1864830.1999999997
+              },
+              "observed_turn_available_rate": 0.8046875,
+              "observed_turn_category_counts": {
+                "left": 4,
+                "right": 3,
+                "straight": 96
+              },
+              "predicted_turn_available_rate": 0.8046875,
+              "predicted_turn_category_counts": {
+                "left": 4,
+                "right": 2,
+                "straight": 97
+              },
+              "rejoin_before_target_rate": 0.84375,
+              "relative_suffix_cost_gap": {
+                "mean": 0.04104729087085832,
+                "median": 0.015413518741389257,
+                "p90": 0.11270227128871242
+              },
+              "sample_count": 128,
+              "turn_category_confusion_counts": {
+                "left->straight": 4,
+                "right->straight": 3,
+                "straight->left": 4,
+                "straight->right": 2,
+                "straight->straight": 90
+              },
+              "turn_category_match_rate_when_both_available": 0.8737864077669902
+            },
+            "exact_match_rate": 0.18471337579617833,
+            "first_choice_accuracy": 0.8407643312101911,
+            "mean_complex_junction_count": 4.292993630573249,
+            "mean_edge_f1": 0.6197066080418512,
+            "mean_observed_left_turn_count": 2.337579617834395,
+            "mean_observed_path_length": 58.64968152866242,
+            "mean_prefix_match_ratio": 0.4242100497867591,
+            "sample_count": 157,
+            "unseen_train_edge_route_rate": 0.0
+          }
+        },
+        {
+          "criteria": {
+            "complex_junction_count": {
+              "maximum_inclusive": null,
+              "minimum_inclusive": 6
+            },
+            "route_length_quartile": 4
+          },
+          "label": "q4_complex_6_or_more",
+          "summary": {
+            "divergence_rate": 0.9449824651716483,
+            "divergent_routes": {
+              "complex_junction_rate": 0.6071635286507099,
+              "divergence_node_indegree": {
+                "mean": 1.9748731742194683,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.398590446358653,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 9.867590480405843,
+                "median": 4.0,
+                "p90": 30.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 8091,
+                "1": 2525,
+                "10": 571,
+                "11": 609,
+                "12": 491,
+                "13": 468,
+                "14": 421,
+                "15": 423,
+                "16": 373,
+                "17": 379,
+                "18": 379,
+                "19": 360,
+                "2": 1954,
+                "20": 303,
+                "21": 314,
+                "22": 296,
+                "23": 279,
+                "24": 262,
+                "25": 231,
+                "26": 191,
+                "27": 193,
+                "28": 211,
+                "29": 201,
+                "3": 1499,
+                "30": 171,
+                "31": 170,
+                "32": 163,
+                "33": 174,
+                "34": 152,
+                "35": 157,
+                "36": 137,
+                "37": 126,
+                "38": 100,
+                "39": 116,
+                "4": 1278,
+                "40": 127,
+                "41": 112,
+                "42": 105,
+                "43": 104,
+                "44": 90,
+                "45": 89,
+                "46": 92,
+                "47": 73,
+                "48": 65,
+                "49": 58,
+                "5": 994,
+                "50": 48,
+                "51": 34,
+                "52": 57,
+                "53": 48,
+                "54": 32,
+                "55": 35,
+                "56": 32,
+                "57": 34,
+                "58": 24,
+                "59": 24,
+                "6": 891,
+                "60": 17,
+                "61": 15,
+                "62": 24,
+                "63": 15,
+                "64": 14,
+                "65": 12,
+                "66": 8,
+                "67": 13,
+                "68": 4,
+                "69": 14,
+                "7": 821,
+                "70": 10,
+                "71": 7,
+                "72": 3,
+                "73": 4,
+                "74": 6,
+                "75": 5,
+                "76": 2,
+                "77": 4,
+                "78": 3,
+                "79": 2,
+                "8": 754,
+                "80": 1,
+                "81": 4,
+                "82": 1,
+                "83": 4,
+                "84": 1,
+                "85": 1,
+                "86": 1,
+                "87": 2,
+                "88": 1,
+                "89": 1,
+                "9": 660,
+                "90": 1
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.15215122920851407,
+                "median": 0.058823529411764705,
+                "p90": 0.46226415094339623
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 1219464.2086752239,
+                "median": 488054.0,
+                "p90": 2861074.0
+              },
+              "observed_turn_available_rate": 0.7245241905280719,
+              "observed_turn_category_counts": {
+                "left": 2574,
+                "right": 3606,
+                "straight": 15040,
+                "uturn": 60
+              },
+              "predicted_turn_available_rate": 0.7245241905280719,
+              "predicted_turn_category_counts": {
+                "left": 3629,
+                "right": 3488,
+                "straight": 14131,
+                "uturn": 32
+              },
+              "rejoin_before_target_rate": 0.8883252187531919,
+              "relative_suffix_cost_gap": {
+                "mean": 0.10020674253454746,
+                "median": 0.05140475399656303,
+                "p90": 0.2492133521522668
+              },
+              "sample_count": 29371,
+              "turn_category_confusion_counts": {
+                "left->left": 111,
+                "left->right": 310,
+                "left->straight": 2151,
+                "left->uturn": 2,
+                "right->left": 314,
+                "right->right": 264,
+                "right->straight": 3025,
+                "right->uturn": 3,
+                "straight->left": 3201,
+                "straight->right": 2909,
+                "straight->straight": 8903,
+                "straight->uturn": 27,
+                "uturn->left": 3,
+                "uturn->right": 5,
+                "uturn->straight": 52
+              },
+              "turn_category_match_rate_when_both_available": 0.43599624060150377
+            },
+            "exact_match_rate": 0.05501753482835173,
+            "first_choice_accuracy": 0.7396801904700621,
+            "mean_complex_junction_count": 34.37733663653036,
+            "mean_edge_f1": 0.47338843120140234,
+            "mean_observed_left_turn_count": 4.095749814999517,
+            "mean_observed_path_length": 68.5755606318973,
+            "mean_prefix_match_ratio": 0.19879777848470995,
+            "sample_count": 31081,
+            "unseen_train_edge_route_rate": 0.006338277404201924
+          }
+        }
+      ],
+      "train_edge_visibility": [
+        {
+          "criteria": {
+            "contains_unseen_train_edge": false
+          },
+          "label": "all_observed_edges_seen_in_train",
+          "summary": {
+            "divergence_rate": 0.6526103479425599,
+            "divergent_routes": {
+              "complex_junction_rate": 0.6850828729281768,
+              "divergence_node_indegree": {
+                "mean": 2.124005107215732,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.470675274154863,
+                "median": 2.0,
+                "p90": 3.0
+              },
+              "first_divergence_index": {
+                "mean": 7.199563261458421,
+                "median": 3.0,
+                "p90": 21.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 24934,
+                "1": 7998,
+                "10": 1886,
+                "11": 1764,
+                "12": 1534,
+                "13": 1379,
+                "14": 1231,
+                "15": 1221,
+                "16": 1035,
+                "17": 975,
+                "18": 980,
+                "19": 839,
+                "2": 6270,
+                "20": 760,
+                "21": 753,
+                "22": 664,
+                "23": 597,
+                "24": 554,
+                "25": 520,
+                "26": 403,
+                "27": 434,
+                "28": 408,
+                "29": 367,
+                "3": 4950,
+                "30": 317,
+                "31": 287,
+                "32": 269,
+                "33": 283,
+                "34": 231,
+                "35": 217,
+                "36": 199,
+                "37": 180,
+                "38": 143,
+                "39": 159,
+                "4": 4029,
+                "40": 157,
+                "41": 130,
+                "42": 119,
+                "43": 114,
+                "44": 93,
+                "45": 89,
+                "46": 92,
+                "47": 72,
+                "48": 64,
+                "49": 60,
+                "5": 3400,
+                "50": 48,
+                "51": 34,
+                "52": 58,
+                "53": 48,
+                "54": 32,
+                "55": 35,
+                "56": 32,
+                "57": 34,
+                "58": 24,
+                "59": 23,
+                "6": 3020,
+                "60": 17,
+                "61": 16,
+                "62": 24,
+                "63": 16,
+                "64": 14,
+                "65": 13,
+                "66": 8,
+                "67": 13,
+                "68": 4,
+                "69": 14,
+                "7": 2604,
+                "70": 10,
+                "71": 7,
+                "72": 3,
+                "73": 4,
+                "74": 6,
+                "75": 5,
+                "76": 2,
+                "77": 4,
+                "78": 3,
+                "79": 2,
+                "8": 2397,
+                "80": 1,
+                "81": 4,
+                "82": 1,
+                "83": 4,
+                "84": 1,
+                "85": 1,
+                "86": 1,
+                "87": 2,
+                "88": 1,
+                "89": 1,
+                "9": 2051,
+                "90": 1
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.1945632278797749,
+                "median": 0.09090909090909091,
+                "p90": 0.5862068965517241
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 657404.5111750176,
+                "median": 202618.0,
+                "p90": 1590772.8000000003
+              },
+              "observed_turn_available_rate": 0.7024688853620992,
+              "observed_turn_category_counts": {
+                "left": 7849,
+                "right": 11318,
+                "straight": 39584,
+                "uturn": 118
+              },
+              "predicted_turn_available_rate": 0.7024688853620992,
+              "predicted_turn_category_counts": {
+                "left": 10995,
+                "right": 11709,
+                "straight": 36086,
+                "uturn": 79
+              },
+              "rejoin_before_target_rate": 0.8220708089209217,
+              "relative_suffix_cost_gap": {
+                "mean": 0.10054282159688847,
+                "median": 0.04201991035304783,
+                "p90": 0.2719874028809064
+              },
+              "sample_count": 83803,
+              "turn_category_confusion_counts": {
+                "left->left": 428,
+                "left->right": 910,
+                "left->straight": 6502,
+                "left->uturn": 9,
+                "right->left": 848,
+                "right->right": 660,
+                "right->straight": 9801,
+                "right->uturn": 9,
+                "straight->left": 9708,
+                "straight->right": 10123,
+                "straight->straight": 19693,
+                "straight->uturn": 60,
+                "uturn->left": 11,
+                "uturn->right": 16,
+                "uturn->straight": 90,
+                "uturn->uturn": 1
+              },
+              "turn_category_match_rate_when_both_available": 0.3530211146783536
+            },
+            "exact_match_rate": 0.3473896520574401,
+            "first_choice_accuracy": 0.8058281157524219,
+            "mean_complex_junction_count": 18.32632464255677,
+            "mean_edge_f1": 0.656717312757255,
+            "mean_observed_left_turn_count": 2.302425007008691,
+            "mean_observed_path_length": 33.40128648412921,
+            "mean_prefix_match_ratio": 0.4743636279008894,
+            "sample_count": 128412,
+            "unseen_train_edge_route_rate": 0.0
+          }
+        },
+        {
+          "criteria": {
+            "contains_unseen_train_edge": true
+          },
+          "label": "contains_unseen_train_edge",
+          "summary": {
+            "divergence_rate": 0.7971014492753623,
+            "divergent_routes": {
+              "complex_junction_rate": 0.795959595959596,
+              "divergence_node_indegree": {
+                "mean": 2.397979797979798,
+                "median": 2.0,
+                "p90": 4.0
+              },
+              "divergence_node_outdegree": {
+                "mean": 2.632323232323232,
+                "median": 3.0,
+                "p90": 4.0
+              },
+              "first_divergence_index": {
+                "mean": 7.280808080808081,
+                "median": 3.0,
+                "p90": 21.0
+              },
+              "first_divergence_index_histogram": {
+                "0": 137,
+                "1": 45,
+                "10": 7,
+                "11": 9,
+                "12": 9,
+                "13": 14,
+                "14": 9,
+                "15": 7,
+                "16": 5,
+                "17": 9,
+                "18": 4,
+                "19": 7,
+                "2": 44,
+                "20": 3,
+                "21": 6,
+                "22": 4,
+                "23": 3,
+                "24": 3,
+                "25": 1,
+                "26": 5,
+                "27": 1,
+                "28": 1,
+                "29": 5,
+                "3": 32,
+                "30": 2,
+                "31": 4,
+                "32": 1,
+                "33": 2,
+                "36": 1,
+                "37": 1,
+                "38": 1,
+                "4": 23,
+                "40": 2,
+                "41": 1,
+                "42": 1,
+                "44": 1,
+                "45": 2,
+                "47": 1,
+                "48": 1,
+                "5": 21,
+                "59": 1,
+                "6": 17,
+                "7": 14,
+                "8": 16,
+                "9": 12
+              },
+              "first_divergence_observed_path_fraction": {
+                "mean": 0.19737731130564748,
+                "median": 0.09090909090909091,
+                "p90": 0.6061461794019933
+              },
+              "observed_minus_predicted_suffix_cost": {
+                "mean": 1399358.2505050504,
+                "median": 515073.0,
+                "p90": 3530566.600000003
+              },
+              "observed_turn_available_rate": 0.7232323232323232,
+              "observed_turn_category_counts": {
+                "left": 68,
+                "right": 75,
+                "straight": 214,
+                "uturn": 1
+              },
+              "predicted_turn_available_rate": 0.7232323232323232,
+              "predicted_turn_category_counts": {
+                "left": 71,
+                "right": 100,
+                "straight": 187
+              },
+              "rejoin_before_target_rate": 0.8363636363636363,
+              "relative_suffix_cost_gap": {
+                "mean": 0.15717049788757623,
+                "median": 0.0877361100359288,
+                "p90": 0.41158957979782795
+              },
+              "sample_count": 495,
+              "turn_category_confusion_counts": {
+                "left->left": 2,
+                "left->right": 13,
+                "left->straight": 53,
+                "right->left": 8,
+                "right->right": 11,
+                "right->straight": 56,
+                "straight->left": 61,
+                "straight->right": 76,
+                "straight->straight": 77,
+                "uturn->straight": 1
+              },
+              "turn_category_match_rate_when_both_available": 0.25139664804469275
+            },
+            "exact_match_rate": 0.2028985507246377,
+            "first_choice_accuracy": 0.7793880837359098,
+            "mean_complex_junction_count": 23.394524959742352,
+            "mean_edge_f1": 0.5890152160743772,
+            "mean_observed_left_turn_count": 3.887278582930757,
+            "mean_observed_path_length": 38.38003220611916,
+            "mean_prefix_match_ratio": 0.36022829162044356,
+            "sample_count": 621,
+            "unseen_train_edge_route_rate": 1.0
+          }
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "analysis_kind": "first_route_divergence",
+    "checkpoint_metadata": {
+      "best_epoch": 19,
+      "city": "beijing",
+      "eta0": 0.0001,
+      "lambda": 100000.0,
+      "metric_update_mode": "Full",
+      "q_max": 10.0,
+      "q_min": 0.1,
+      "schema_version": 1,
+      "selection_loss": 0.06826350093515333,
+      "selection_metric": "RelativeRegret",
+      "solver": "ProjectedSubgradient",
+      "train_variant": "all",
+      "validation_variant": "time_dev_20090513_excl_previous"
+    },
+    "checkpoint_path": "/tmp/edge-weight-convergence-study/runs/controls/control_full_eta1e4_t20/model_checkpoint.json",
+    "city": "beijing",
+    "data_policy": {
+      "loaded_splits": [
+        "train",
+        "validation"
+      ],
+      "test_loaded": false,
+      "training_performed": false
+    },
+    "max_train_samples": null,
+    "max_validation_samples": null,
+    "rayon_threads": 8,
+    "schema_version": 1,
+    "train_validation_report": {
+      "accepted": 623275,
+      "available": 785709,
+      "cyclic": 162434,
+      "discontinuous": 0,
+      "empty_or_too_short": 0,
+      "inspected": 785709,
+      "out_of_bounds": 0,
+      "trimmed_boundary_edges": 0
+    },
+    "train_variant": "all",
+    "train_variant_matches_checkpoint": true,
+    "validation_validation_report": {
+      "accepted": 129033,
+      "available": 163614,
+      "cyclic": 34581,
+      "discontinuous": 0,
+      "empty_or_too_short": 0,
+      "inspected": 163614,
+      "out_of_bounds": 0,
+      "trimmed_boundary_edges": 0
+    },
+    "validation_variant": "time_dev_20090513_excl_previous"
+  },
+  "routes_output": null,
+  "runtime": {
+    "peak_rss_kib": 1525512,
+    "wall_seconds": 5.31722465
+  }
+}

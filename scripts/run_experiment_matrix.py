@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-"""Run a bounded, cacheable validation-only experiment matrix.
+"""Run a bounded, content-addressed validation-only experiment matrix.
 
 The matrix is a CSV with these required columns:
 run_id, phase, scale, seed, eta0, lambda, train_variant.
-Optional columns are metric_update, epochs, and patience.
+Optional columns include metric_update, epochs, patience, eval_every,
+eval_path_metrics, early_stop_min_delta, and train_cycle_policy.
+
+Cache reuse requires an exact matrix row, command, Rayon thread count, binary
+SHA-256, and graph/train/validation input SHA-256 set. The test split is never
+opened or fingerprinted.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import os
@@ -33,6 +39,8 @@ REQUIRED_COLUMNS = {
     "train_variant",
 }
 SAFE_RUN_ID = re.compile(r"^[A-Za-z0-9_.-]+$")
+TEST_PATH_TOKEN = re.compile(r"(^|[_.-])test([_.-]|$)", re.IGNORECASE)
+CACHE_SCHEMA_VERSION = 1
 
 
 def arguments() -> argparse.Namespace:
@@ -72,6 +80,8 @@ def read_matrix(path: Path) -> list[dict[str, str]]:
         seen.add(run_id)
         if row.get("metric_update", "full") not in {"full", "partial"}:
             raise ValueError(f"invalid metric_update in {run_id}")
+        if (row.get("train_cycle_policy") or "drop") not in {"drop", "keep", "erase"}:
+            raise ValueError(f"invalid train_cycle_policy in {run_id}")
     return rows
 
 
@@ -161,13 +171,42 @@ def parse_log(path: Path) -> dict[str, Any]:
         (
             "config_",
             config,
-            ["solver", "selection_metric", "metric_update", "run_test"],
+            [
+                "solver",
+                "selection_metric",
+                "metric_update",
+                "run_test",
+                "eval_path_metrics",
+                "early_stop_min_delta",
+                "train_cycle_policy",
+                "evaluation_cycle_policy",
+            ],
         ),
-        ("train_", data.get("train", {}), ["available", "inspected", "accepted", "cyclic"]),
+        (
+            "train_",
+            data.get("train", {}),
+            [
+                "available",
+                "inspected",
+                "accepted",
+                "cyclic",
+                "cycle_erased_records",
+                "empty_after_cycle_transform",
+                "cycle_edges_removed",
+            ],
+        ),
         (
             "validation_",
             data.get("validation", {}),
-            ["available", "inspected", "accepted", "cyclic"],
+            [
+                "available",
+                "inspected",
+                "accepted",
+                "cyclic",
+                "cycle_erased_records",
+                "empty_after_cycle_transform",
+                "cycle_edges_removed",
+            ],
         ),
         (
             "best_",
@@ -195,6 +234,10 @@ def parse_log(path: Path) -> dict[str, Any]:
                 "train_oracle_ms",
                 "customization_ms",
                 "current_max_quantization_error",
+                "validation_relative_regret",
+                "validation_exact_match",
+                "validation_edge_f1",
+                "validation_edge_jaccard",
             ],
         ),
         (
@@ -214,13 +257,28 @@ def parse_log(path: Path) -> dict[str, Any]:
     ]:
         for key in keys:
             result[prefix + key] = as_number(values.get(key))
+    # Preserve the original parser keys for old result files, but expose
+    # non-duplicated aliases for new analyses (for example best_epoch rather
+    # than best_best_epoch).
+    for key in [
+        "best_epoch",
+        "best_train_regret",
+        "best_regularization",
+        "best_q_min",
+        "best_q_max",
+        "best_q_at_min",
+        "best_q_at_max",
+    ]:
+        legacy_key = "best_" + key
+        if legacy_key in result:
+            result[key] = result[legacy_key]
     train_relative = result.get("best_epoch_train_relative_regret")
     validation_relative = result.get("validation_relative_regret")
     if isinstance(train_relative, (int, float)) and isinstance(
         validation_relative, (int, float)
     ):
         result["relative_regret_gap"] = validation_relative - train_relative
-    train_mean = result.get("best_best_train_regret")
+    train_mean = result.get("best_train_regret")
     validation_mean = result.get("validation_mean_regret")
     if isinstance(train_mean, (int, float)) and isinstance(validation_mean, (int, float)):
         result["mean_regret_gap"] = validation_mean - train_mean
@@ -260,39 +318,15 @@ def atomic_json(path: Path, value: Any) -> None:
     temporary.replace(path)
 
 
-def run_one(row: dict[str, str], args: argparse.Namespace) -> dict[str, Any]:
-    run_id = row["run_id"]
-    output_dir = args.run_root / row["phase"] / run_id
-    output_dir.mkdir(parents=True, exist_ok=True)
-    prefix = output_dir / "model"
-    log_path = Path(f"{prefix}_training.log")
-    result_path = output_dir / "runner_result.json"
-    cached = parse_log(log_path)
-    if cached and not args.force:
-        cached.update(checkpoint_quantiles(Path(f"{prefix}_checkpoint.json")))
-        originally_cached = True
-        if result_path.exists():
-            prior = json.loads(result_path.read_text(encoding="utf-8"))
-            originally_cached = bool(prior.get("cached", False))
-            prior.update(cached)
-            cached = prior
-        cached.update(row)
-        cached.update(
-            {
-                "cached": originally_cached,
-                "cache_hit_last_invocation": True,
-                "checkpoint_path": str(Path(f"{prefix}_checkpoint.json")),
-                "log_path": str(log_path),
-            }
-        )
-        return cached
-
+def build_command(
+    row: dict[str, str], args: argparse.Namespace, prefix: Path
+) -> list[str]:
     epochs = int(row.get("epochs") or args.default_epochs)
     patience = int(row.get("patience") or args.default_patience)
     metric_update = row.get("metric_update") or "full"
     solver = row.get("solver") or "projected"
     if solver not in {"projected", "adam-shock"}:
-        raise ValueError(f"invalid solver {solver!r} in {run_id}")
+        raise ValueError(f"invalid solver {solver!r} in {row['run_id']}")
     command = [
         str(args.binary.resolve()),
         "--city",
@@ -318,7 +352,7 @@ def run_one(row: dict[str, str], args: argparse.Namespace) -> dict[str, Any]:
         "--lambda",
         row["lambda"],
         "--eval-every",
-        "1",
+        row.get("eval_every") or "1",
         "--seed",
         row["seed"],
         "--output-prefix",
@@ -328,6 +362,172 @@ def run_one(row: dict[str, str], args: argparse.Namespace) -> dict[str, Any]:
         command.extend(
             ["--adam-learning-rate", row.get("adam_learning_rate") or "3000"]
         )
+    if (row.get("eval_path_metrics") or "").lower() in {"1", "true", "yes"}:
+        command.append("--eval-path-metrics")
+    if row.get("early_stop_min_delta"):
+        command.extend(
+            ["--early-stop-min-delta", row["early_stop_min_delta"]]
+        )
+    if row.get("train_cycle_policy"):
+        command.extend(["--train-cycle-policy", row["train_cycle_policy"]])
+    return command
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def path_mentions_test(path: Path) -> bool:
+    return any(TEST_PATH_TOKEN.search(part) for part in path.parts)
+
+
+def fingerprint_scientific_inputs(
+    rows: list[dict[str, str]], args: argparse.Namespace
+) -> dict[str, dict[str, str]]:
+    """Hash graph/train/validation inputs once, without opening the test split."""
+    repository = Path(__file__).resolve().parents[1]
+    city_data = repository / "data" / f"{args.city}_data"
+    resolved_city_data = city_data.resolve()
+    shared_paths = [
+        city_data / "map" / f"{stem}.{suffix}"
+        for stem in ("edges", "nodes")
+        for suffix in ("shp", "shx", "dbf")
+    ]
+    shared_paths.append(
+        city_data
+        / f"preprocessed_validation_trips_{args.validation_variant}.pkl"
+    )
+    unique_paths = set(shared_paths)
+    train_path_by_run: dict[str, Path] = {}
+    for row in rows:
+        train_path = (
+            city_data / f"preprocessed_train_trips_{row['train_variant']}.pkl"
+        )
+        train_path_by_run[row["run_id"]] = train_path
+        unique_paths.add(train_path)
+    digests: dict[Path, str] = {}
+    for path in sorted(unique_paths, key=lambda value: str(value)):
+        relative = path.relative_to(city_data)
+        if path_mentions_test(relative):
+            raise ValueError(f"refusing to fingerprint test input: {path}")
+        resolved = path.resolve()
+        try:
+            resolved_relative = resolved.relative_to(resolved_city_data)
+        except ValueError as error:
+            raise ValueError(
+                f"scientific input resolves outside the city data root: {path} -> {resolved}"
+            ) from error
+        if path_mentions_test(resolved_relative):
+            raise ValueError(f"refusing to fingerprint test input: {resolved}")
+        if not resolved.is_file():
+            raise FileNotFoundError(
+                f"missing scientific input for cache identity: {path}"
+            )
+        digests[path] = sha256_file(resolved)
+    return {
+        row["run_id"]: {
+            str(path.resolve()): digests[path]
+            for path in [*shared_paths, train_path_by_run[row["run_id"]]]
+        }
+        for row in rows
+    }
+
+
+def cache_signature(
+    command: list[str],
+    binary_sha256: str,
+    rayon_threads: int,
+    jobs: int,
+    timeout_seconds: int,
+    scientific_input_sha256: dict[str, str],
+    matrix_row: dict[str, str],
+) -> str:
+    identity = {
+        "schema_version": CACHE_SCHEMA_VERSION,
+        "command": command,
+        "binary_sha256": binary_sha256,
+        "runner": {
+            "rayon_threads": rayon_threads,
+            "jobs": jobs,
+            "timeout_seconds": timeout_seconds,
+        },
+        "scientific_input_sha256": scientific_input_sha256,
+        "matrix_row": matrix_row,
+    }
+    canonical = json.dumps(
+        identity, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def run_one(row: dict[str, str], args: argparse.Namespace) -> dict[str, Any]:
+    run_id = row["run_id"]
+    output_dir = args.run_root / row["phase"] / run_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    prefix = output_dir / "model"
+    log_path = Path(f"{prefix}_training.log")
+    checkpoint_path = Path(f"{prefix}_checkpoint.json")
+    result_path = output_dir / "runner_result.json"
+    command = build_command(row, args, prefix)
+    binary_sha256 = sha256_file(Path(command[0]))
+    scientific_input_sha256 = args.scientific_input_sha256_by_run[run_id]
+    expected_cache_signature = cache_signature(
+        command,
+        binary_sha256,
+        args.rayon_threads,
+        args.jobs,
+        args.timeout_seconds,
+        scientific_input_sha256,
+        row,
+    )
+
+    cached = parse_log(log_path)
+    if (
+        cached
+        and not args.force
+        and checkpoint_path.is_file()
+        and result_path.exists()
+    ):
+        try:
+            prior = json.loads(result_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            prior = {}
+        if not isinstance(prior, dict):
+            prior = {}
+        if (
+            prior.get("status") == "ok"
+            and prior.get("cache_signature") == expected_cache_signature
+            and prior.get("checkpoint_sha256") == sha256_file(checkpoint_path)
+            and prior.get("log_sha256") == sha256_file(log_path)
+        ):
+            prior.update(cached)
+            prior.update(checkpoint_quantiles(checkpoint_path))
+            prior.update(row)
+            prior.update(
+                {
+                    "cached": True,
+                    "cache_hit_last_invocation": True,
+                    "checkpoint_path": str(checkpoint_path),
+                    "log_path": str(log_path),
+                    "command": command,
+                    "binary_sha256": binary_sha256,
+                    "scientific_input_sha256": scientific_input_sha256,
+                    "cache_signature": expected_cache_signature,
+                    "checkpoint_sha256": prior["checkpoint_sha256"],
+                    "log_sha256": prior["log_sha256"],
+                    "runner_context": {
+                        "jobs": args.jobs,
+                        "rayon_threads": args.rayon_threads,
+                        "timeout_seconds": args.timeout_seconds,
+                    },
+                }
+            )
+            return prior
+
     environment = os.environ.copy()
     environment["RAYON_NUM_THREADS"] = str(args.rayon_threads)
     started = time.monotonic()
@@ -362,12 +562,21 @@ def run_one(row: dict[str, str], args: argparse.Namespace) -> dict[str, Any]:
     wall_seconds = time.monotonic() - started
 
     parsed = parse_log(log_path) if status == "ok" else {}
-    parsed.update(checkpoint_quantiles(Path(f"{prefix}_checkpoint.json")))
     if status == "ok" and not parsed:
         status = "incomplete"
         error = "process exited successfully without complete FINISHED/EVAL records"
+    elif status == "ok":
+        parsed.update(checkpoint_quantiles(checkpoint_path))
     result: dict[str, Any] = dict(row)
     result.update(parsed)
+    checkpoint_sha256 = (
+        sha256_file(checkpoint_path)
+        if status == "ok" and checkpoint_path.is_file()
+        else None
+    )
+    log_sha256 = (
+        sha256_file(log_path) if status == "ok" and log_path.is_file() else None
+    )
     result.update(
         {
             "status": status,
@@ -376,8 +585,19 @@ def run_one(row: dict[str, str], args: argparse.Namespace) -> dict[str, Any]:
             "wall_seconds": wall_seconds,
             "returncode": returncode,
             "error": error,
-            "checkpoint_path": str(Path(f"{prefix}_checkpoint.json")),
+            "checkpoint_path": str(checkpoint_path),
             "log_path": str(log_path),
+            "command": command,
+            "binary_sha256": binary_sha256,
+            "scientific_input_sha256": scientific_input_sha256,
+            "cache_signature": expected_cache_signature,
+            "checkpoint_sha256": checkpoint_sha256,
+            "log_sha256": log_sha256,
+            "runner_context": {
+                "jobs": args.jobs,
+                "rayon_threads": args.rayon_threads,
+                "timeout_seconds": args.timeout_seconds,
+            },
         }
     )
     atomic_json(result_path, result)
@@ -417,10 +637,15 @@ def write_summaries(
         "lambda",
         "metric_update",
         "train_variant",
+        "train_cycle_policy",
         "status",
         "cached",
         "wall_seconds",
         "train_accepted",
+        "train_cyclic",
+        "train_cycle_erased_records",
+        "train_empty_after_cycle_transform",
+        "train_cycle_edges_removed",
         "validation_accepted",
         "best_best_epoch",
         "best_selection_loss",
@@ -464,9 +689,10 @@ def main() -> int:
     args = arguments()
     if args.jobs < 1 or args.rayon_threads < 1:
         raise ValueError("--jobs and --rayon-threads must be positive")
-    if args.timeout_seconds > 900:
-        raise ValueError("per-run timeout must not exceed 900 seconds")
+    if not 1 <= args.timeout_seconds <= 900:
+        raise ValueError("per-run timeout must be in 1..=900 seconds")
     rows = read_matrix(args.matrix)
+    args.scientific_input_sha256_by_run = fingerprint_scientific_inputs(rows, args)
     args.run_root.mkdir(parents=True, exist_ok=True)
     results: list[dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=args.jobs) as executor:

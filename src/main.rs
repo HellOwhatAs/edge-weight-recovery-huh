@@ -2,8 +2,9 @@ use edge_weight_recovery::config::{
     MetricUpdateMode, SelectionMetric, SolverKind, TrainingConfig, TrainingState,
 };
 use edge_weight_recovery::graph::{
-    PathMetrics, PathValidationReport, compute_observed_edge_counts, compute_oracle_stats,
-    compute_regret, count_residual_l1, evaluate_paths, group_paths_by_od, load_graph, load_trips,
+    CyclePolicy, PathMetrics, PathValidationReport, compute_observed_edge_counts,
+    compute_oracle_stats, compute_regret, count_residual_l1, evaluate_paths, group_paths_by_od,
+    load_graph, load_trips,
 };
 use edge_weight_recovery::optimizer::{
     AdamOptimizer, ProjectedSubgradientOptimizer, quantize_weights, regularization_loss,
@@ -50,8 +51,8 @@ fn prepare_output(config: &TrainingConfig) -> Result<(), String> {
 fn run_training(config: &TrainingConfig) -> Result<(), String> {
     config.log(&format!(
         "CONFIG city={} epochs={} train={} validation={} test={} solver={:?} metric_update={:?} selection_metric={:?} \
-         eta0={} lambda={} q_box=[{},{}] scale={} cycle_policy={:?} trim_boundary_edges={} \
-         run_test={} seed={}",
+         eta0={} lambda={} q_box=[{},{}] scale={} train_cycle_policy={:?} evaluation_cycle_policy=Drop trim_boundary_edges={} \
+         run_test={} eval_path_metrics={} early_stop_min_delta={} seed={}",
         config.city,
         config.num_epochs,
         config.train_variant,
@@ -65,9 +66,11 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
         config.q_min,
         config.q_max,
         config.quantization_scale,
-        config.cycle_policy,
+        config.train_cycle_policy,
         config.trim_boundary_edges,
         config.run_test,
+        config.eval_path_metrics,
+        config.early_stop_min_delta,
         config.random_seed,
     ))?;
 
@@ -80,7 +83,7 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
         &graph,
         config.max_train_samples,
         config.trim_boundary_edges,
-        config.cycle_policy,
+        config.train_cycle_policy,
     )?;
     if train.paths.is_empty() {
         return Err("no valid training paths remain after validation".to_string());
@@ -97,7 +100,7 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
             &graph,
             config.max_validation_samples,
             config.trim_boundary_edges,
-            config.cycle_policy,
+            CyclePolicy::Drop,
         )?;
         if loaded.paths.is_empty() {
             return Err("no valid validation paths remain after validation".to_string());
@@ -215,6 +218,14 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
                 validation_regret.relative_data_loss,
                 milliseconds(validation_oracle.oracle_duration)
             );
+            if config.eval_path_metrics {
+                let validation_paths = &validation.as_ref().expect("validation loaded").paths;
+                let path_metrics = evaluate_paths(&metric, validation_paths, thread_count)?;
+                validation_log.push_str(&format!(
+                    " validation_exact_match={:.6} validation_edge_f1={:.6} validation_edge_jaccard={:.6}",
+                    path_metrics.exact_match, path_metrics.edge_f1, path_metrics.edge_jaccard,
+                ));
+            }
             // Regularization shapes the learned parameters through the training
             // update. Held-out checkpoint selection uses only the validation
             // task metric so lambda is not counted a second time.
@@ -236,6 +247,7 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
                 regret.mean_data_loss,
                 metric.weights(),
                 &latent_q,
+                config.early_stop_min_delta,
             )
         } else {
             false
@@ -382,7 +394,10 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
             max_quantization_error(metric.weights(), &metric_baseline, &latent_q);
         let best_marker = if is_best { " BEST" } else { "" };
         let selection_log = if evaluated {
-            format!(" selection_loss={selection_loss:.12}")
+            format!(
+                " selection_loss={selection_loss:.12} stale_evaluations={}",
+                state.stale_evaluations
+            )
         } else {
             " selection_loss=NA".to_string()
         };
@@ -416,8 +431,8 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
         ))?;
         if stop_for_patience {
             config.log(&format!(
-                "EARLY_STOP epoch={epoch} stale_evaluations={} patience={}",
-                state.stale_evaluations, config.patience
+                "EARLY_STOP epoch={epoch} stale_evaluations={} patience={} min_delta={}",
+                state.stale_evaluations, config.patience, config.early_stop_min_delta
             ))?;
             break;
         }
@@ -451,7 +466,7 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
             &graph,
             config.max_test_samples,
             config.trim_boundary_edges,
-            config.cycle_policy,
+            CyclePolicy::Drop,
         )?;
         if test.paths.is_empty() {
             return Err("no valid test paths remain after validation".to_string());
@@ -507,12 +522,16 @@ fn log_split_report(
 ) -> Result<(), String> {
     config.log(&format!(
         "DATA split={split} available={} inspected={} accepted={} dropped={} cyclic={} \
+         cycle_erased_records={} empty_after_cycle_transform={} cycle_edges_removed={} \
          empty_or_short={} out_of_bounds={} discontinuous={} trimmed_edges={}",
         report.available_samples,
         report.inspected_samples,
         report.accepted_samples,
         report.dropped_samples(),
         report.cyclic,
+        report.cycle_erased_records,
+        report.empty_after_cycle_transform,
+        report.cycle_edges_removed,
         report.empty_or_too_short,
         report.out_of_bounds,
         report.discontinuous,
