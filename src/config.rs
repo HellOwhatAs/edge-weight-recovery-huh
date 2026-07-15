@@ -30,6 +30,79 @@ impl TrainingConfig {
     }
 
     fn from_value(raw: Value) -> Result<Self, String> {
+        reject_unknown_keys(
+            &raw,
+            "",
+            &[
+                "schema_version",
+                "run_id",
+                "description",
+                "archive_commit",
+                "data",
+                "model",
+                "oracle",
+                "training",
+                "selection",
+                "test_policy",
+            ],
+        )?;
+        reject_unknown_keys(
+            &raw,
+            "/data",
+            &[
+                "city",
+                "train_variant",
+                "validation_variant",
+                "path_contract",
+                "cycle_policy",
+                "train_identity",
+                "validation_identity",
+            ],
+        )?;
+        for pointer in ["/data/train_identity", "/data/validation_identity"] {
+            reject_unknown_keys(
+                &raw,
+                pointer,
+                &[
+                    "path",
+                    "bytes",
+                    "sha256",
+                    "source_sha256",
+                    "sample_count",
+                    "seed",
+                ],
+            )?;
+        }
+        reject_unknown_keys(
+            &raw,
+            "/model",
+            &[
+                "kind",
+                "solver",
+                "eta0",
+                "lambda_edge",
+                "q_min",
+                "q_max",
+                "quantization_scale",
+            ],
+        )?;
+        reject_unknown_keys(
+            &raw,
+            "/oracle",
+            &["kind", "customization", "group_unique_od"],
+        )?;
+        reject_unknown_keys(
+            &raw,
+            "/training",
+            &[
+                "epochs",
+                "validation_every",
+                "early_stop_patience",
+                "early_stop_min_delta",
+            ],
+        )?;
+        reject_unknown_keys(&raw, "/selection", &["split", "metric"])?;
+
         if require_u64(&raw, "/schema_version")? != 1 {
             return Err("schema_version must be 1".to_string());
         }
@@ -336,6 +409,26 @@ fn require_f64(value: &Value, pointer: &str) -> Result<f64, String> {
         .ok_or_else(|| format!("missing number {pointer}"))
 }
 
+fn reject_unknown_keys(value: &Value, pointer: &str, allowed: &[&str]) -> Result<(), String> {
+    let Some(candidate) = (if pointer.is_empty() {
+        Some(value)
+    } else {
+        value.pointer(pointer)
+    }) else {
+        return Ok(());
+    };
+    let object = candidate.as_object().ok_or_else(|| {
+        format!(
+            "{} must be an object",
+            if pointer.is_empty() { "/" } else { pointer }
+        )
+    })?;
+    if let Some(key) = object.keys().find(|key| !allowed.contains(&key.as_str())) {
+        return Err(format!("unknown configuration key {}/{}", pointer, key));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -373,6 +466,12 @@ mod tests {
         let mut invalid = config_value();
         invalid["oracle"]["customization"] = json!("partial");
         assert!(TrainingConfig::from_value(invalid).is_err());
+        let mut unknown = config_value();
+        unknown["model"]["shock"] = json!(true);
+        assert_eq!(
+            TrainingConfig::from_value(unknown).unwrap_err(),
+            "unknown configuration key /model/shock"
+        );
     }
 
     #[test]
