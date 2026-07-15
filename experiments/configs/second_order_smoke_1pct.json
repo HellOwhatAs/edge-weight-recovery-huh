@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "run_id": "expanded_smoke_1pct",
-  "description": "First finite-budget Beijing 1% trajectory for the unified expanded road model from q=1, r=0.",
+  "schema_version": 2,
+  "run_id": "second_order_smoke_1pct",
+  "description": "Three-update Beijing 1% technical smoke for the second-order graph.",
   "data": {
     "city": "beijing",
     "train_variant": "scale_1pct_seed42",
@@ -25,32 +25,27 @@
       "seed": 20260715
     }
   },
-  "model": {
-    "kind": "expanded",
+  "graph": {
+    "order": "second",
+    "weight_lower_factor": 0.1,
+    "weight_upper_factor": 10.0
+  },
+  "optimizer": {
+    "kind": "projected_subgradient",
     "eta0": 1000.0,
-    "lambda_edge": 100000.0,
-    "lambda_transition": 100000.0,
-    "q_min": 0.1,
-    "q_max": 10.0,
-    "quantization_scale": 1.0,
-    "residual_scale": 127625.0,
-    "r_max": 10.0
+    "lambda": 0.001
   },
   "oracle": {
-    "kind": "expanded_cch",
+    "kind": "cch",
     "customization": "full",
     "group_unique_od": true
   },
   "training": {
-    "updates": 100,
-    "validation_every": 10
+    "updates": 3,
+    "validation_every": 3
   },
   "runtime": {
     "rayon_threads": 4
-  },
-  "selection": {
-    "split": "validation",
-    "metric": "mean_regret_plus_regularization"
   },
   "test_policy": "never_read"
 }

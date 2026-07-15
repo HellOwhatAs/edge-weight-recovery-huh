@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Run bounded edge-only configurations through the final training CLI."""
+"""Run bounded first- and second-order configurations through one training CLI."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -29,16 +30,76 @@ def arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_run_id(path: Path) -> str:
+def load_config(path: Path) -> dict[str, Any]:
     config = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(config, dict) or config.get("schema_version") != 1:
-        raise ValueError(f"{path}: expected a schema_version 1 object")
+    if not isinstance(config, dict) or config.get("schema_version") != 2:
+        raise ValueError(f"{path}: expected a schema_version 2 object")
     run_id = config.get("run_id")
     if not isinstance(run_id, str) or not SAFE_RUN_ID.fullmatch(run_id):
         raise ValueError(f"{path}: unsafe run_id {run_id!r}")
     if config.get("test_policy") != "never_read":
         raise ValueError(f"{path}: test_policy must be 'never_read'")
-    return run_id
+    return config
+
+
+def finite_number(value: Any) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
+
+
+def validate_training_log(
+    path: Path, config: dict[str, Any], checkpoint: Path
+) -> dict[str, Any]:
+    events: list[dict[str, Any]] = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"{path}:{line_number}: invalid JSON: {error}") from error
+        if not isinstance(event, dict):
+            raise ValueError(f"{path}:{line_number}: expected a JSON object")
+        events.append(event)
+
+    states = [event for event in events if event.get("event") == "state"]
+    finished_events = [event for event in events if event.get("event") == "finished"]
+    if not states or len(finished_events) != 1:
+        raise ValueError(f"{path}: expected state events and exactly one finished event")
+    for state in states:
+        if not finite_number(state.get("train_objective")):
+            raise ValueError(f"{path}: state has a non-finite train_objective")
+        validation = state.get("validation")
+        if validation is not None and (
+            not isinstance(validation, dict)
+            or not finite_number(validation.get("objective"))
+        ):
+            raise ValueError(f"{path}: state has a non-finite validation objective")
+
+    finished = finished_events[0]
+    required_updates = config.get("training", {}).get("updates")
+    checks = {
+        "completed_updates": finished.get("completed_updates") == required_updates,
+        "train_objective_finite": finite_number(finished.get("train_objective")),
+        "validation_objective_finite": finite_number(
+            finished.get("validation_objective")
+        ),
+        "weights_changed": isinstance(finished.get("changed_coordinates"), int)
+        and finished["changed_coordinates"] > 0,
+        "shortest_path_queries_ok": finished.get("shortest_path_queries_ok") is True,
+        "checkpoint_restore_verified": finished.get("checkpoint_restore_verified") is True,
+        "test_not_read": finished.get("test_read") is False,
+        "checkpoint_exists": checkpoint.is_file(),
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise ValueError(f"{path}: failed smoke health checks: {', '.join(failed)}")
+    return checks
 
 
 def atomic_json(path: Path, value: Any) -> None:
@@ -48,8 +109,12 @@ def atomic_json(path: Path, value: Any) -> None:
 
 
 def run_one(
-    args: argparse.Namespace, config_path: Path, run_id: str, output_dir: Path
+    args: argparse.Namespace,
+    config_path: Path,
+    config: dict[str, Any],
+    output_dir: Path,
 ) -> int:
+    run_id = config["run_id"]
     command = [
         str(args.binary.resolve()),
         "--config",
@@ -89,8 +154,16 @@ def run_one(
     checkpoint = output_dir / "checkpoint.json"
     if status == "ok" and (not training_log.is_file() or not checkpoint.is_file()):
         status = "missing_outputs"
+    health_checks: dict[str, Any] | None = None
+    health_error: str | None = None
+    if status == "ok":
+        try:
+            health_checks = validate_training_log(training_log, config, checkpoint)
+        except ValueError as error:
+            status = "unhealthy_output"
+            health_error = str(error)
     result = {
-        "schema_version": 1,
+        "schema_version": 2,
         "run_id": run_id,
         "status": status,
         "returncode": returncode,
@@ -101,6 +174,8 @@ def run_one(
         "rayon_threads": args.rayon_threads,
         "training_log": str(training_log.resolve()),
         "checkpoint": str(checkpoint.resolve()),
+        "health_checks": health_checks,
+        "health_error": health_error,
     }
     atomic_json(output_dir / "runner_result.json", result)
     print(f"{run_id}: {status} ({result['wall_seconds']:.2f}s)")
@@ -111,15 +186,15 @@ def main() -> int:
     args = arguments()
     if args.timeout_seconds <= 0 or args.rayon_threads <= 0:
         raise ValueError("timeout and Rayon thread count must be positive")
-    runs = [(path, load_run_id(path)) for path in args.config]
-    run_ids = [run_id for _, run_id in runs]
+    runs = [(path, load_config(path)) for path in args.config]
+    run_ids = [config["run_id"] for _, config in runs]
     if len(run_ids) != len(set(run_ids)):
         raise ValueError("duplicate run_id across configurations")
     if not args.dry_run and not args.binary.is_file():
         raise FileNotFoundError(f"training binary not found: {args.binary}")
     statuses = [
-        run_one(args, path, run_id, args.output_root / run_id)
-        for path, run_id in runs
+        run_one(args, path, config, args.output_root / config["run_id"])
+        for path, config in runs
     ]
     return max(statuses)
 

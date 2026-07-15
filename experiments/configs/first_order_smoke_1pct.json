@@ -1,19 +1,19 @@
 {
-  "schema_version": 1,
-  "run_id": "edge_10pct_final_eta2e4_e300",
-  "description": "Primary edge-only training on fixed Beijing 10% train and validation.",
+  "schema_version": 2,
+  "run_id": "first_order_smoke_1pct",
+  "description": "Three-update Beijing 1% technical smoke for the first-order graph.",
   "data": {
     "city": "beijing",
-    "train_variant": "scale_10pct_seed42",
+    "train_variant": "scale_1pct_seed42",
     "validation_variant": "scale_fixed_seed20260715",
     "path_contract": "complete_original_edge_id_sequence",
     "cycle_policy": "drop",
     "train_identity": {
-      "path": "data/beijing_data/preprocessed_train_trips_scale_10pct_seed42.pkl",
-      "bytes": 16680638,
-      "sha256": "8943d8958f3b4fadd7d3eb2f351b97268543961e441436e0ad68408cee45cc0a",
+      "path": "data/beijing_data/preprocessed_train_trips_scale_1pct_seed42.pkl",
+      "bytes": 1673185,
+      "sha256": "67dc070b010ae58cfea41ccc1fb2de93b6821db2df537f510aac6e3dd1f629e5",
       "source_sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
-      "sample_count": 78570,
+      "sample_count": 7857,
       "seed": 42
     },
     "validation_identity": {
@@ -25,14 +25,15 @@
       "seed": 20260715
     }
   },
-  "model": {
-    "kind": "edge_only",
-    "solver": "projected_subgradient",
-    "eta0": 0.0002,
-    "lambda_edge": 100000.0,
-    "q_min": 0.1,
-    "q_max": 10.0,
-    "quantization_scale": 1.0
+  "graph": {
+    "order": "first",
+    "weight_lower_factor": 0.1,
+    "weight_upper_factor": 10.0
+  },
+  "optimizer": {
+    "kind": "projected_subgradient",
+    "eta0": 1000.0,
+    "lambda": 0.001
   },
   "oracle": {
     "kind": "cch",
@@ -40,14 +41,11 @@
     "group_unique_od": true
   },
   "training": {
-    "epochs": 300,
-    "validation_every": 10,
-    "early_stop_patience": 1000,
-    "early_stop_min_delta": 0.0
+    "updates": 3,
+    "validation_every": 3
   },
-  "selection": {
-    "split": "validation",
-    "metric": "aggregate_relative_regret"
+  "runtime": {
+    "rayon_threads": 4
   },
   "test_policy": "never_read"
 }
