@@ -696,19 +696,115 @@ fn ensure_restored_matches_selected(
     restored: &RestoredTurnCheckpoint,
     selected: &TurnTrainingState,
 ) -> Result<(), String> {
-    if restored.step != selected.best_step
-        || restored.selection_value != selected.best_selection_value
-        || restored.train_mean_regret != selected.best_train_mean_regret
-        || restored.q != selected.best_q
-        || restored.residuals != selected.best_residuals
-        || restored.edge_weights != selected.best_edge_weights
-        || restored.transition_weights != selected.best_transition_weights
-        || restored.q_completed_updates != selected.best_q_completed_updates
-        || restored.r_completed_updates != selected.best_r_completed_updates
+    for (field, restored_value, selected_value) in [
+        ("step", restored.step, selected.best_step),
+        (
+            "q_completed_updates",
+            restored.q_completed_updates,
+            selected.best_q_completed_updates,
+        ),
+        (
+            "r_completed_updates",
+            restored.r_completed_updates,
+            selected.best_r_completed_updates,
+        ),
+    ] {
+        if restored_value != selected_value {
+            return Err(format!(
+                "atomically restored checkpoint field {field} differs: restored={restored_value}, selected={selected_value}"
+            ));
+        }
+    }
+    for (field, restored_value, selected_value) in [
+        (
+            "selection_value",
+            restored.selection_value,
+            selected.best_selection_value,
+        ),
+        (
+            "train_mean_regret",
+            restored.train_mean_regret,
+            selected.best_train_mean_regret,
+        ),
+    ] {
+        if restored_value.to_bits() != selected_value.to_bits() {
+            return Err(format!(
+                "atomically restored checkpoint field {field} differs: restored={restored_value} ({:#018x}), selected={selected_value} ({:#018x})",
+                restored_value.to_bits(),
+                selected_value.to_bits()
+            ));
+        }
+    }
+    if let Some(difference) = first_f64_slice_difference("q", &restored.q, &selected.best_q) {
+        return Err(difference);
+    }
+    if let Some(difference) =
+        first_f64_slice_difference("r", &restored.residuals, &selected.best_residuals)
     {
-        return Err("atomically restored checkpoint differs from the selected state".into());
+        return Err(difference);
+    }
+    if let Some(difference) = first_slice_difference(
+        "quantized_edge_weights",
+        &restored.edge_weights,
+        &selected.best_edge_weights,
+    ) {
+        return Err(difference);
+    }
+    if let Some(difference) = first_slice_difference(
+        "quantized_transition_weights",
+        &restored.transition_weights,
+        &selected.best_transition_weights,
+    ) {
+        return Err(difference);
     }
     Ok(())
+}
+
+fn first_f64_slice_difference(field: &str, restored: &[f64], selected: &[f64]) -> Option<String> {
+    if restored.len() != selected.len() {
+        return Some(format!(
+            "atomically restored checkpoint field {field} length differs: restored={}, selected={}",
+            restored.len(),
+            selected.len()
+        ));
+    }
+    restored
+        .iter()
+        .zip(selected)
+        .position(|(&left, &right)| left.to_bits() != right.to_bits())
+        .map(|index| {
+            format!(
+                "atomically restored checkpoint field {field} first differs at index {index}: restored={} ({:#018x}), selected={} ({:#018x})",
+                restored[index],
+                restored[index].to_bits(),
+                selected[index],
+                selected[index].to_bits()
+            )
+        })
+}
+
+fn first_slice_difference<T: std::fmt::Debug + PartialEq>(
+    field: &str,
+    restored: &[T],
+    selected: &[T],
+) -> Option<String> {
+    if restored.len() != selected.len() {
+        return Some(format!(
+            "atomically restored checkpoint field {field} length differs: restored={}, selected={}",
+            restored.len(),
+            selected.len()
+        ));
+    }
+    restored
+        .iter()
+        .zip(selected)
+        .position(|(left, right)| left != right)
+        .map(|index| {
+            format!(
+                "atomically restored checkpoint field {field} first differs at index {index}: restored={:?}, selected={:?}",
+                restored[index], selected[index]
+            )
+        })
 }
 
 fn load_edge_initialization(
@@ -1115,6 +1211,30 @@ mod tests {
         assert!(validate_clock_contract(TurnExperimentArm::JointEdgeTurn, 99, 10, 109, 10).is_ok());
         assert!(
             validate_clock_contract(TurnExperimentArm::JointEdgeTurn, 99, 10, 110, 11).is_err()
+        );
+    }
+
+    #[test]
+    fn checkpoint_json_round_trips_latent_f64_bits_exactly() {
+        // These are representative latent values from the first screening
+        // checkpoint. Serde JSON's legacy fast float parser shifts the first
+        // value by one ULP unless the `float_roundtrip` feature is enabled.
+        let original: Vec<f64> = vec![
+            0.9702229782477475,
+            0.06348409082193338,
+            0.00025297242600556537,
+        ];
+        let encoded = serde_json::to_vec(&original).unwrap();
+        let restored: Vec<f64> = serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(
+            restored
+                .iter()
+                .map(|value| value.to_bits())
+                .collect::<Vec<_>>(),
+            original
+                .iter()
+                .map(|value| value.to_bits())
+                .collect::<Vec<_>>()
         );
     }
 }
