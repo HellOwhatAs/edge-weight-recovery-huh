@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "run_id": "full_a_edge_continuation",
+  "description": "Pre-registered full-train endpoint authorized by the fixed 10-percent screening gate.",
+  "protocol_id": "beijing_nonnegative_transition_residual_v1",
+  "stage": "full_endpoint",
+  "archive_commit": "8aacf2e8020bae13c6fad58f22ccb369f249e029",
+  "initialization": {
+    "path": "artifacts/turn_residual/frozen_edge_initialization.json",
+    "sha256": "42ed35639a5ac7c6ff8e5079a166be6d7e985e878afb67322269b527501b81d0"
+  },
+  "data": {
+    "city": "beijing",
+    "train_variant": "all",
+    "validation_variant": "time_dev_20090513_excl_previous",
+    "path_contract": "complete_original_edge_id_sequence",
+    "cycle_policy": "drop",
+    "train_identity": {
+      "path": "data/beijing_data/preprocessed_train_trips_all.pkl",
+      "bytes": 120236049,
+      "sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
+      "sample_count": 785709
+    },
+    "validation_identity": {
+      "path": "data/beijing_data/preprocessed_validation_trips_time_dev_20090513_excl_previous.pkl",
+      "bytes": 34101105,
+      "sha256": "8dd462469b8c890944e31ce0856cb233af22644af8f985c5d4ea113d1736da03",
+      "sample_count": 163614
+    }
+  },
+  "model": {
+    "kind": "turn_aware",
+    "arm": "expanded_edge_continuation",
+    "solver": "blockwise_projected_subgradient",
+    "eta_q0": 0.0003,
+    "lambda_edge": 100000,
+    "q_min": 0.1,
+    "q_max": 10,
+    "quantization_scale": 1,
+    "residual_scale_policy": "frozen_edge_metric_median",
+    "residual_scale": 127625,
+    "r_max": 10
+  },
+  "oracle": {
+    "kind": "expanded_cch",
+    "customization": "full",
+    "group_unique_od": true
+  },
+  "training": {
+    "updates": 50,
+    "validation_every": 10,
+    "early_stop": false
+  },
+  "runtime": {
+    "rayon_threads": 4
+  },
+  "selection": {
+    "split": "validation",
+    "metric": "aggregate_relative_regret"
+  },
+  "test_policy": "never_read"
+}

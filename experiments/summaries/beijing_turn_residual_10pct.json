@@ -1,0 +1,273 @@
+{
+  "schema_version": 1,
+  "status": "layer_2_complete_full_endpoint_authorized",
+  "study": "beijing_nonnegative_per_transition_residual_screen",
+  "scientific_question": "Does a nonnegative residual for each legal directed-edge transition improve held-out route fit beyond an equal-budget expanded-graph edge continuation?",
+  "provenance": {
+    "archive_commit": "8aacf2e8020bae13c6fad58f22ccb369f249e029",
+    "implementation_and_protocol_commit": "74aaf19f592e26e041a959c3665cd9c20a9c6bda",
+    "frozen_matrix_commit": "c31f65487e371f217a7f1efd6d0c47e58796c4e4",
+    "execution_commit": "d9ac550c324d25df1defff49a84ce6a3465a6654",
+    "initializer_sha256": "42ed35639a5ac7c6ff8e5079a166be6d7e985e878afb67322269b527501b81d0"
+  },
+  "data": {
+    "train": {
+      "variant": "scale_10pct_seed42",
+      "available": 78570,
+      "accepted": 62348,
+      "sha256": "8943d8958f3b4fadd7d3eb2f351b97268543961e441436e0ad68408cee45cc0a"
+    },
+    "validation": {
+      "variant": "time_dev_20090513_excl_previous",
+      "available": 163614,
+      "accepted": 129033,
+      "sha256": "8dd462469b8c890944e31ce0856cb233af22644af8f985c5d4ea113d1736da03"
+    },
+    "test_read": false
+  },
+  "integrity": {
+    "declared_cells": 13,
+    "completed_cells": 13,
+    "updates_per_cell": 30,
+    "validation_steps": [
+      0,
+      10,
+      20,
+      30
+    ],
+    "rayon_threads": 4,
+    "all_checkpoint_restores_verified": true,
+    "all_configs_match_checkpoints": true,
+    "all_test_read_false": true,
+    "selected_at_step_30_cells": 9,
+    "note": "Nine selected checkpoints are at the fixed budget boundary; the screen does not establish convergence."
+  },
+  "success_gate": {
+    "relative_regret_gain_minimum": 0.0005,
+    "edge_f1_gain_minimum": 0.003,
+    "exact_change_minimum": -0.002,
+    "all_required": true
+  },
+  "results": [
+    {
+      "run_id": "screen_a_edge_continuation",
+      "arm": "expanded_edge_continuation",
+      "eta_r0": null,
+      "lambda_turn": null,
+      "best_step": 20,
+      "relative_regret": 0.0626428591589441,
+      "edge_f1": 0.6801431203267884,
+      "exact_match": 0.3695101253167794,
+      "relative_regret_gain": 0,
+      "edge_f1_gain": 0,
+      "exact_change": 0,
+      "passes_gate": false
+    },
+    {
+      "run_id": "screen_b_turn_only_eta1em4_lambda1e3",
+      "arm": "turn_only",
+      "eta_r0": 0.0001,
+      "lambda_turn": 1000,
+      "best_step": 30,
+      "relative_regret": 0.061171429490586376,
+      "edge_f1": 0.6902643760312925,
+      "exact_match": 0.38854401587190873,
+      "relative_regret_gain": 0.0014714296683577266,
+      "edge_f1_gain": 0.010121255704504173,
+      "exact_change": 0.01903389055512933,
+      "passes_gate": true
+    },
+    {
+      "run_id": "screen_b_turn_only_eta1em4_lambda1e5",
+      "arm": "turn_only",
+      "eta_r0": 0.0001,
+      "lambda_turn": 100000,
+      "best_step": 30,
+      "relative_regret": 0.0611670687138722,
+      "edge_f1": 0.6898939400457229,
+      "exact_match": 0.38635077848302374,
+      "relative_regret_gain": 0.0014757904450719006,
+      "edge_f1_gain": 0.009750819718934545,
+      "exact_change": 0.016840653166244335,
+      "passes_gate": true
+    },
+    {
+      "run_id": "screen_b_turn_only_eta1em4_lambda1e7",
+      "arm": "turn_only",
+      "eta_r0": 0.0001,
+      "lambda_turn": 10000000,
+      "best_step": 30,
+      "relative_regret": 0.06118517433857625,
+      "edge_f1": 0.6911397045217735,
+      "exact_match": 0.38763727108569124,
+      "relative_regret_gain": 0.0014576848203678508,
+      "edge_f1_gain": 0.01099658419498517,
+      "exact_change": 0.018127145768911834,
+      "passes_gate": true
+    },
+    {
+      "run_id": "screen_b_turn_only_eta3em4_lambda1e3",
+      "arm": "turn_only",
+      "eta_r0": 0.0003,
+      "lambda_turn": 1000,
+      "best_step": 30,
+      "relative_regret": 0.06067615441876403,
+      "edge_f1": 0.6899310344287439,
+      "exact_match": 0.38569203227081444,
+      "relative_regret_gain": 0.0019667047401800697,
+      "edge_f1_gain": 0.009787914101955564,
+      "exact_change": 0.01618190695403504,
+      "passes_gate": true
+    },
+    {
+      "run_id": "screen_b_turn_only_eta3em4_lambda1e5",
+      "arm": "turn_only",
+      "eta_r0": 0.0003,
+      "lambda_turn": 100000,
+      "best_step": 30,
+      "relative_regret": 0.060700391170382936,
+      "edge_f1": 0.6899130870677748,
+      "exact_match": 0.38617252950795533,
+      "relative_regret_gain": 0.0019424679885611668,
+      "edge_f1_gain": 0.009769966740986402,
+      "exact_change": 0.016662404191175928,
+      "passes_gate": true
+    },
+    {
+      "run_id": "screen_b_turn_only_eta3em4_lambda1e7",
+      "arm": "turn_only",
+      "eta_r0": 0.0003,
+      "lambda_turn": 10000000,
+      "best_step": 30,
+      "relative_regret": 0.06073051527552874,
+      "edge_f1": 0.6895717327310255,
+      "exact_match": 0.38504103601404294,
+      "relative_regret_gain": 0.0019123438834153655,
+      "edge_f1_gain": 0.009428612404237091,
+      "exact_change": 0.015530910697263534,
+      "passes_gate": true
+    },
+    {
+      "run_id": "screen_c_joint_edge_turn_eta1em4_lambda1e3",
+      "arm": "joint_edge_turn",
+      "eta_r0": 0.0001,
+      "lambda_turn": 1000,
+      "best_step": 30,
+      "relative_regret": 0.0627439060096474,
+      "edge_f1": 0.6824092532981489,
+      "exact_match": 0.37253260793750437,
+      "relative_regret_gain": -0.000101046850703293,
+      "edge_f1_gain": 0.0022661329713605793,
+      "exact_change": 0.0030224826207249644,
+      "passes_gate": false
+    },
+    {
+      "run_id": "screen_c_joint_edge_turn_eta1em4_lambda1e5",
+      "arm": "joint_edge_turn",
+      "eta_r0": 0.0001,
+      "lambda_turn": 100000,
+      "best_step": 30,
+      "relative_regret": 0.06301009960508114,
+      "edge_f1": 0.6817685574369041,
+      "exact_match": 0.3710601164043307,
+      "relative_regret_gain": -0.0003672404461370349,
+      "edge_f1_gain": 0.0016254371101157572,
+      "exact_change": 0.0015499910875512724,
+      "passes_gate": false
+    },
+    {
+      "run_id": "screen_c_joint_edge_turn_eta1em4_lambda1e7",
+      "arm": "joint_edge_turn",
+      "eta_r0": 0.0001,
+      "lambda_turn": 10000000,
+      "best_step": 30,
+      "relative_regret": 0.06263139042198136,
+      "edge_f1": 0.6798028544101731,
+      "exact_match": 0.3691303775003294,
+      "relative_regret_gain": 0.000011468736962741422,
+      "edge_f1_gain": -0.00034026591661528993,
+      "exact_change": -0.00037974781645000455,
+      "passes_gate": false
+    },
+    {
+      "run_id": "screen_c_joint_edge_turn_eta3em4_lambda1e3",
+      "arm": "joint_edge_turn",
+      "eta_r0": 0.0003,
+      "lambda_turn": 1000,
+      "best_step": 0,
+      "relative_regret": 0.06348409082193338,
+      "edge_f1": 0.6814855741810896,
+      "exact_match": 0.37104461649345516,
+      "relative_regret_gain": -0.0008412316629892724,
+      "edge_f1_gain": 0.0013424538543012066,
+      "exact_change": 0.0015344911766757563,
+      "passes_gate": false
+    },
+    {
+      "run_id": "screen_c_joint_edge_turn_eta3em4_lambda1e5",
+      "arm": "joint_edge_turn",
+      "eta_r0": 0.0003,
+      "lambda_turn": 100000,
+      "best_step": 0,
+      "relative_regret": 0.06348409082193338,
+      "edge_f1": 0.6814855741810896,
+      "exact_match": 0.37104461649345516,
+      "relative_regret_gain": -0.0008412316629892724,
+      "edge_f1_gain": 0.0013424538543012066,
+      "exact_change": 0.0015344911766757563,
+      "passes_gate": false
+    },
+    {
+      "run_id": "screen_c_joint_edge_turn_eta3em4_lambda1e7",
+      "arm": "joint_edge_turn",
+      "eta_r0": 0.0003,
+      "lambda_turn": 10000000,
+      "best_step": 0,
+      "relative_regret": 0.06348409082193338,
+      "edge_f1": 0.6814855741810896,
+      "exact_match": 0.37104461649345516,
+      "relative_regret_gain": -0.0008412316629892724,
+      "edge_f1_gain": 0.0013424538543012066,
+      "exact_change": 0.0015344911766757563,
+      "passes_gate": false
+    }
+  ],
+  "outcome": {
+    "expanded_edge_control": "screen_a_edge_continuation",
+    "turn_only": {
+      "passing_cells": 6,
+      "winner": "screen_b_turn_only_eta3em4_lambda1e3",
+      "ranking_reason": "lowest selected validation aggregate relative regret",
+      "promoted": true
+    },
+    "joint_edge_turn": {
+      "passing_cells": 0,
+      "best_relative_regret_cell": "screen_c_joint_edge_turn_eta1em4_lambda1e7",
+      "promoted": false
+    },
+    "authorized_full_endpoints": [
+      "full_a_edge_continuation",
+      "full_b_turn_only_eta3em4_lambda1e3"
+    ],
+    "maximum_authorized_runs": 2
+  },
+  "winner_diagnostics": {
+    "q_frozen": true,
+    "q_l2_drift_from_initialization": 0,
+    "r_completed_updates": 30,
+    "positive_residuals": 28575,
+    "quantized_nonzero_residuals": 28545,
+    "total_transitions": 188249,
+    "residual_mean": 0.002204384903895815,
+    "residual_max": 0.421248652024914,
+    "residual_l2_norm": 4.472872445008163,
+    "residuals_at_r_max": 0
+  },
+  "checkpoint_roundtrip_correction": {
+    "commit": "d9ac550c324d25df1defff49a84ce6a3465a6654",
+    "issue": "Initial invalid attempts exposed 1-ULP latent f64 changes in serde_json's legacy parser; no attempt emitted a finished event.",
+    "correction": "Enabled serde_json float_roundtrip and retained bit-exact latent-state verification.",
+    "scientific_protocol_changed": false,
+    "rerun_policy": "All affected cells were restarted from the same frozen initialization and original committed configs."
+  }
+}

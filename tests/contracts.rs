@@ -127,3 +127,41 @@ fn turn_screen_is_exactly_the_preregistered_thirteen_cells() {
     assert_eq!(turn_grid, expected_grid);
     assert_eq!(joint_grid, expected_grid);
 }
+
+#[test]
+fn full_endpoints_are_exactly_the_authorized_control_and_turn_only_winner() {
+    let mut paths = std::fs::read_dir("experiments/configs")
+        .expect("read experiment configs")
+        .map(|entry| entry.expect("read config entry").path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("turn_full_") && name.ends_with(".json"))
+        })
+        .collect::<Vec<_>>();
+    paths.sort();
+    assert_eq!(paths.len(), 2);
+
+    let configs = paths
+        .iter()
+        .map(
+            |path| match ExperimentConfig::load(path).expect("load full endpoint config") {
+                ExperimentConfig::TurnAware(config) => config,
+                ExperimentConfig::EdgeOnly(_) => panic!("{} is not turn-aware", path.display()),
+            },
+        )
+        .collect::<Vec<_>>();
+    for config in &configs {
+        assert_eq!(config.stage, "full_endpoint");
+        assert_eq!(config.train_variant, "all");
+        assert_eq!(config.updates, 50);
+        assert_eq!(config.validation_every, 10);
+        assert_eq!(config.rayon_threads, 4);
+    }
+    assert_eq!(configs[0].arm, TurnExperimentArm::ExpandedEdgeContinuation);
+    assert_eq!(configs[0].eta_r0, None);
+    assert_eq!(configs[0].lambda_turn, None);
+    assert_eq!(configs[1].arm, TurnExperimentArm::TurnOnly);
+    assert_eq!(configs[1].eta_r0, Some(0.0003));
+    assert_eq!(configs[1].lambda_turn, Some(1_000.0));
+}
