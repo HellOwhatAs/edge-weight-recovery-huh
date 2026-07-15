@@ -164,4 +164,38 @@ fn full_endpoints_are_exactly_the_authorized_control_and_turn_only_winner() {
     assert_eq!(configs[1].arm, TurnExperimentArm::TurnOnly);
     assert_eq!(configs[1].eta_r0, Some(0.0003));
     assert_eq!(configs[1].lambda_turn, Some(1_000.0));
+
+    let protocol: serde_json::Value = serde_json::from_slice(
+        &std::fs::read("experiments/turn_residual_protocol.json").expect("read turn protocol"),
+    )
+    .expect("parse turn protocol");
+    assert_eq!(protocol["status"], "layer_3_complete_protocol_closed");
+    assert_eq!(
+        protocol["layer_3_full_endpoint"]["authorized_runs"]
+            .as_array()
+            .expect("authorized runs")
+            .len(),
+        2
+    );
+    assert_eq!(
+        protocol["layer_3_full_endpoint"]["remaining_authorized_runs"],
+        json!([])
+    );
+    assert_eq!(
+        protocol["decision"]["additional_full_endpoint_runs_authorized"],
+        false
+    );
+
+    let summary: serde_json::Value = serde_json::from_slice(
+        &std::fs::read("experiments/summaries/beijing_turn_residual_full.json")
+            .expect("read full turn summary"),
+    )
+    .expect("parse full turn summary");
+    assert_eq!(summary["status"], "layer_3_complete_protocol_closed");
+    assert_eq!(
+        summary["results"].as_array().expect("full results").len(),
+        2
+    );
+    assert_eq!(summary["comparison"]["passes_all_gates"], true);
+    assert_eq!(summary["outcome"]["additional_runs_authorized"], false);
 }

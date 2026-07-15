@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "status": "layer_3_complete_protocol_closed",
+  "study": "beijing_nonnegative_per_transition_residual_full_endpoint",
+  "scientific_question": "Does a nonnegative residual for each legal directed-edge transition improve development-route fit beyond an equal-budget expanded-graph edge continuation?",
+  "provenance": {
+    "archive_commit": "8aacf2e8020bae13c6fad58f22ccb369f249e029",
+    "implementation_and_protocol_commit": "74aaf19f592e26e041a959c3665cd9c20a9c6bda",
+    "frozen_matrix_commit": "c31f65487e371f217a7f1efd6d0c47e58796c4e4",
+    "float_roundtrip_correction_commit": "d9ac550c324d25df1defff49a84ce6a3465a6654",
+    "full_endpoint_authorization_commit": "99ad29ef6096047e5c77eb657d27c7e579cdccd3",
+    "initializer_sha256": "42ed35639a5ac7c6ff8e5079a166be6d7e985e878afb67322269b527501b81d0",
+    "expanded_topology_identity": "fnv1a64:abe37d45384f219b"
+  },
+  "data": {
+    "train": {
+      "variant": "all",
+      "available": 785709,
+      "accepted": 623275,
+      "unique_od": 561131,
+      "sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce"
+    },
+    "validation": {
+      "variant": "time_dev_20090513_excl_previous",
+      "available": 163614,
+      "accepted": 129033,
+      "unique_od": 125179,
+      "sha256": "8dd462469b8c890944e31ce0856cb233af22644af8f985c5d4ea113d1736da03",
+      "role": "development_and_checkpoint_selection"
+    },
+    "test_read": false
+  },
+  "expanded_graph": {
+    "states": 72156,
+    "transitions": 188249,
+    "state_self_transitions": 178,
+    "residual_scale": 127625.0
+  },
+  "integrity": {
+    "authorized_runs": 2,
+    "completed_runs": 2,
+    "completed_run_ids": [
+      "full_a_edge_continuation",
+      "full_b_turn_only_eta3em4_lambda1e3"
+    ],
+    "updates_per_run": 50,
+    "validation_steps": [
+      0,
+      10,
+      20,
+      30,
+      40,
+      50
+    ],
+    "rayon_threads": 4,
+    "all_step_sequences_exact": true,
+    "all_checkpoint_restores_verified": true,
+    "all_configs_match_checkpoints": true,
+    "all_test_read_false": true,
+    "same_frozen_initialization": true,
+    "screening_checkpoints_reused": false,
+    "note": "Both selected checkpoints are at the fixed 50-update boundary; the endpoint does not establish optimization convergence."
+  },
+  "success_gate": {
+    "reference": "full_a_edge_continuation",
+    "relative_regret_gain_minimum": 0.0005,
+    "edge_f1_gain_minimum": 0.003,
+    "exact_change_minimum": -0.002,
+    "all_required": true
+  },
+  "results": [
+    {
+      "run_id": "full_a_edge_continuation",
+      "arm": "expanded_edge_continuation",
+      "best_step": 50,
+      "q_completed_updates": 149,
+      "r_completed_updates": 0,
+      "validation": {
+        "samples": 129033,
+        "relative_regret": 0.06203214055530788,
+        "mean_regret": 317952.3393472988,
+        "edge_precision": 0.6953039913707451,
+        "edge_recall": 0.6775766113107112,
+        "edge_f1": 0.6824438442199414,
+        "edge_jaccard": 0.6077754683099764,
+        "exact_match": 0.36987437322235395
+      },
+      "residual": {
+        "positive": 0,
+        "quantized_nonzero": 0,
+        "total": 188249
+      },
+      "peak_rss_kib": 1528704,
+      "selected_at_budget_boundary": true
+    },
+    {
+      "run_id": "full_b_turn_only_eta3em4_lambda1e3",
+      "arm": "turn_only",
+      "eta_r0": 0.0003,
+      "lambda_turn": 1000.0,
+      "best_step": 50,
+      "q_completed_updates": 99,
+      "r_completed_updates": 50,
+      "q_bit_exact_to_initialization": true,
+      "validation": {
+        "samples": 129033,
+        "relative_regret": 0.06041708476942425,
+        "mean_regret": 327845.7964009207,
+        "edge_precision": 0.7055594607326391,
+        "edge_recall": 0.6880218920102691,
+        "edge_f1": 0.6930685207435047,
+        "edge_jaccard": 0.6214635838811949,
+        "exact_match": 0.3902335061573396
+      },
+      "residual": {
+        "positive": 35981,
+        "zero": 152268,
+        "quantized_nonzero": 35944,
+        "total": 188249,
+        "mean": 0.0020725564570105953,
+        "max": 0.45063108849275524,
+        "l2_norm": 4.661233114780245,
+        "at_r_max": 0
+      },
+      "peak_rss_kib": 1531752,
+      "selected_at_budget_boundary": true
+    }
+  ],
+  "comparison": {
+    "candidate": "full_b_turn_only_eta3em4_lambda1e3",
+    "reference": "full_a_edge_continuation",
+    "relative_regret_gain": 0.0016150557858836331,
+    "edge_f1_gain": 0.010624676523563248,
+    "exact_match_change": 0.020359132934985646,
+    "passes_relative_regret_gate": true,
+    "passes_edge_f1_gate": true,
+    "passes_exact_match_gate": true,
+    "passes_all_gates": true
+  },
+  "artifact_manifest": {
+    "full_a_edge_continuation": {
+      "config": "experiments/configs/turn_full_a_edge_continuation.json",
+      "training_log_sha256": "c9316989bc5b14247859a93a01a9ba831d53373ee0c65c9e6299a0a8f573de28",
+      "checkpoint_sha256": "cee86976cd6900293739678bde8b5e853d7a877063c2fcf104113e507f439a0f"
+    },
+    "full_b_turn_only_eta3em4_lambda1e3": {
+      "config": "experiments/configs/turn_full_b_turn_only_eta3em4_lambda1e3.json",
+      "training_log_sha256": "0a3cfa2fc61d5dac4ef49e1cd9f3a15e3c28a10cee762a38591a9829d6f003c3",
+      "checkpoint_sha256": "b4c18b8f7d5a1fb821ae1837f9df2ef0440d80db56012bcfb04536e1d77768a9"
+    }
+  },
+  "outcome": {
+    "decision": "continue_nonnegative_per_transition_residual_method",
+    "development_evidence": "With frozen edge multipliers and the same expanded oracle, the promoted turn-only residual arm passed every preregistered full-endpoint gate against the equal-budget edge-continuation control.",
+    "joint_arm": "No joint configuration passed the 10-percent gate, so no joint full endpoint was run.",
+    "claim_boundary": "This is validation/development evidence for one city, not an untouched test, multi-city generalization, or convergence result.",
+    "additional_runs_authorized": false
+  }
+}

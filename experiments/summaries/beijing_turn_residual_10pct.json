@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "layer_2_complete_full_endpoint_authorized",
   "study": "beijing_nonnegative_per_transition_residual_screen",
-  "scientific_question": "Does a nonnegative residual for each legal directed-edge transition improve held-out route fit beyond an equal-budget expanded-graph edge continuation?",
+  "scientific_question": "Does a nonnegative residual for each legal directed-edge transition improve development-route fit beyond an equal-budget expanded-graph edge continuation?",
   "provenance": {
     "archive_commit": "8aacf2e8020bae13c6fad58f22ccb369f249e029",
     "implementation_and_protocol_commit": "74aaf19f592e26e041a959c3665cd9c20a9c6bda",

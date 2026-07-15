@@ -1,14 +1,15 @@
 # Edge-weight recovery from observed routes
 
 This repository learns one globally shared road-cost metric from historical
-routes. Its production method is a regularized edge-only inverse shortest-path
+routes. Its frozen reference is a regularized edge-only inverse shortest-path
 model trained with projected subgradient descent and a batched Customizable
-Contraction Hierarchy (CCH) oracle.
+Contraction Hierarchy (CCH) oracle. A nested experimental model adds one
+nonnegative residual per legal directed-edge transition.
 
-The repository is intentionally narrow: it contains one training path, one
-standard evaluation path, and a generic edge-state graph for the next planned
-turn-aware model. Historical exploratory branches are recoverable from the
-pre-cleanup archive rather than exposed through the main CLI.
+The repository is intentionally narrow: both models use one training path, one
+standard evaluation path, and one generic edge-state graph. Historical
+exploratory branches are recoverable from the pre-cleanup archive rather than
+exposed through the main CLI.
 
 ## Problem
 
@@ -72,39 +73,50 @@ The selected, already-evaluated state is saved atomically as one
 configuration, selection value, train regret, and data/baseline identities.
 The training process never reads test data.
 
-## Planned turn-aware extension
+## Per-transition residual extension
 
 The retained edge-state expansion assigns one state to each original directed
 edge and one stable transition ID to every legal adjacent pair `(e,f)`. It
 supports multi-source/multi-target OD queries and maps transition IDs back to
 their original edge pairs.
 
-The next planned model is
+The nested model is
 
 ```text
 kappa_(e,f) = b_f q_f + scale r_(e,f),    r_(e,f) >= 0,
 ```
 
-with `q` anchored at one and per-transition residuals `r` anchored at zero.
-At `r=0`, expanded distances, observed-path costs, path continuity, and OD
-endpoints must match the edge-only model exactly.
+with `q` anchored at one and per-transition residuals `r` anchored at zero:
 
-The graph and zero-residual model placeholder are implemented. Learning the
-per-transition residuals is not implemented in this cleanup. A historical
-fixed global left-turn probe is not part of the formal method and is not
-exposed by the current training path.
+```text
+J(q,r) = mean route regret
+       + lambda_edge / (2|E|) ||q - 1||^2
+       + lambda_turn / (2|T|) ||r||^2.
+```
+
+The same projected-subgradient loop can continue `q`, freeze `q` and update
+only `r`, or update both blocks from the same pre-update feature counts. At
+`r=0`, expanded distances and observed-path costs match the edge-only model;
+path reconstruction may differ only at shortest-path ties.
+
+The implementation binds each expanded query to its exact integer transition
+metric and topology identity. Checkpoints atomically save `q`, `r`, both
+quantized metrics, both update clocks, the configuration, and data/topology
+identities. A historical fixed global left-turn probe is not part of the formal
+method and is not exposed by the current training path.
 
 ## Architecture
 
 - `src/data.rs` loads the graph and complete paths, validates paths, groups ODs,
   and computes observed edge counts.
-- `src/objective.rs` computes shortest-path regret and the count-residual
-  diagnostic; the model owns its normalized anchoring term.
-- `src/optimizer.rs` implements the projected subgradient update.
+- `src/objective.rs` computes edge-only and expanded-graph regret plus
+  count-residual diagnostics; the model owns its normalized anchoring terms.
+- `src/optimizer.rs` implements projected updates for the edge and transition
+  parameter blocks.
 - `src/oracle/cch.rs` provides the production batched CCH oracle;
   `src/oracle/dijkstra.rs` is a small exact correctness oracle.
-- `src/model/edge_only.rs` contains the production parameterization;
-  `src/model/turn_aware.rs` is the zero-residual structural placeholder.
+- `src/model/edge_only.rs` contains the frozen reference parameterization;
+  `src/model/turn_aware.rs` contains nonnegative per-transition residuals.
 - `src/turn_graph.rs` owns generic transition indexing, metric construction,
   source/target states, and expanded-path decoding.
 - `src/training.rs` runs validation-selected training and structured logging.
@@ -125,9 +137,9 @@ to a shortest path, cyclic observations are dropped. This is the sole training
 data policy; alternative cycle policies are not CLI options.
 
 The OD pair is the tail of the first edge and the head of the last edge. Train
-and validation file identities are declared in the experiment JSON. The two
-provided configurations expect the corresponding preprocessed pickle files
-under `data/<city>_data/`; generated data remains outside version control.
+and validation file identities are declared in each experiment JSON. Tracked
+configurations expect the corresponding preprocessed pickle files under
+`data/<city>_data/`; generated data remains outside version control.
 
 ## Quick start
 
@@ -183,16 +195,36 @@ old 20-epoch horizon was too short. Because useful runs still selected the
 100-epoch boundary, the result does not establish full optimization convergence.
 
 The generic expanded graph has also passed exact zero-residual equivalence
-checks against the edge-only oracle. The earlier uniform nonnegative global
-left-turn probe selected zero penalty; that narrow negative result does not
-test the planned learned per-transition residual model.
+checks against the edge-only oracle. In the fixed real-data audit, all 15,812
+accepted routes had identical shortest distances and observed costs; four
+predicted paths differed at ties. The earlier uniform nonnegative global
+left-turn probe selected zero penalty; that narrow negative result is not the
+learned per-transition model.
+
+The preregistered residual study then screened exactly 13 cells on a fixed 10%
+training subset. All six turn-only cells passed the gate; no joint edge-turn
+cell passed. Only the expanded-edge control and the winning turn-only cell were
+therefore run on full train, both from the same frozen `q*`, fresh `r=0`, and a
+fixed 50-update budget:
+
+| Full-train development endpoint | Best step | Relative regret | Mean regret | Edge F1 | Exact match |
+|---|---:|---:|---:|---:|---:|
+| A: expanded edge continuation | 50 | 0.06203214 | 317,952.34 | 0.682444 | 0.369874 |
+| B: frozen-edge turn-only | 50 | **0.06041708** | 327,845.80 | **0.693069** | **0.390234** |
+
+Relative to A, B improved the preregistered relative-regret gate by
+`0.00161506`, edge F1 by `0.01062468`, and exact match by `0.02035913`; all
+three gates passed. Mean regret did not improve, so this is not an “all metrics
+improved” result. Both arms selected the step-50 boundary. The result supports
+additional development-set route-fit capacity from transition residuals, not
+optimization convergence, causal turn costs, or untouched-test generalization.
 
 ## Repository structure
 
 ```text
 src/
   bin/                 train and evaluate entry points
-  model/               edge-only model and turn-aware placeholder
+  model/               edge-only and per-transition residual models
   oracle/              production CCH and exact small-graph Dijkstra
   data.rs              graph/trip contract and OD grouping
   objective.rs         regret and diagnostics
@@ -217,15 +249,19 @@ are intentionally ignored rather than committed.
 
 - The validated result covers one city and a limited temporal source; it is not
   a multi-city or untouched final-test estimate.
-- Epoch 99 is a bounded strong checkpoint, not evidence of convergence.
+- Epoch 99 and both turn-study step-50 endpoints are bounded checkpoints, not
+  evidence of convergence.
 - Integer quantization can change tie-breaking relative to the continuous
   objective, so continuous convex statements do not transfer without this
   qualification.
 - Dropping cyclic observations is mathematically consistent with the
   positive-cost shortest-path model but excludes a meaningful part of the raw
   trajectory population.
-- The production model is edge-only. Per-transition residual learning remains
-  the next scientific milestone.
+- The turn result uses development data for checkpoint selection and evaluation;
+  it is not an independent confirmation result.
+- Turn-only passed the preregistered gates, but mean regret increased, the joint
+  arm did not pass screening, and learned residuals are not identified as
+  physical or causal turn costs.
 
 ## Status and citation
 
@@ -235,9 +271,11 @@ metadata will be added when the manuscript is released. See
 boundary and next milestone.
 
 The complete pre-cleanup convergence-study evidence remains available without
-history rewriting at tag `archive/pre-cleanup-convergence-study`, commit
-`8aacf2e8020bae13c6fad58f22ccb369f249e029`. For example:
+history rewriting at immutable commit
+`8aacf2e8020bae13c6fad58f22ccb369f249e029`. A local annotated tag named
+`archive/pre-cleanup-convergence-study` is only a convenience and is not
+promised on the remote. For example:
 
 ```bash
-git show archive/pre-cleanup-convergence-study:experiments/convergence_study/RESULTS.md
+git show 8aacf2e8020bae13c6fad58f22ccb369f249e029:experiments/convergence_study/RESULTS.md
 ```

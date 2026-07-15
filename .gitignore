@@ -9,7 +9,7 @@
 /experiments/generated/
 /experiments/**/generated/
 
-# Retired study trees are available through the protected archive tag.
+# Retired study trees are available at the immutable archive commit.
 /experiments/convergence_study/
 /experiments/scale_study/
 

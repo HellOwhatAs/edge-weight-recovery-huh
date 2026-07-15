@@ -4,7 +4,9 @@
   "method": "edge_only_projected_subgradient",
   "archive": {
     "tag": "archive/pre-cleanup-convergence-study",
-    "commit": "8aacf2e8020bae13c6fad58f22ccb369f249e029"
+    "tag_scope": "local_convenience_not_published_to_origin",
+    "commit": "8aacf2e8020bae13c6fad58f22ccb369f249e029",
+    "recovery_authority": "commit"
   },
   "configuration": "experiments/configs/beijing_edge_only_full.json",
   "development_selection": {
@@ -38,6 +40,6 @@
     "Twenty epochs were insufficient; one hundred epochs did not establish full convergence.",
     "Count residual is diagnostic only and is not the optimization loss.",
     "The fixed global left-turn probe was not selected and is not part of the formal method.",
-    "The next planned model is a nonnegative per-transition residual on the generic turn graph."
+    "The frozen edge-only result remains the reference for the implemented nonnegative per-transition residual study."
   ]
 }

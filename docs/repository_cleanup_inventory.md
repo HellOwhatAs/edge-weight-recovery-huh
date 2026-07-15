@@ -10,13 +10,15 @@ behavior-preserving repository contraction.
 - Archive tag: `archive/pre-cleanup-convergence-study`
 - Annotated tag object: `fb327ebef49363c19ec5cf14a553fa86af2854db`
 - The tag peels to the pre-cleanup commit above.
+- The tag is local because publishing it to origin was not authenticated; the
+  immutable commit is the recovery authority.
 - The worktree was clean when the audit began. History is not rewritten or
   squashed.
 
-The archive tag is the authoritative location for removed experiment code,
-complete result trees, and the convergence-study evidence bundle. Important
-scientific conclusions are summarized in the cleaned branch rather than being
-silently discarded.
+The immutable pre-cleanup commit is the authoritative location for removed
+experiment code, complete result trees, and the convergence-study evidence
+bundle. Important scientific conclusions are summarized in the cleaned branch
+rather than being silently discarded.
 
 ## Pre-cleanup size
 
@@ -33,7 +35,7 @@ The largest tracked expansion sources were:
 
 | Group | Files | Bytes | Decision |
 |---|---:|---:|---|
-| `experiments/convergence_study/evidence/reproducibility_bundle.tar.gz` | 1 | 6,790,676 | DELETE from active branch; archive tag retains it |
+| `experiments/convergence_study/evidence/reproducibility_bundle.tar.gz` | 1 | 6,790,676 | DELETE from active branch; archive commit retains it |
 | `experiments/convergence_study/validation_blocks.json` | 1 | 3,159,614 | ARCHIVE |
 | `experiments/scale_study/subsets/*.json` | 12 | 4,789,178 | DELETE after extracting compact smoke identity |
 | Remaining convergence-study outputs | 34 | 638,539 | ARCHIVE or replace with one summary |
@@ -42,7 +44,7 @@ The largest tracked expansion sources were:
 ## Classification
 
 `ARCHIVE` means removal from the active branch with recovery through the
-protected tag. It does not mean copying the same bulk into another directory.
+protected commit. It does not mean copying the same bulk into another directory.
 
 ### KEEP_CORE
 
@@ -100,7 +102,7 @@ under `experiments/configs/`, a compact result under
 | Paths | Reason |
 |---|---|
 | `src/utils.rs` | Used only by legacy Adam random shock |
-| `experiments/convergence_study/evidence/reproducibility_bundle.tar.gz` | Binary generated bundle; 6.79 MiB; available at archive tag |
+| `experiments/convergence_study/evidence/reproducibility_bundle.tar.gz` | Binary generated bundle; 6.79 MiB; available at archive commit |
 | `experiments/convergence_study/validation_blocks.json` | 3.16 MiB source-index dump; compact identities and conclusions are sufficient |
 | `experiments/convergence_study/trajectories.csv` | Regenerable trajectory table |
 | `experiments/scale_study/subsets/*.json` | 4.79 MiB detailed source-index dumps; local pickle plus compact hashes drive smoke reproduction |

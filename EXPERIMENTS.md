@@ -2,10 +2,10 @@
 
 This file records only the evidence used by the paper mainline. It is not an
 experiment diary. The complete pre-cleanup studies, generated evidence, and
-retired executables remain available at:
-
-- archive tag: `archive/pre-cleanup-convergence-study`
-- archive commit: `8aacf2e8020bae13c6fad58f22ccb369f249e029`
+retired executables remain available at immutable archive commit
+`8aacf2e8020bae13c6fad58f22ccb369f249e029`. The local annotated tag
+`archive/pre-cleanup-convergence-study` is a convenience, not a published
+recovery guarantee.
 
 History was not rewritten. See the [archive pointer](experiments/archive/README.md)
 for commands that inspect or restore historical material.
@@ -80,12 +80,11 @@ new confirmation claim.
 
 ## Turn-graph evidence and scope
 
-The generic edge-state expansion was checked on a deterministic 30,000-route
-development subset. With every transition residual set to zero, all expanded
-shortest distances and observed-path costs exactly matched the edge-only
-oracle; path continuity and endpoint correctness gates also passed. This is
-the retained equivalence evidence needed for a future per-transition residual
-model.
+The generic edge-state expansion was checked on a fixed 20,000-record
+development sample, of which 15,812 complete acyclic routes were accepted.
+With every transition residual set to zero, all expanded shortest distances and
+observed-path costs exactly matched the edge-only oracle. Four reconstructed
+paths differed at shortest-path ties; continuity and endpoint gates passed.
 
 A narrow historical probe then froze the learned edge weights and added one
 shared nonnegative left-turn penalty. On its 20,000-route tuning subset, the
@@ -95,9 +94,43 @@ rule selected zero. The improvement gates failed, so the reserved audit block
 was not promoted to a new confirmation claim.
 
 This result rejects only a single city-wide nonnegative left-turn penalty with
-frozen edge weights. It does not reject per-transition residuals, joint
-edge/turn learning, or other conditional turn models. The fixed-left probe is
-archived and is not part of the formal method or active training path.
+frozen edge weights. The fixed-left probe is archived and is not part of the
+formal method or active training path.
+
+## Nonnegative per-transition residual study
+
+The formal study used the same expanded graph for all arms:
+
+- A continued the edge multipliers with residuals fixed at zero;
+- B froze the epoch-99 edge multipliers and learned transition residuals;
+- C updated both blocks from the same pre-update counts.
+
+All arms started from the same frozen `q*` and fresh `r=0`. Edge updates
+continued the original step-size clock; residual updates used an independent
+clock. Checkpoints were selected only by aggregate development relative regret.
+
+The fixed 10% screen completed exactly 13 declared cells: one A control, six B
+cells, and six C cells. All six B cells passed the preregistered gate; no C cell
+passed. The winning B cell used `eta_r0=3e-4` and `lambda_turn=1e3`. Therefore
+only A and this B configuration were authorized for the full-train endpoint.
+
+| Full-train development endpoint | Best step | Relative regret | Mean regret | Edge F1 | Exact match |
+|---|---:|---:|---:|---:|---:|
+| A: expanded edge continuation | 50 | 0.06203214 | 317,952.34 | 0.682444 | 0.369874 |
+| B: frozen-edge turn-only | 50 | **0.06041708** | 327,845.80 | **0.693069** | **0.390234** |
+
+B passed all three preregistered full gates relative to A: relative-regret gain
+`0.00161506 >= 0.0005`, edge-F1 gain `0.01062468 >= 0.003`, and exact-match
+change `+0.02035913 >= -0.002`. Mean regret increased rather than decreased, so
+the result must not be summarized as improvement on every metric. Both selected
+step 50, leaving convergence unresolved. The protocol is complete and
+authorizes no further run.
+
+The supported claim is narrow: on this Beijing development protocol, learned
+nonnegative per-transition residuals with frozen edge multipliers provide
+additional route-fit capacity beyond the equal-budget expanded-edge control.
+This is not an untouched-test, independent-confirmation, causal-turn-cost,
+joint-model, or cross-city result.
 
 ## Data and test firewall
 
@@ -107,8 +140,9 @@ archived and is not part of the formal method or active training path.
   observations under the positive-cost shortest-path assumption.
 - Checkpoint selection reads validation only and minimizes aggregate validation
   relative regret.
-- Formal training, diagnostics, the one-shot confirmations, and the turn probe
-  did not load or evaluate test. No test metric is reported here.
+- Formal training, diagnostics, the one-shot confirmations, the historical turn
+  probe, and the per-transition study did not load or evaluate test. No test
+  metric is reported here.
 - Confirmation artifacts are spent; future method development requires a new,
   preregistered validation protocol before any final held-out evaluation.
 
@@ -119,19 +153,25 @@ archived and is not part of the formal method or active training path.
 - Selecting epoch 99 leaves optimization convergence unresolved.
 - Dropping cyclic observations changes the represented trip population; loop
   erasure was not established as a better frozen-policy alternative.
-- Edge-only weights cannot represent transition-specific costs.
-- Zero-residual equivalence verifies the expanded oracle boundary case, not the
-  effectiveness of a learned turn-aware model.
+- The full turn endpoints both selected their fixed step-50 boundary, so
+  optimization convergence is not established.
+- Turn-only passed its development gates, but mean regret increased and no
+  joint edge-turn cell passed screening.
+- Learned residuals are predictive parameters, not identified physical or
+  causal turn costs.
 - The fixed-left negative result has deliberately narrow scope.
 
 ## Compact reproducibility pointers
 
 - [Frozen full configuration](experiments/configs/beijing_edge_only_full.json)
 - [Machine-readable baseline summary](experiments/summaries/beijing_edge_only.json)
+- [Turn-study protocol](experiments/turn_residual_protocol.json)
+- [10% turn screen summary](experiments/summaries/beijing_turn_residual_10pct.json)
+- [Full turn endpoint summary](experiments/summaries/beijing_turn_residual_full.json)
 - [Bounded 1% smoke configuration](experiments/configs/smoke_1pct.json)
 - [Cleanup inventory and protected-state record](docs/repository_cleanup_inventory.md)
 - [Research status and next milestone](docs/research_status.md)
 
 Large generated JSON, route-level derivatives, detailed historical reports,
-and retired experiment code are intentionally absent from
-the active tree. Use the archive tag when historical audit detail is required.
+and retired experiment code are intentionally absent from the active tree. Use
+the immutable archive commit when historical audit detail is required.
