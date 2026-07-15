@@ -1,356 +1,244 @@
-use crate::graph::CyclePolicy;
-use std::fs::OpenOptions;
-use std::io::Write;
+use serde_json::{Value, json};
+use std::path::{Path, PathBuf};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum SolverKind {
-    ProjectedSubgradient,
-    LegacyAdamShock,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MetricUpdateMode {
-    Partial,
-    Full,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum SelectionMetric {
-    MeanRegret,
-    RelativeRegret,
-}
-
-#[derive(Debug)]
+/// Validated configuration for the single edge-only training path.
+#[derive(Clone, Debug)]
 pub struct TrainingConfig {
+    raw: Value,
+    pub run_id: String,
     pub city: String,
-    pub num_epochs: u64,
-    pub patience: usize,
     pub train_variant: String,
     pub validation_variant: String,
-    pub test_variant: String,
-    pub max_train_samples: Option<usize>,
-    pub max_validation_samples: Option<usize>,
-    pub max_test_samples: Option<usize>,
-    pub run_test: bool,
-    pub eval_path_metrics: bool,
-    pub trim_boundary_edges: bool,
-    /// Cycle handling applied only to the training split. Validation and test
-    /// are always evaluated with `CyclePolicy::Drop` for protocol stability.
-    pub train_cycle_policy: CyclePolicy,
-    pub solver: SolverKind,
-    pub metric_update_mode: MetricUpdateMode,
-    pub selection_metric: SelectionMetric,
+    pub epochs: u64,
+    pub validation_every: u64,
+    pub early_stop_patience: usize,
+    pub early_stop_min_delta: f64,
     pub eta0: f64,
-    pub lambda: f64,
+    pub lambda_edge: f64,
     pub q_min: f64,
     pub q_max: f64,
     pub quantization_scale: f64,
-    pub adam_learning_rate: f32,
-    pub random_seed: u64,
-    pub eval_every: u64,
-    pub early_stop_min_delta: f64,
-    pub output_prefix: String,
-    pub log_path: String,
-    pub best_weights_path: String,
-    pub best_multipliers_path: String,
-    pub checkpoint_path: String,
-}
-
-impl Default for TrainingConfig {
-    fn default() -> Self {
-        let city = "beijing".to_string();
-        let output_prefix = format!("{city}_projected");
-        let mut config = Self {
-            city,
-            num_epochs: 20,
-            patience: 20,
-            train_variant: "small".to_string(),
-            validation_variant: "small".to_string(),
-            test_variant: "small".to_string(),
-            max_train_samples: None,
-            max_validation_samples: None,
-            max_test_samples: None,
-            run_test: false,
-            eval_path_metrics: false,
-            trim_boundary_edges: false,
-            train_cycle_policy: CyclePolicy::Drop,
-            solver: SolverKind::ProjectedSubgradient,
-            metric_update_mode: MetricUpdateMode::Full,
-            selection_metric: SelectionMetric::MeanRegret,
-            eta0: 1e-5,
-            lambda: 10_000_000.0,
-            q_min: 0.1,
-            q_max: 10.0,
-            quantization_scale: 1.0,
-            adam_learning_rate: 3_000.0,
-            random_seed: 42,
-            eval_every: 5,
-            early_stop_min_delta: 0.0,
-            output_prefix,
-            log_path: String::new(),
-            best_weights_path: String::new(),
-            best_multipliers_path: String::new(),
-            checkpoint_path: String::new(),
-        };
-        config.refresh_output_paths();
-        config
-    }
 }
 
 impl TrainingConfig {
+    pub fn load(path: &Path) -> Result<Self, String> {
+        let bytes = std::fs::read(path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        let raw: Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("failed to decode {}: {error}", path.display()))?;
+        Self::from_value(raw).map_err(|error| format!("{}: {error}", path.display()))
+    }
+
+    fn from_value(raw: Value) -> Result<Self, String> {
+        require_u64(&raw, "/schema_version")?
+            .eq(&1)
+            .then_some(())
+            .ok_or_else(|| "schema_version must be 1".to_string())?;
+        for (pointer, expected) in [
+            ("/data/path_contract", "complete_original_edge_id_sequence"),
+            ("/data/cycle_policy", "drop"),
+            ("/model/kind", "edge_only"),
+            ("/model/solver", "projected_subgradient"),
+            ("/oracle/kind", "cch"),
+            ("/oracle/customization", "full"),
+            ("/selection/split", "validation"),
+            ("/selection/metric", "aggregate_relative_regret"),
+            ("/test_policy", "never_read"),
+        ] {
+            let actual = require_str(&raw, pointer)?;
+            if actual != expected {
+                return Err(format!("{pointer} must be {expected:?}, got {actual:?}"));
+            }
+        }
+        if raw
+            .pointer("/oracle/group_unique_od")
+            .and_then(Value::as_bool)
+            != Some(true)
+        {
+            return Err("/oracle/group_unique_od must be true".to_string());
+        }
+
+        let run_id = require_str(&raw, "/run_id")?.to_string();
+        let city = require_str(&raw, "/data/city")?.to_string();
+        let train_variant = require_str(&raw, "/data/train_variant")?.to_string();
+        let validation_variant = require_str(&raw, "/data/validation_variant")?.to_string();
+        for (label, value) in [
+            ("run_id", run_id.as_str()),
+            ("city", city.as_str()),
+            ("train_variant", train_variant.as_str()),
+            ("validation_variant", validation_variant.as_str()),
+        ] {
+            if value.is_empty() || value.contains('/') || value.contains("..") {
+                return Err(format!(
+                    "{label} is empty or contains an unsafe path component"
+                ));
+            }
+        }
+
+        let epochs = require_u64(&raw, "/training/epochs")?;
+        let validation_every = require_u64(&raw, "/training/validation_every")?;
+        let early_stop_patience =
+            usize::try_from(require_u64(&raw, "/training/early_stop_patience")?)
+                .map_err(|_| "early_stop_patience does not fit usize".to_string())?;
+        let early_stop_min_delta = require_f64(&raw, "/training/early_stop_min_delta")?;
+        let eta0 = require_f64(&raw, "/model/eta0")?;
+        let lambda_edge = require_f64(&raw, "/model/lambda_edge")?;
+        let q_min = require_f64(&raw, "/model/q_min")?;
+        let q_max = require_f64(&raw, "/model/q_max")?;
+        let quantization_scale = require_f64(&raw, "/model/quantization_scale")?;
+
+        if epochs == 0 || validation_every == 0 || early_stop_patience == 0 {
+            return Err(
+                "epochs, validation_every, and early_stop_patience must be positive".into(),
+            );
+        }
+        if !eta0.is_finite() || eta0 <= 0.0 {
+            return Err("eta0 must be finite and positive".into());
+        }
+        if !lambda_edge.is_finite() || lambda_edge < 0.0 {
+            return Err("lambda_edge must be finite and nonnegative".into());
+        }
+        if !q_min.is_finite() || !q_max.is_finite() || q_min <= 0.0 || q_max < q_min {
+            return Err("q_min/q_max must define a finite positive box".into());
+        }
+        if !quantization_scale.is_finite() || quantization_scale <= 0.0 {
+            return Err("quantization_scale must be finite and positive".into());
+        }
+        if !early_stop_min_delta.is_finite() || early_stop_min_delta < 0.0 {
+            return Err("early_stop_min_delta must be finite and nonnegative".into());
+        }
+
+        Ok(Self {
+            raw,
+            run_id,
+            city,
+            train_variant,
+            validation_variant,
+            epochs,
+            validation_every,
+            early_stop_patience,
+            early_stop_min_delta,
+            eta0,
+            lambda_edge,
+            q_min,
+            q_max,
+            quantization_scale,
+        })
+    }
+
+    pub fn as_json(&self) -> &Value {
+        &self.raw
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RunOptions {
+    pub config_path: PathBuf,
+    pub output_dir: PathBuf,
+}
+
+impl RunOptions {
     pub fn from_args() -> Result<Option<Self>, String> {
         Self::from_iter(std::env::args().skip(1))
     }
 
-    fn from_iter<I, S>(args: I) -> Result<Option<Self>, String>
+    fn from_iter<I, S>(arguments: I) -> Result<Option<Self>, String>
     where
         I: IntoIterator<Item = S>,
         S: Into<String>,
     {
-        let mut config = Self::default();
-        let mut output_prefix_was_set = false;
-        let args: Vec<String> = args.into_iter().map(Into::into).collect();
+        let arguments = arguments.into_iter().map(Into::into).collect::<Vec<_>>();
+        if arguments
+            .iter()
+            .any(|argument| argument == "--help" || argument == "-h")
+        {
+            print_help();
+            return Ok(None);
+        }
+        let mut config_path = None;
+        let mut output_dir = None;
         let mut index = 0;
-        while index < args.len() {
-            let flag = &args[index];
-            if flag == "--help" || flag == "-h" {
-                print_help();
-                return Ok(None);
-            }
-            if flag == "--trim-boundary-edges" {
-                config.trim_boundary_edges = true;
-                index += 1;
-                continue;
-            }
-            if flag == "--keep-cycles" {
-                // Backwards-compatible, train-only alias. Validation and test
-                // remain fixed to Drop regardless of this option.
-                config.train_cycle_policy = CyclePolicy::Keep;
-                index += 1;
-                continue;
-            }
-            if flag == "--run-test" {
-                config.run_test = true;
-                index += 1;
-                continue;
-            }
-            if flag == "--eval-path-metrics" {
-                config.eval_path_metrics = true;
-                index += 1;
-                continue;
-            }
-            let value = args
+        while index < arguments.len() {
+            let flag = &arguments[index];
+            let value = arguments
                 .get(index + 1)
                 .ok_or_else(|| format!("missing value for {flag}"))?;
-            match flag.as_str() {
-                "--city" => config.city = value.clone(),
-                "--epochs" => config.num_epochs = parse(value, flag)?,
-                "--patience" => config.patience = parse(value, flag)?,
-                "--train-variant" => config.train_variant = value.clone(),
-                "--validation-variant" => config.validation_variant = value.clone(),
-                "--test-variant" => config.test_variant = value.clone(),
-                "--max-train-samples" => config.max_train_samples = Some(parse(value, flag)?),
-                "--max-validation-samples" => {
-                    config.max_validation_samples = Some(parse(value, flag)?)
-                }
-                "--max-test-samples" => config.max_test_samples = Some(parse(value, flag)?),
-                "--train-cycle-policy" => {
-                    config.train_cycle_policy = value.parse::<CyclePolicy>()?;
-                }
-                "--solver" => {
-                    config.solver = match value.as_str() {
-                        "projected" => SolverKind::ProjectedSubgradient,
-                        "adam-shock" => SolverKind::LegacyAdamShock,
-                        _ => return Err(format!("unknown solver {value:?}")),
-                    }
-                }
-                "--metric-update" => {
-                    config.metric_update_mode = match value.as_str() {
-                        "partial" => MetricUpdateMode::Partial,
-                        "full" => MetricUpdateMode::Full,
-                        _ => return Err(format!("unknown metric update mode {value:?}")),
-                    }
-                }
-                "--selection-metric" => {
-                    config.selection_metric = match value.as_str() {
-                        "mean-regret" => SelectionMetric::MeanRegret,
-                        "relative-regret" => SelectionMetric::RelativeRegret,
-                        _ => return Err(format!("unknown selection metric {value:?}")),
-                    }
-                }
-                "--eta0" => config.eta0 = parse(value, flag)?,
-                "--lambda" => config.lambda = parse(value, flag)?,
-                "--q-min" => config.q_min = parse(value, flag)?,
-                "--q-max" => config.q_max = parse(value, flag)?,
-                "--quantization-scale" => config.quantization_scale = parse(value, flag)?,
-                "--adam-learning-rate" => config.adam_learning_rate = parse(value, flag)?,
-                "--seed" => config.random_seed = parse(value, flag)?,
-                "--eval-every" => config.eval_every = parse(value, flag)?,
-                "--early-stop-min-delta" => config.early_stop_min_delta = parse(value, flag)?,
-                "--output-prefix" => {
-                    config.output_prefix = value.clone();
-                    output_prefix_was_set = true;
-                }
+            let slot = match flag.as_str() {
+                "--config" => &mut config_path,
+                "--output-dir" => &mut output_dir,
                 _ => return Err(format!("unknown argument {flag:?}; use --help")),
+            };
+            if slot.replace(PathBuf::from(value)).is_some() {
+                return Err(format!("{flag} was provided more than once"));
             }
             index += 2;
         }
-        if !output_prefix_was_set {
-            let solver = match config.solver {
-                SolverKind::ProjectedSubgradient => "projected",
-                SolverKind::LegacyAdamShock => "adam_shock",
-            };
-            config.output_prefix = format!("{}_{}", config.city, solver);
-        }
-        config.refresh_output_paths();
-        config.validate()?;
-        Ok(Some(config))
+        Ok(Some(Self {
+            config_path: config_path.ok_or_else(|| "missing --config PATH".to_string())?,
+            output_dir: output_dir.ok_or_else(|| "missing --output-dir PATH".to_string())?,
+        }))
     }
-
-    fn validate(&self) -> Result<(), String> {
-        if self.num_epochs == 0 {
-            return Err("--epochs must be at least 1".to_string());
-        }
-        if !self.quantization_scale.is_finite() || self.quantization_scale <= 0.0 {
-            return Err("--quantization-scale must be finite and positive".to_string());
-        }
-        if !self.eta0.is_finite() || self.eta0 <= 0.0 {
-            return Err("--eta0 must be finite and positive".to_string());
-        }
-        if !self.lambda.is_finite() || self.lambda < 0.0 {
-            return Err("--lambda must be finite and non-negative".to_string());
-        }
-        if !self.q_min.is_finite()
-            || !self.q_max.is_finite()
-            || self.q_min <= 0.0
-            || self.q_max < self.q_min
-        {
-            return Err("--q-min/--q-max must define a finite positive box".to_string());
-        }
-        if !self.adam_learning_rate.is_finite() || self.adam_learning_rate <= 0.0 {
-            return Err("--adam-learning-rate must be finite and positive".to_string());
-        }
-        if self.patience == 0 {
-            return Err("--patience must be at least 1".to_string());
-        }
-        if !self.early_stop_min_delta.is_finite() || self.early_stop_min_delta < 0.0 {
-            return Err("--early-stop-min-delta must be finite and non-negative".to_string());
-        }
-        for (flag, limit) in [
-            ("--max-train-samples", self.max_train_samples),
-            ("--max-validation-samples", self.max_validation_samples),
-            ("--max-test-samples", self.max_test_samples),
-        ] {
-            if limit == Some(0) {
-                return Err(format!("{flag} must be at least 1"));
-            }
-        }
-        if self.output_prefix.is_empty() {
-            return Err("--output-prefix must not be empty".to_string());
-        }
-        Ok(())
-    }
-
-    fn refresh_output_paths(&mut self) {
-        self.log_path = format!("{}_training.log", self.output_prefix);
-        self.best_weights_path = format!("{}_best_weights.json", self.output_prefix);
-        self.best_multipliers_path = format!("{}_best_multipliers.json", self.output_prefix);
-        self.checkpoint_path = format!("{}_checkpoint.json", self.output_prefix);
-    }
-
-    pub fn log(&self, message: &str) -> Result<(), String> {
-        println!("{message}");
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.log_path)
-            .map_err(|error| format!("failed to open {}: {error}", self.log_path))?;
-        writeln!(file, "{message}")
-            .map_err(|error| format!("failed to write {}: {error}", self.log_path))
-    }
-}
-
-fn parse<T>(value: &str, flag: &str) -> Result<T, String>
-where
-    T: std::str::FromStr,
-    T::Err: std::fmt::Display,
-{
-    value
-        .parse::<T>()
-        .map_err(|error| format!("invalid value for {flag}: {error}"))
 }
 
 fn print_help() {
     println!(
-        "edge-weight-recovery\n\
-         Safe defaults use Beijing small, 20 epochs, projected subgradient, and drop cycles.\n\n\
-         Core options:\n\
-           --city CITY\n\
-           --epochs N\n\
-           --train-variant small|all|all_partial_1.0|...\n\
-           --validation-variant small|all\n\
-           --test-variant small|all\n\
-           --max-train-samples N (likewise validation/test)\n\
-           --solver projected|adam-shock\n\
-           --metric-update partial|full\n\
-           --selection-metric mean-regret|relative-regret\n\
-           --eta0 FLOAT --lambda FLOAT --q-min FLOAT --q-max FLOAT\n\
-           --quantization-scale FLOAT (also rescales data loss/gradient)\n\
-           --seed N (legacy shock reproducibility)\n\
-           --eval-every N (0 disables validation during training)\n\
-           --eval-path-metrics (log validation F1/exact at each validation epoch)\n\
-           --early-stop-min-delta FLOAT (substantial validation improvement threshold)\n\
-           --run-test (evaluate test once after model selection)\n\
-           --trim-boundary-edges (ablation; full paths are default)\n\
-           --train-cycle-policy drop|keep|erase (training only; default drop)\n\
-           --keep-cycles (legacy train-only alias for --train-cycle-policy keep; validation/test still drop)\n\
-           --output-prefix PATH"
+        "edge-weight-recovery train\n\
+         Learn one shared edge-only metric with projected subgradient descent.\n\
+         Training always drops cyclic complete paths, uses full CCH customization,\n\
+         selects by validation aggregate relative regret, and never reads test.\n\n\
+         Usage:\n\
+           train --config PATH --output-dir PATH\n\n\
+         Options:\n\
+           --config PATH      compact experiment JSON\n\
+           --output-dir PATH  checkpoint.json and training.jsonl destination\n\
+           -h, --help         show this help"
     );
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TrainingState {
-    pub best_selection_loss: f64,
-    pub best_train_data_loss: f64,
+    pub best_selection_value: f64,
+    pub best_train_mean_regret: f64,
     pub best_weights: Vec<u32>,
-    pub best_multipliers: Vec<f64>,
+    pub best_q: Vec<f64>,
     pub best_epoch: u64,
     pub stale_evaluations: usize,
-    pub early_stop_reference_loss: f64,
+    early_stop_reference: f64,
 }
 
 impl TrainingState {
-    pub fn new(initial_weights: &[u32], initial_multipliers: &[f64]) -> Self {
+    pub fn new(initial_weights: &[u32], initial_q: &[f64]) -> Self {
         Self {
-            best_selection_loss: f64::INFINITY,
-            best_train_data_loss: f64::INFINITY,
+            best_selection_value: f64::INFINITY,
+            best_train_mean_regret: f64::INFINITY,
             best_weights: initial_weights.to_vec(),
-            best_multipliers: initial_multipliers.to_vec(),
+            best_q: initial_q.to_vec(),
             best_epoch: 0,
             stale_evaluations: 0,
-            early_stop_reference_loss: f64::INFINITY,
+            early_stop_reference: f64::INFINITY,
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,
         epoch: u64,
-        selection_loss: f64,
-        train_data_loss: f64,
+        selection_value: f64,
+        train_mean_regret: f64,
         weights: &[u32],
-        multipliers: &[f64],
+        q: &[f64],
         early_stop_min_delta: f64,
     ) -> bool {
-        let is_best = selection_loss < self.best_selection_loss;
+        let is_best = selection_value < self.best_selection_value;
         if is_best {
-            self.best_selection_loss = selection_loss;
-            self.best_train_data_loss = train_data_loss;
-            self.best_weights = weights.to_vec();
-            self.best_multipliers = multipliers.to_vec();
+            self.best_selection_value = selection_value;
+            self.best_train_mean_regret = train_mean_regret;
+            self.best_weights.clone_from(&weights.to_vec());
+            self.best_q.clone_from(&q.to_vec());
             self.best_epoch = epoch;
         }
-        if selection_loss < self.early_stop_reference_loss - early_stop_min_delta {
-            self.early_stop_reference_loss = selection_loss;
+        if selection_value < self.early_stop_reference - early_stop_min_delta {
+            self.early_stop_reference = selection_value;
             self.stale_evaluations = 0;
         } else {
             self.stale_evaluations += 1;
@@ -358,140 +246,153 @@ impl TrainingState {
         is_best
     }
 
-    pub fn save(&self, config: &TrainingConfig) -> Result<(), String> {
-        let weights = serde_json::to_string(&self.best_weights)
-            .map_err(|error| format!("failed to serialize best weights: {error}"))?;
-        let multipliers = serde_json::to_string(&self.best_multipliers)
-            .map_err(|error| format!("failed to serialize best multipliers: {error}"))?;
-        let checkpoint = serde_json::json!({
-            "schema_version": 1,
-            "city": &config.city,
-            "train_variant": &config.train_variant,
-            "validation_variant": &config.validation_variant,
-            "test_variant": &config.test_variant,
-            "num_epochs": config.num_epochs,
-            "patience": config.patience,
-            "eval_every": config.eval_every,
-            "max_train_samples": config.max_train_samples,
-            "max_validation_samples": config.max_validation_samples,
-            "max_test_samples": config.max_test_samples,
-            "run_test": config.run_test,
-            "eval_path_metrics": config.eval_path_metrics,
-            "random_seed": config.random_seed,
-            "solver": format!("{:?}", config.solver),
-            "metric_update_mode": format!("{:?}", config.metric_update_mode),
-            "selection_metric": format!("{:?}", config.selection_metric),
-            "early_stop_min_delta": config.early_stop_min_delta,
-            // `cycle_policy` is retained as a compatibility alias for readers
-            // of older checkpoints; the explicit fields define split scope.
-            "cycle_policy": format!("{:?}", config.train_cycle_policy),
-            "train_cycle_policy": format!("{:?}", config.train_cycle_policy),
-            "evaluation_cycle_policy": format!("{:?}", CyclePolicy::Drop),
-            "trim_boundary_edges": config.trim_boundary_edges,
-            "eta0": config.eta0,
-            "lambda": config.lambda,
-            "q_min": config.q_min,
-            "q_max": config.q_max,
-            "quantization_scale": config.quantization_scale,
-            "best_epoch": self.best_epoch,
-            "selection_loss": self.best_selection_loss,
-            "train_data_loss": self.best_train_data_loss,
-            "weights": &self.best_weights,
-            "multipliers": &self.best_multipliers,
+    pub fn save_checkpoint(
+        &self,
+        output_dir: &Path,
+        config: &TrainingConfig,
+        runtime_identity: &Value,
+    ) -> Result<PathBuf, String> {
+        let checkpoint = json!({
+            "schema_version": 2,
+            "model": "edge_only",
+            "epoch": self.best_epoch,
+            "configuration": config.as_json(),
+            "selection": {
+                "split": "validation",
+                "metric": "aggregate_relative_regret",
+                "value": self.best_selection_value,
+            },
+            "train_mean_regret": self.best_train_mean_regret,
+            "runtime_identity": runtime_identity,
+            "q": self.best_q,
+            "quantized_metric_weights": self.best_weights,
         });
-        let checkpoint = serde_json::to_vec(&checkpoint)
+        let bytes = serde_json::to_vec(&checkpoint)
             .map_err(|error| format!("failed to serialize checkpoint: {error}"))?;
-
-        // Compatibility arrays remain available, while the structured file is
-        // the authoritative paired checkpoint with its experiment metadata.
-        atomic_write(&config.best_weights_path, weights.as_bytes())?;
-        atomic_write(&config.best_multipliers_path, multipliers.as_bytes())?;
-        atomic_write(&config.checkpoint_path, &checkpoint)
+        let path = output_dir.join("checkpoint.json");
+        atomic_write(&path, &bytes)?;
+        Ok(path)
     }
 }
 
-fn atomic_write(path: &str, contents: &[u8]) -> Result<(), String> {
-    let temporary = format!("{path}.{}.tmp", std::process::id());
+pub fn load_checkpoint(path: &Path) -> Result<Value, String> {
+    let bytes = std::fs::read(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let checkpoint: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("failed to decode {}: {error}", path.display()))?;
+    if checkpoint
+        .pointer("/schema_version")
+        .and_then(Value::as_u64)
+        != Some(2)
+        || checkpoint.pointer("/model").and_then(Value::as_str) != Some("edge_only")
+    {
+        return Err(format!(
+            "{} is not an edge-only schema-2 checkpoint",
+            path.display()
+        ));
+    }
+    Ok(checkpoint)
+}
+
+pub fn atomic_write(path: &Path, contents: &[u8]) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
+    }
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("");
+    let temporary = path.with_extension(format!("{extension}.{}.tmp", std::process::id()));
     std::fs::write(&temporary, contents)
-        .map_err(|error| format!("failed to write {temporary}: {error}"))?;
-    std::fs::rename(&temporary, path)
-        .map_err(|error| format!("failed to atomically replace {path} with {temporary}: {error}"))
+        .map_err(|error| format!("failed to write {}: {error}", temporary.display()))?;
+    std::fs::rename(&temporary, path).map_err(|error| {
+        format!(
+            "failed to atomically replace {} with {}: {error}",
+            path.display(),
+            temporary.display()
+        )
+    })
+}
+
+fn require_str<'a>(value: &'a Value, pointer: &str) -> Result<&'a str, String> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("missing string {pointer}"))
+}
+
+fn require_u64(value: &Value, pointer: &str) -> Result<u64, String> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_u64)
+        .ok_or_else(|| format!("missing nonnegative integer {pointer}"))
+}
+
+fn require_f64(value: &Value, pointer: &str) -> Result<f64, String> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_f64)
+        .ok_or_else(|| format!("missing number {pointer}"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn parses_short_experiment_configuration() {
-        let config = TrainingConfig::from_iter([
-            "--city",
-            "porto",
-            "--epochs",
-            "3",
-            "--max-train-samples",
-            "128",
-            "--solver",
-            "adam-shock",
-            "--metric-update",
-            "full",
-            "--selection-metric",
-            "relative-regret",
-            "--run-test",
-        ])
-        .unwrap()
-        .unwrap();
-        assert_eq!(config.city, "porto");
-        assert_eq!(config.num_epochs, 3);
-        assert_eq!(config.max_train_samples, Some(128));
-        assert_eq!(config.solver, SolverKind::LegacyAdamShock);
-        assert_eq!(config.metric_update_mode, MetricUpdateMode::Full);
-        assert_eq!(config.selection_metric, SelectionMetric::RelativeRegret);
-        assert_eq!(config.train_cycle_policy, CyclePolicy::Drop);
-        assert!(config.run_test);
-        assert_eq!(config.output_prefix, "porto_adam_shock");
+    fn config_value() -> Value {
+        json!({
+            "schema_version": 1,
+            "run_id": "smoke",
+            "data": {
+                "city": "beijing",
+                "train_variant": "small",
+                "validation_variant": "small",
+                "path_contract": "complete_original_edge_id_sequence",
+                "cycle_policy": "drop"
+            },
+            "model": {
+                "kind": "edge_only", "solver": "projected_subgradient",
+                "eta0": 1e-4, "lambda_edge": 1e5, "q_min": 0.1,
+                "q_max": 10.0, "quantization_scale": 1.0
+            },
+            "oracle": {"kind": "cch", "customization": "full", "group_unique_od": true},
+            "training": {
+                "epochs": 5, "validation_every": 1, "early_stop_patience": 4,
+                "early_stop_min_delta": 0.0
+            },
+            "selection": {"split": "validation", "metric": "aggregate_relative_regret"},
+            "test_policy": "never_read"
+        })
     }
 
     #[test]
-    fn parses_train_only_cycle_policy_and_legacy_keep_alias() {
-        let erased = TrainingConfig::from_iter(["--train-cycle-policy", "erase"])
+    fn accepts_only_the_single_mainline_configuration() {
+        let config = TrainingConfig::from_value(config_value()).unwrap();
+        assert_eq!(config.city, "beijing");
+        let mut invalid = config_value();
+        invalid["oracle"]["customization"] = json!("partial");
+        assert!(TrainingConfig::from_value(invalid).is_err());
+    }
+
+    #[test]
+    fn cli_has_only_config_and_output_directory() {
+        let options = RunOptions::from_iter(["--config", "run.json", "--output-dir", "/tmp/run"])
             .unwrap()
             .unwrap();
-        assert_eq!(erased.train_cycle_policy, CyclePolicy::Erase);
-
-        let legacy = TrainingConfig::from_iter(["--keep-cycles"])
-            .unwrap()
-            .unwrap();
-        assert_eq!(legacy.train_cycle_policy, CyclePolicy::Keep);
-
-        assert!(TrainingConfig::from_iter(["--train-cycle-policy", "unknown"]).is_err());
+        assert_eq!(options.config_path, PathBuf::from("run.json"));
+        assert!(RunOptions::from_iter(["--solver", "adam-shock"]).is_err());
+        assert!(RunOptions::from_iter(["--run-test"]).is_err());
     }
 
     #[test]
-    fn state_keeps_the_true_best_checkpoint() {
-        let mut state = TrainingState::new(&[10, 20], &[1.0, 1.0]);
-        assert!(state.update(0, 5.0, 4.0, &[9, 21], &[0.9, 1.05], 0.0));
-        assert!(!state.update(1, 8.0, 3.0, &[1, 99], &[0.1, 4.95], 0.0));
-        assert_eq!(state.best_weights, vec![9, 21]);
-        assert_eq!(state.best_epoch, 0);
-    }
-
-    #[test]
-    fn tiny_checkpoint_improvements_do_not_reset_early_stopping() {
+    fn selection_and_patience_track_different_improvement_thresholds() {
         let mut state = TrainingState::new(&[10], &[1.0]);
-        assert!(state.update(0, 1.0, 1.0, &[10], &[1.0], 0.01));
-        assert!(state.update(1, 0.995, 0.9, &[9], &[0.9], 0.01));
+        assert!(state.update(0, 1.0, 4.0, &[10], &[1.0], 0.01));
+        assert!(state.update(1, 0.995, 3.0, &[9], &[0.9], 0.01));
         assert_eq!(state.best_epoch, 1);
         assert_eq!(state.stale_evaluations, 1);
-        assert!(state.update(2, 0.98, 0.8, &[8], &[0.8], 0.01));
+        assert!(state.update(2, 0.98, 2.0, &[8], &[0.8], 0.01));
         assert_eq!(state.stale_evaluations, 0);
-    }
-
-    #[test]
-    fn rejects_unsafe_cli_boundaries() {
-        assert!(TrainingConfig::from_iter(["--patience", "0"]).is_err());
-        assert!(TrainingConfig::from_iter(["--adam-learning-rate", "NaN"]).is_err());
-        assert!(TrainingConfig::from_iter(["--max-test-samples", "0"]).is_err());
-        assert!(TrainingConfig::from_iter(["--early-stop-min-delta", "NaN"]).is_err());
     }
 }
