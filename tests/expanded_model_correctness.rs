@@ -1,11 +1,12 @@
-use edge_weight_recovery::config::TurnExperimentArm;
 use edge_weight_recovery::data::{
     GraphData, compute_observed_edge_counts, compute_observed_transition_counts, group_paths_by_od,
 };
-use edge_weight_recovery::model::{EdgeOnlyModel, TurnAwareModel};
-use edge_weight_recovery::objective::compute_turn_aware_regret;
-use edge_weight_recovery::oracle::{CchOracle, ExpandedCchOracle};
+use edge_weight_recovery::model::{EdgeOnlyModel, ExpandedRoadModel};
+use edge_weight_recovery::objective::{compute_expanded_regret, compute_regret};
+use edge_weight_recovery::optimizer::ExpandedProjectedSubgradientOptimizer;
+use edge_weight_recovery::oracle::{CchOracle, ExpandedCchOracle, ExpandedOracleStats};
 use edge_weight_recovery::turn_graph::ExpandedTurnGraph;
+use std::time::Duration;
 
 const IN_A: usize = 0;
 const IN_B: usize = 1;
@@ -31,6 +32,16 @@ fn conflict_graph() -> GraphData {
         baseline_weights: vec![1; 6],
         x: vec![-1.0, -1.0, 0.0, 1.0, 1.0, 2.0],
         y: vec![1.0, -1.0, 0.0, 1.0, -1.0, 0.0],
+    }
+}
+
+fn nested_graph() -> GraphData {
+    GraphData {
+        tail: vec![0, 1, 0, 2],
+        head: vec![1, 3, 2, 3],
+        baseline_weights: vec![5, 5, 2, 2],
+        x: vec![0.0, 1.0, 1.0, 2.0],
+        y: vec![0.0, 0.0, 1.0, 0.0],
     }
 }
 
@@ -113,18 +124,20 @@ fn stable_transition_mapping_and_zero_residual_contract_hold() {
     }
 
     let edge_model = EdgeOnlyModel::new(&graph.baseline_weights, 1.0).unwrap();
-    let turn_model = TurnAwareModel::new(edge_model, &expanded, 1.0).unwrap();
-    let edge_weights = turn_model.quantized_edge_weights().unwrap();
-    let transition_weights = turn_model.quantized_transition_weights(&expanded).unwrap();
+    let model = ExpandedRoadModel::new(edge_model, &expanded, 1.0).unwrap();
+    let weights = model.metric(&expanded).unwrap();
     for (transition, _, next) in expanded.transitions() {
-        assert_eq!(transition_weights[transition.index()], edge_weights[next]);
+        assert_eq!(
+            weights.transition_weights()[transition.index()],
+            weights.edge_weights()[next]
+        );
     }
 
     let original_oracle = CchOracle::build(&graph).unwrap();
-    let original_metric = original_oracle.customize(&edge_weights).unwrap();
+    let original_metric = original_oracle.customize(weights.edge_weights()).unwrap();
     let expanded_oracle = ExpandedCchOracle::build(&graph, &expanded).unwrap();
     let expanded_metric = expanded_oracle
-        .customize(&edge_weights, &transition_weights)
+        .customize(weights.edge_weights(), weights.transition_weights())
         .unwrap();
     assert_eq!(
         expanded_metric.topology_identity(),
@@ -140,7 +153,7 @@ fn stable_transition_mapping_and_zero_residual_contract_hold() {
         assert_eq!(expanded_path.distance, original.distance);
         assert_eq!(
             expanded_metric.observed_path_cost(observed).unwrap(),
-            path_cost(&edge_weights, observed)
+            path_cost(weights.edge_weights(), observed)
         );
         assert_continuous_od(&graph, observed, source, target);
         assert_continuous_od(&graph, &expanded_path.original_edges, source, target);
@@ -153,8 +166,8 @@ fn nonnegative_transition_residuals_make_both_observations_uniquely_shortest() {
     let expanded = ExpandedTurnGraph::build(&graph).unwrap();
     let mut residuals = vec![0.0; expanded.transition_count()];
 
-    // Penalize only the two cross choices. Both observed turns remain at the
-    // nested edge-only value r=0; every residual is nonnegative.
+    // Penalize only the two cross choices. Both observed transitions remain at
+    // the nested edge-only value r=0; every residual is nonnegative.
     let a_cross = expanded.transition_id(IN_A, LOWER).unwrap();
     let b_cross = expanded.transition_id(IN_B, UPPER).unwrap();
     residuals[a_cross.index()] = 2.0;
@@ -170,16 +183,20 @@ fn nonnegative_transition_residuals_make_both_observations_uniquely_shortest() {
     );
 
     let edge_model = EdgeOnlyModel::new(&graph.baseline_weights, 1.0).unwrap();
-    let turn_model =
-        TurnAwareModel::from_residuals(edge_model, &expanded, 1.0, &residuals).unwrap();
-    let edge_weights = turn_model.quantized_edge_weights().unwrap();
-    let transition_weights = turn_model.quantized_transition_weights(&expanded).unwrap();
-    assert_eq!(transition_weights[a_cross.index()], edge_weights[LOWER] + 2);
-    assert_eq!(transition_weights[b_cross.index()], edge_weights[UPPER] + 2);
+    let model = ExpandedRoadModel::from_parameters(edge_model, &expanded, 1.0, &residuals).unwrap();
+    let weights = model.metric(&expanded).unwrap();
+    assert_eq!(
+        weights.transition_weights()[a_cross.index()],
+        weights.edge_weights()[LOWER] + 2
+    );
+    assert_eq!(
+        weights.transition_weights()[b_cross.index()],
+        weights.edge_weights()[UPPER] + 2
+    );
 
     let oracle = ExpandedCchOracle::build(&graph, &expanded).unwrap();
     let metric = oracle
-        .customize(&edge_weights, &transition_weights)
+        .customize(weights.edge_weights(), weights.transition_weights())
         .unwrap();
     for (source, target, observed, alternative) in [
         (0, 5, OBSERVED_A, ALTERNATIVE_A),
@@ -201,133 +218,119 @@ fn nonnegative_transition_residuals_make_both_observations_uniquely_shortest() {
 }
 
 #[test]
-fn turn_only_state_is_a_joint_feasible_candidate_with_the_same_objective() {
-    let graph = GraphData {
-        tail: vec![0, 1, 0, 2],
-        head: vec![1, 3, 2, 3],
-        baseline_weights: vec![5, 5, 2, 2],
-        x: vec![0.0, 1.0, 1.0, 2.0],
-        y: vec![0.0, 0.0, 1.0, 0.0],
-    };
+fn an_edge_only_state_is_exactly_nested_in_the_expanded_model() {
+    let graph = nested_graph();
     let expanded = ExpandedTurnGraph::build(&graph).unwrap();
-    let q_star = [0.8, 1.2, 1.0, 1.0];
-    let residuals = [0.25, 0.0];
-    let q_min = 0.1;
-    let q_max = 10.0;
-    let r_max = 10.0;
-    let residual_scale = 4.0;
+    let q = [0.8, 1.2, 1.0, 1.0];
+    let residuals = vec![0.0; expanded.transition_count()];
+    let lambda_edge = 2.0;
+    let lambda_transition = 3.0;
 
-    assert!(q_star.iter().all(|&q| q >= q_min && q <= q_max));
-    assert!(residuals.iter().all(|&r| r >= 0.0 && r <= r_max));
-    assert!(!TurnExperimentArm::TurnOnly.updates_q());
-    assert!(TurnExperimentArm::TurnOnly.updates_residuals());
-    assert!(TurnExperimentArm::JointEdgeTurn.updates_q());
-    assert!(TurnExperimentArm::JointEdgeTurn.updates_residuals());
-
-    // Joint learning permits q to move but does not require it to move. Thus a
-    // turn-only state with q=q* is also a joint-feasible candidate. Construct
-    // the same candidate twice to check that arm labels do not alter its model
-    // state, integer metric, or objective.
-    let turn_only = TurnAwareModel::from_residuals(
-        EdgeOnlyModel::from_q(&graph.baseline_weights, 1.0, &q_star).unwrap(),
-        &expanded,
-        residual_scale,
-        &residuals,
-    )
-    .unwrap();
-    let joint_candidate = TurnAwareModel::from_residuals(
-        EdgeOnlyModel::from_q(&graph.baseline_weights, 1.0, &q_star).unwrap(),
-        &expanded,
-        residual_scale,
-        &residuals,
-    )
-    .unwrap();
-
-    assert_eq!(turn_only.edge_only().q(), joint_candidate.edge_only().q());
-    assert_eq!(
-        turn_only.transition_residuals(),
-        joint_candidate.transition_residuals()
-    );
-    let turn_only_edges = turn_only.quantized_edge_weights().unwrap();
-    let joint_edges = joint_candidate.quantized_edge_weights().unwrap();
-    let turn_only_transitions = turn_only.quantized_transition_weights(&expanded).unwrap();
-    let joint_transitions = joint_candidate
-        .quantized_transition_weights(&expanded)
-        .unwrap();
-    assert_eq!(turn_only_edges, vec![4, 6, 2, 2]);
-    assert_eq!(turn_only_transitions, vec![7, 2]);
-    assert_eq!(turn_only_edges, joint_edges);
-    assert_eq!(turn_only_transitions, joint_transitions);
+    let edge_model = EdgeOnlyModel::from_q(&graph.baseline_weights, 1.0, &q).unwrap();
+    let edge_weights = edge_model.quantized_weights().unwrap();
+    let edge_regularization = edge_model.regularization(lambda_edge);
+    let model =
+        ExpandedRoadModel::from_parameters(edge_model.clone(), &expanded, 4.0, &residuals).unwrap();
+    assert_eq!(model.q(), q);
+    assert_eq!(model.transition_residuals(), residuals);
+    let weights = model.metric(&expanded).unwrap();
+    assert_eq!(weights.edge_weights(), edge_weights);
+    for (transition, _, next) in expanded.transitions() {
+        assert_eq!(
+            weights.transition_weights()[transition.index()],
+            edge_weights[next]
+        );
+    }
 
     let paths = vec![((0, 3), vec![0, 1]), ((0, 3), vec![2, 3])];
     let observed_edges = compute_observed_edge_counts(&paths, graph.tail.len(), 1);
     let observed_transitions = compute_observed_transition_counts(&paths, &expanded, 1).unwrap();
     let groups = group_paths_by_od(&paths);
-    let oracle = ExpandedCchOracle::build(&graph, &expanded).unwrap();
-    let turn_only_metric = oracle
-        .customize(&turn_only_edges, &turn_only_transitions)
+
+    let original_oracle = CchOracle::build(&graph).unwrap();
+    let original_metric = original_oracle.customize(&edge_weights).unwrap();
+    let original_stats = original_oracle
+        .batch_stats(&original_metric, &groups, 1)
         .unwrap();
-    let joint_metric = oracle.customize(&joint_edges, &joint_transitions).unwrap();
-    let turn_only_oracle = turn_only_metric.batch_stats(&groups, 1).unwrap();
-    let joint_oracle = joint_metric.batch_stats(&groups, 1).unwrap();
-    assert_eq!(
-        turn_only_oracle.predicted_edge_counts,
-        joint_oracle.predicted_edge_counts
-    );
-    assert_eq!(
-        turn_only_oracle.predicted_transition_counts,
-        joint_oracle.predicted_transition_counts
-    );
-    assert_eq!(
-        turn_only_oracle.weighted_shortest_distance_sum,
-        joint_oracle.weighted_shortest_distance_sum
-    );
-    assert_eq!(turn_only_oracle.sample_count, joint_oracle.sample_count);
+    let edge_regret = compute_regret(&edge_weights, &observed_edges, &original_stats).unwrap();
 
-    let turn_only_regret = compute_turn_aware_regret(
+    let expanded_oracle = ExpandedCchOracle::build(&graph, &expanded).unwrap();
+    let expanded_metric = expanded_oracle
+        .customize(weights.edge_weights(), weights.transition_weights())
+        .unwrap();
+    let expanded_stats = expanded_metric.batch_stats(&groups, 1).unwrap();
+    let expanded_regret = compute_expanded_regret(
         &expanded,
-        turn_only_metric.edge_weights(),
-        turn_only_metric.transition_weights(),
+        expanded_metric.edge_weights(),
+        expanded_metric.transition_weights(),
         &observed_edges,
         &observed_transitions,
-        &turn_only_oracle,
+        &expanded_stats,
     )
     .unwrap();
-    let joint_regret = compute_turn_aware_regret(
-        &expanded,
-        joint_metric.edge_weights(),
-        joint_metric.transition_weights(),
-        &observed_edges,
-        &observed_transitions,
-        &joint_oracle,
-    )
-    .unwrap();
-    assert_eq!(turn_only_regret.data_loss_sum, 7);
-    assert_eq!(turn_only_regret.mean_data_loss, 3.5);
-    assert_eq!(turn_only_regret, joint_regret);
 
-    let lambda_edge = 2.0;
-    let lambda_turn = 3.0;
-    let turn_only_edge_regularization = turn_only.edge_only().regularization(lambda_edge);
-    let joint_edge_regularization = joint_candidate.edge_only().regularization(lambda_edge);
-    let turn_only_residual_regularization = turn_only.residual_regularization(lambda_turn);
-    let joint_residual_regularization = joint_candidate.residual_regularization(lambda_turn);
+    assert_eq!(edge_regret, expanded_regret);
     assert_eq!(
-        turn_only_edge_regularization.to_bits(),
-        joint_edge_regularization.to_bits()
+        edge_regularization.to_bits(),
+        model.edge_regularization(lambda_edge).to_bits()
     );
-    assert_eq!(
-        turn_only_residual_regularization.to_bits(),
-        joint_residual_regularization.to_bits()
-    );
-    let turn_only_objective = turn_only_regret.mean_data_loss
-        + turn_only_edge_regularization
-        + turn_only_residual_regularization;
-    let joint_objective =
-        joint_regret.mean_data_loss + joint_edge_regularization + joint_residual_regularization;
-    assert_eq!(turn_only_objective.to_bits(), joint_objective.to_bits());
+    assert_eq!(model.transition_regularization(lambda_transition), 0.0);
+    let edge_objective = edge_regret.mean_data_loss + edge_regularization;
+    let expanded_objective =
+        expanded_regret.mean_data_loss + model.regularization(lambda_edge, lambda_transition);
+    assert_eq!(edge_objective.to_bits(), expanded_objective.to_bits());
 
-    // This is a feasible-set and objective identity contract only. It makes no
-    // claim that a finite number of simultaneous joint updates must dominate a
-    // separately optimized turn-only run.
+    for path in paths.iter().map(|(_, path)| path) {
+        assert_eq!(
+            expanded_metric.observed_path_cost(path).unwrap(),
+            path_cost(&edge_weights, path)
+        );
+    }
+    assert_eq!(
+        original_stats.weighted_shortest_distance_sum,
+        expanded_stats.weighted_shortest_distance_sum
+    );
+}
+
+#[test]
+fn one_model_step_updates_both_parameter_blocks_on_one_clock() {
+    let graph = conflict_graph();
+    let expanded = ExpandedTurnGraph::build(&graph).unwrap();
+    let edge_model = EdgeOnlyModel::new(&graph.baseline_weights, 1.0).unwrap();
+    let mut model = ExpandedRoadModel::new(edge_model, &expanded, 1.0).unwrap();
+    let mut optimizer =
+        ExpandedProjectedSubgradientOptimizer::new(0.5, 0.0, 0.0, 0.1, 10.0, 10.0).unwrap();
+
+    let mut observed_edges = vec![0; graph.tail.len()];
+    let mut predicted_edges = vec![0; graph.tail.len()];
+    observed_edges[IN_A] = 1;
+    predicted_edges[IN_B] = 1;
+    let mut observed_transitions = vec![0; expanded.transition_count()];
+    let mut predicted_transitions = vec![0; expanded.transition_count()];
+    observed_transitions[1] = 1;
+    predicted_transitions[0] = 1;
+
+    let oracle = ExpandedOracleStats {
+        predicted_edge_counts: predicted_edges,
+        predicted_transition_counts: predicted_transitions,
+        weighted_shortest_distance_sum: 0,
+        sample_count: 1,
+        num_queries: 1,
+        oracle_duration: Duration::ZERO,
+    };
+    let stats = model
+        .projected_step(
+            &mut optimizer,
+            &observed_edges,
+            &observed_transitions,
+            &oracle,
+        )
+        .unwrap();
+
+    assert_eq!(stats.eta, 0.5);
+    assert_eq!(model.q()[IN_A], 0.5);
+    assert_eq!(model.q()[IN_B], 1.5);
+    assert_eq!(model.transition_residuals()[0], 0.5);
+    assert_eq!(model.transition_residuals()[1], 0.0);
+    assert_eq!(optimizer.completed_updates(), 1);
 }

@@ -1,9 +1,9 @@
 use edge_weight_recovery::data::{GraphData, load_graph, load_trips};
+use edge_weight_recovery::model::EdgeOnlyModel;
 use edge_weight_recovery::oracle::{CchOracle, ExpandedCchOracle};
 use edge_weight_recovery::turn_graph::ExpandedTurnGraph;
-use serde_json::{Value, json};
+use serde_json::json;
 use std::collections::HashSet;
-use std::path::Path;
 
 const CITY: &str = "beijing";
 const VALIDATION_VARIANT: &str = "scale_fixed_seed20260715";
@@ -12,7 +12,6 @@ const EXPECTED_VALID_SAMPLES: usize = 15_812;
 const EXPECTED_NODES: usize = 31_199;
 const EXPECTED_EDGES: usize = 72_156;
 const EXPECTED_BASELINE_FINGERPRINT: &str = "ad08fec01f56dd3c";
-const RESIDUAL_SCALE: f64 = 127_625.0;
 
 #[derive(Default)]
 struct RouteMetricSums {
@@ -24,26 +23,22 @@ struct RouteMetricSums {
 ///
 /// This test is deliberately ignored: it builds both Beijing CCH topologies
 /// and evaluates the fixed validation subset. It never constructs a test-split
-/// path. Run it explicitly in release mode after importing the frozen edge
-/// initialization:
+/// path. It uses the deterministic `q=1` baseline metric, so the audit has no
+/// dependency on a learned checkpoint or historical training protocol. Run it
+/// explicitly in release mode:
 ///
-/// `EDGE_INITIALIZATION=/path/to/edge_initialization.json cargo test --release
-///  --locked --test beijing_r0_correctness -- --ignored --nocapture`
+/// `cargo test --release --locked --test beijing_r0_correctness -- --ignored
+///  --nocapture`
 #[test]
-#[ignore = "requires real Beijing data and EDGE_INITIALIZATION; never reads test"]
+#[ignore = "requires real Beijing validation data; never reads test"]
 fn beijing_r0_original_and_expanded_cch_audit() {
-    let initialization = std::env::var_os("EDGE_INITIALIZATION").expect(
-        "EDGE_INITIALIZATION is required and must point to the imported frozen Beijing \
-         edge_initialization JSON; this ignored audit reads validation only and never test",
-    );
-    run_audit(Path::new(&initialization))
-        .unwrap_or_else(|error| panic!("Beijing r=0 correctness audit failed: {error}"));
+    run_audit().unwrap_or_else(|error| panic!("Beijing r=0 correctness audit failed: {error}"));
 }
 
-fn run_audit(initialization_path: &Path) -> Result<(), String> {
+fn run_audit() -> Result<(), String> {
     let graph = load_graph(CITY)?;
     validate_graph_identity(&graph)?;
-    let edge_weights = load_edge_initialization(initialization_path, &graph)?;
+    let edge_weights = EdgeOnlyModel::new(&graph.baseline_weights, 1.0)?.quantized_weights()?;
 
     // This is the only trip-loading call in the audit. The split and variant
     // are constants so an environment value cannot redirect the audit to test.
@@ -66,7 +61,7 @@ fn run_audit(initialization_path: &Path) -> Result<(), String> {
     let expanded = ExpandedTurnGraph::build(&graph)?;
     let zero_residuals = vec![0.0; expanded.transition_count()];
     let transition_weights =
-        expanded.transition_metric_weights(&edge_weights, &zero_residuals, RESIDUAL_SCALE)?;
+        expanded.transition_metric_weights(&edge_weights, &zero_residuals, 1.0)?;
     let expanded_oracle = ExpandedCchOracle::build(&graph, &expanded)?;
     let expanded_metric = expanded_oracle.customize(&edge_weights, &transition_weights)?;
     let mut expanded_query = expanded_metric.new_query();
@@ -155,88 +150,6 @@ fn run_audit(initialization_path: &Path) -> Result<(), String> {
             .map_err(|error| format!("failed to serialize audit report: {error}"))?
     );
     Ok(())
-}
-
-fn load_edge_initialization(path: &Path, graph: &GraphData) -> Result<Vec<u32>, String> {
-    let bytes = std::fs::read(path).map_err(|error| {
-        format!(
-            "failed to read EDGE_INITIALIZATION {}: {error}",
-            path.display()
-        )
-    })?;
-    let initialization: Value = serde_json::from_slice(&bytes).map_err(|error| {
-        format!(
-            "failed to decode EDGE_INITIALIZATION {}: {error}",
-            path.display()
-        )
-    })?;
-    for (pointer, expected) in [
-        ("/schema", "edge_initialization"),
-        ("/model", "edge_only"),
-        ("/status", "frozen_validated"),
-        ("/baseline_identity/city", CITY),
-        ("/baseline_identity/fnv1a64", EXPECTED_BASELINE_FINGERPRINT),
-    ] {
-        let actual = initialization
-            .pointer(pointer)
-            .and_then(Value::as_str)
-            .ok_or_else(|| format!("EDGE_INITIALIZATION field {pointer} is not a string"))?;
-        if actual != expected {
-            return Err(format!(
-                "EDGE_INITIALIZATION field {pointer} mismatch: got {actual:?}, expected {expected:?}"
-            ));
-        }
-    }
-    if initialization
-        .pointer("/schema_version")
-        .and_then(Value::as_u64)
-        != Some(1)
-        || initialization
-            .pointer("/completed_q_updates")
-            .and_then(Value::as_u64)
-            != Some(99)
-        || initialization
-            .pointer("/baseline_identity/nodes")
-            .and_then(Value::as_u64)
-            != Some(EXPECTED_NODES as u64)
-        || initialization
-            .pointer("/baseline_identity/edges")
-            .and_then(Value::as_u64)
-            != Some(EXPECTED_EDGES as u64)
-    {
-        return Err("EDGE_INITIALIZATION numeric identity mismatch".to_string());
-    }
-
-    let values = initialization
-        .pointer("/quantized_metric_weights")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            "EDGE_INITIALIZATION is missing quantized_metric_weights array".to_string()
-        })?;
-    if values.len() != graph.tail.len() {
-        return Err(format!(
-            "EDGE_INITIALIZATION has {} weights but graph has {} edges",
-            values.len(),
-            graph.tail.len()
-        ));
-    }
-    values
-        .iter()
-        .enumerate()
-        .map(|(edge, value)| {
-            let weight = value
-                .as_u64()
-                .ok_or_else(|| format!("quantized_metric_weights[{edge}] is not an integer"))?;
-            let weight = u32::try_from(weight)
-                .map_err(|_| format!("quantized_metric_weights[{edge}] does not fit in u32"))?;
-            if weight == 0 || weight >= i32::MAX as u32 {
-                return Err(format!(
-                    "quantized_metric_weights[{edge}]={weight} is outside the positive CCH range"
-                ));
-            }
-            Ok(weight)
-        })
-        .collect()
 }
 
 fn validate_graph_identity(graph: &GraphData) -> Result<(), String> {

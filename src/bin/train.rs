@@ -1,6 +1,6 @@
 use edge_weight_recovery::config::{ExperimentConfig, RunOptions};
+use edge_weight_recovery::expanded_training::run_expanded_training;
 use edge_weight_recovery::training::run_training;
-use edge_weight_recovery::turn_training::run_turn_training;
 
 fn main() {
     if let Err(error) = run() {
@@ -23,11 +23,11 @@ fn run() -> Result<(), String> {
                 outcome.checkpoint_path.display()
             );
         }
-        ExperimentConfig::TurnAware(config) => {
-            let outcome = run_turn_training(&config, &options.output_dir)?;
+        ExperimentConfig::Expanded(config) => {
+            let outcome = run_expanded_training(&config, &options.output_dir)?;
             println!(
-                "selected step {} with validation relative regret {:.8}; checkpoint {}",
-                outcome.best_step,
+                "selected update {} with validation objective {:.8}; checkpoint {}",
+                outcome.best_update,
                 outcome.selection_value,
                 outcome.checkpoint_path.display()
             );

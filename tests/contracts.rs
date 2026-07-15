@@ -1,8 +1,7 @@
-use edge_weight_recovery::config::{
-    ExperimentConfig, TrainingConfig, TrainingState, TurnExperimentArm, load_checkpoint,
-};
-use serde_json::{Value, json};
-use std::path::Path;
+use edge_weight_recovery::config::{TrainingConfig, TrainingState, load_checkpoint};
+use serde_json::json;
+use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -83,113 +82,101 @@ fn active_configs_do_not_expose_the_archived_turn_study() {
 }
 
 #[test]
-fn archived_turn_study_preserves_execution_facts_without_ranking_models() {
+fn archived_json_tree_is_parseable_and_bitwise_unchanged() {
     let archive = Path::new("experiments/archive/turn_residual_abc_v1");
-    let mut paths = std::fs::read_dir(archive.join("configs"))
-        .expect("read archived turn-study configs")
-        .map(|entry| entry.expect("read config entry").path())
-        .filter(|path| {
-            path.file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.ends_with(".json"))
+    let mut paths = Vec::new();
+    collect_files_with_extension(archive, "json", &mut paths);
+    let mut entries = paths
+        .into_iter()
+        .map(|path| {
+            let relative = relative_unix_path(archive, &path);
+            (relative, path)
         })
         .collect::<Vec<_>>();
-    paths.sort();
-    assert_eq!(paths.len(), 16);
+    entries.sort_by(|left, right| left.0.cmp(&right.0));
+    assert_eq!(entries.len(), 19, "archived JSON inventory changed");
 
-    let mut stage_counts = [0usize; 3];
-    let mut screen_arm_counts = [0usize; 3];
-    let mut full_arm_counts = [0usize; 3];
-    for path in paths {
-        let ExperimentConfig::TurnAware(config) =
-            ExperimentConfig::load(&path).expect("parse archived turn-study config")
-        else {
-            panic!("{} is not turn-aware", path.display());
-        };
-        assert_eq!(config.as_json()["test_policy"], "never_read");
-        let arm_index = match config.arm {
-            TurnExperimentArm::ExpandedEdgeContinuation => 0,
-            TurnExperimentArm::TurnOnly => 1,
-            TurnExperimentArm::JointEdgeTurn => 2,
-        };
-        match config.stage.as_str() {
-            "correctness" => stage_counts[0] += 1,
-            "screen_10pct" => {
-                stage_counts[1] += 1;
-                screen_arm_counts[arm_index] += 1;
-            }
-            "full_endpoint" => {
-                stage_counts[2] += 1;
-                full_arm_counts[arm_index] += 1;
-            }
-            stage => panic!("unexpected archived stage {stage:?}"),
-        }
+    let mut hasher = Sha256::new();
+    for (relative, path) in entries {
+        let raw = std::fs::read(&path)
+            .unwrap_or_else(|error| panic!("read archived JSON {}: {error}", path.display()));
+        let parsed: serde_json::Value = serde_json::from_slice(&raw)
+            .unwrap_or_else(|error| panic!("parse archived JSON {}: {error}", path.display()));
+        assert!(
+            parsed.is_object(),
+            "archived JSON root is not an object: {}",
+            path.display()
+        );
+        hasher.update(relative.as_bytes());
+        hasher.update([0]);
+        hasher.update(&raw);
+        hasher.update([0]);
     }
-    assert_eq!(stage_counts, [1, 13, 2]);
-    assert_eq!(screen_arm_counts, [1, 6, 6]);
-    assert_eq!(full_arm_counts, [1, 1, 0]);
-
-    let protocol = read_json(&archive.join("turn_residual_protocol.json"));
     assert_eq!(
-        protocol["decision"]["layer_2_outcome"]["completed_cells"],
-        13
+        format!("{:x}", hasher.finalize()),
+        "c7f4df925e9b443645f160dc63a3a094686bf252e3be41a729953d276d68f0ac",
+        "archived JSON bytes or relative paths changed"
     );
-    assert_eq!(protocol["layer_3_full_endpoint"]["completed_runs"], 2);
-    assert_eq!(protocol["layer_3_full_endpoint"]["test_read"], false);
-    assert_eq!(
-        protocol["decision"]["layer_3_outcome"]["joint_edge_turn_full_run"],
-        false
-    );
-
-    let screen_summary = read_json(
-        &archive
-            .join("summaries")
-            .join("beijing_turn_residual_10pct.json"),
-    );
-    assert_eq!(screen_summary["integrity"]["completed_cells"], 13);
-    assert_eq!(
-        screen_summary["results"]
-            .as_array()
-            .expect("screen results")
-            .len(),
-        13
-    );
-    assert_eq!(screen_summary["data"]["test_read"], false);
-
-    let full_summary = read_json(
-        &archive
-            .join("summaries")
-            .join("beijing_turn_residual_full.json"),
-    );
-    assert_eq!(full_summary["integrity"]["completed_runs"], 2);
-    assert_eq!(full_summary["integrity"]["all_test_read_false"], true);
-    assert_eq!(full_summary["data"]["test_read"], false);
-    let results = full_summary["results"]
-        .as_array()
-        .expect("full endpoint results");
-    assert_eq!(results.len(), 2);
-    assert!(results.iter().all(|result| {
-        result["selected_at_budget_boundary"].as_bool() == Some(true)
-            && result["best_step"].as_u64() == Some(50)
-    }));
-    assert!(
-        results
-            .iter()
-            .all(|result| result["arm"] != "joint_edge_turn")
-    );
-
-    let mean_regret = |arm: &str| {
-        results
-            .iter()
-            .find(|result| result["arm"] == arm)
-            .and_then(|result| result.pointer("/validation/mean_regret"))
-            .and_then(Value::as_f64)
-            .unwrap_or_else(|| panic!("missing mean regret for archived arm {arm}"))
-    };
-    assert!(mean_regret("turn_only") > mean_regret("expanded_edge_continuation"));
 }
 
-fn read_json(path: &Path) -> Value {
-    serde_json::from_slice(&std::fs::read(path).expect("read archived JSON"))
-        .expect("parse archived JSON")
+#[test]
+fn retired_training_terms_do_not_reappear_in_active_code_or_configs() {
+    let forbidden = [
+        ["TurnExperiment", "Arm"].concat(),
+        ["expanded_edge", "_continuation"].concat(),
+        ["turn", "_only"].concat(),
+        ["joint_edge", "_turn"].concat(),
+        ["q_completed", "_updates"].concat(),
+        ["r_completed", "_updates"].concat(),
+        ["ExpandedEdge", "Continuation"].concat(),
+        ["Turn", "Only"].concat(),
+        ["JointEdge", "Turn"].concat(),
+        ["updates", "_q"].concat(),
+        ["updates", "_residuals"].concat(),
+        ["eta", "_q0"].concat(),
+        ["eta", "_r0"].concat(),
+        ["lambda", "_turn"].concat(),
+        ["turn", "_aware"].concat(),
+        ["turn", "_training"].concat(),
+    ];
+    let mut active_files = Vec::new();
+    for root in ["src", "tests", "tools"] {
+        collect_files_with_extension(Path::new(root), "rs", &mut active_files);
+    }
+    collect_files_with_extension(Path::new("experiments/configs"), "json", &mut active_files);
+    active_files.sort();
+
+    for path in active_files {
+        let contents = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("read active file {}: {error}", path.display()));
+        for retired in &forbidden {
+            assert!(
+                !contents.contains(retired),
+                "retired term {retired:?} appears in active file {}",
+                path.display()
+            );
+        }
+    }
+}
+
+fn collect_files_with_extension(root: &Path, extension: &str, output: &mut Vec<PathBuf>) {
+    for entry in std::fs::read_dir(root)
+        .unwrap_or_else(|error| panic!("read directory {}: {error}", root.display()))
+    {
+        let path = entry.expect("read directory entry").path();
+        if path.is_dir() {
+            collect_files_with_extension(&path, extension, output);
+        } else if path.extension().and_then(|value| value.to_str()) == Some(extension) {
+            output.push(path);
+        }
+    }
+}
+
+fn relative_unix_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or_else(|_| panic!("{} is not below {}", path.display(), root.display()))
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
 }

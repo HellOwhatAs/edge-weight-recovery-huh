@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 #[derive(Clone, Debug)]
 pub enum ExperimentConfig {
     EdgeOnly(TrainingConfig),
-    TurnAware(TurnTrainingConfig),
+    Expanded(ExpandedTrainingConfig),
 }
 
 impl ExperimentConfig {
@@ -17,83 +17,40 @@ impl ExperimentConfig {
             .to_string();
         let parsed = match kind.as_str() {
             "edge_only" => TrainingConfig::from_value(raw).map(Self::EdgeOnly),
-            "turn_aware" => TurnTrainingConfig::from_value(raw).map(Self::TurnAware),
+            "expanded" => ExpandedTrainingConfig::from_value(raw).map(Self::Expanded),
             _ => Err(format!("unsupported /model/kind {kind:?}")),
         };
         parsed.map_err(|error| format!("{}: {error}", path.display()))
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TurnExperimentArm {
-    ExpandedEdgeContinuation,
-    TurnOnly,
-    JointEdgeTurn,
-}
-
-impl TurnExperimentArm {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::ExpandedEdgeContinuation => "expanded_edge_continuation",
-            Self::TurnOnly => "turn_only",
-            Self::JointEdgeTurn => "joint_edge_turn",
-        }
-    }
-
-    pub const fn updates_q(self) -> bool {
-        matches!(self, Self::ExpandedEdgeContinuation | Self::JointEdgeTurn)
-    }
-
-    pub const fn updates_residuals(self) -> bool {
-        matches!(self, Self::TurnOnly | Self::JointEdgeTurn)
-    }
-
-    fn parse(value: &str) -> Result<Self, String> {
-        match value {
-            "expanded_edge_continuation" => Ok(Self::ExpandedEdgeContinuation),
-            "turn_only" => Ok(Self::TurnOnly),
-            "joint_edge_turn" => Ok(Self::JointEdgeTurn),
-            _ => Err(format!("unsupported turn-aware arm {value:?}")),
-        }
-    }
-}
-
-/// Strict configuration for a turn-residual expanded-graph run.
-///
-/// This also supports exact replay of the archived historical A/B/C protocol;
-/// accepting one of its update modes does not establish a model ranking.
+/// Strict configuration for the one fully optimized expanded-road model.
 #[derive(Clone, Debug)]
-pub struct TurnTrainingConfig {
+pub struct ExpandedTrainingConfig {
     raw: Value,
     pub run_id: String,
-    pub protocol_id: String,
-    pub stage: String,
     pub city: String,
     pub train_variant: String,
     pub validation_variant: String,
-    pub initialization_path: PathBuf,
-    pub initialization_sha256: String,
-    pub arm: TurnExperimentArm,
     pub updates: u64,
     pub validation_every: u64,
-    pub eta_q0: f64,
+    pub eta0: f64,
     pub lambda_edge: f64,
+    pub lambda_transition: f64,
     pub q_min: f64,
     pub q_max: f64,
     pub quantization_scale: f64,
-    pub eta_r0: Option<f64>,
-    pub lambda_turn: Option<f64>,
     pub residual_scale: f64,
     pub r_max: f64,
     pub rayon_threads: usize,
 }
 
-impl TurnTrainingConfig {
+impl ExpandedTrainingConfig {
     pub fn load(path: &Path) -> Result<Self, String> {
         Self::from_value(read_json(path)?).map_err(|error| format!("{}: {error}", path.display()))
     }
 
-    fn from_value(raw: Value) -> Result<Self, String> {
+    pub(crate) fn from_value(raw: Value) -> Result<Self, String> {
         reject_unknown_keys(
             &raw,
             "",
@@ -101,10 +58,7 @@ impl TurnTrainingConfig {
                 "schema_version",
                 "run_id",
                 "description",
-                "protocol_id",
-                "stage",
                 "archive_commit",
-                "initialization",
                 "data",
                 "model",
                 "oracle",
@@ -114,7 +68,6 @@ impl TurnTrainingConfig {
                 "test_policy",
             ],
         )?;
-        reject_unknown_keys(&raw, "/initialization", &["path", "sha256"])?;
         reject_unknown_keys(
             &raw,
             "/data",
@@ -147,16 +100,12 @@ impl TurnTrainingConfig {
             "/model",
             &[
                 "kind",
-                "arm",
-                "solver",
-                "eta_q0",
+                "eta0",
                 "lambda_edge",
+                "lambda_transition",
                 "q_min",
                 "q_max",
                 "quantization_scale",
-                "eta_r0",
-                "lambda_turn",
-                "residual_scale_policy",
                 "residual_scale",
                 "r_max",
             ],
@@ -166,11 +115,7 @@ impl TurnTrainingConfig {
             "/oracle",
             &["kind", "customization", "group_unique_od"],
         )?;
-        reject_unknown_keys(
-            &raw,
-            "/training",
-            &["updates", "validation_every", "early_stop"],
-        )?;
+        reject_unknown_keys(&raw, "/training", &["updates", "validation_every"])?;
         reject_unknown_keys(&raw, "/runtime", &["rayon_threads"])?;
         reject_unknown_keys(&raw, "/selection", &["split", "metric"])?;
 
@@ -180,13 +125,11 @@ impl TurnTrainingConfig {
         for (pointer, expected) in [
             ("/data/path_contract", "complete_original_edge_id_sequence"),
             ("/data/cycle_policy", "drop"),
-            ("/model/kind", "turn_aware"),
-            ("/model/solver", "blockwise_projected_subgradient"),
-            ("/model/residual_scale_policy", "frozen_edge_metric_median"),
+            ("/model/kind", "expanded"),
             ("/oracle/kind", "expanded_cch"),
             ("/oracle/customization", "full"),
             ("/selection/split", "validation"),
-            ("/selection/metric", "aggregate_relative_regret"),
+            ("/selection/metric", "mean_regret_plus_regularization"),
             ("/test_policy", "never_read"),
         ] {
             let actual = require_str(&raw, pointer)?;
@@ -201,31 +144,16 @@ impl TurnTrainingConfig {
         {
             return Err("/oracle/group_unique_od must be true".to_string());
         }
-        if raw.pointer("/training/early_stop").and_then(Value::as_bool) != Some(false) {
-            return Err("/training/early_stop must be false".to_string());
-        }
-
         let run_id = require_safe_component(&raw, "/run_id", "run_id")?;
-        let protocol_id = require_safe_component(&raw, "/protocol_id", "protocol_id")?;
-        let stage = require_str(&raw, "/stage")?.to_string();
-        if !matches!(
-            stage.as_str(),
-            "correctness" | "screen_10pct" | "full_endpoint"
-        ) {
-            return Err("stage must be correctness, screen_10pct, or full_endpoint".to_string());
-        }
         let city = require_safe_component(&raw, "/data/city", "city")?;
         let train_variant = require_safe_component(&raw, "/data/train_variant", "train_variant")?;
         let validation_variant =
             require_safe_component(&raw, "/data/validation_variant", "validation_variant")?;
-        let initialization_path = PathBuf::from(require_str(&raw, "/initialization/path")?);
-        let initialization_sha256 = require_str(&raw, "/initialization/sha256")?.to_string();
-        validate_sha256(&initialization_sha256, "/initialization/sha256")?;
-        let arm = TurnExperimentArm::parse(require_str(&raw, "/model/arm")?)?;
         let updates = require_u64(&raw, "/training/updates")?;
         let validation_every = require_u64(&raw, "/training/validation_every")?;
-        let eta_q0 = require_f64(&raw, "/model/eta_q0")?;
+        let eta0 = require_f64(&raw, "/model/eta0")?;
         let lambda_edge = require_f64(&raw, "/model/lambda_edge")?;
+        let lambda_transition = require_f64(&raw, "/model/lambda_transition")?;
         let q_min = require_f64(&raw, "/model/q_min")?;
         let q_max = require_f64(&raw, "/model/q_max")?;
         let quantization_scale = require_f64(&raw, "/model/quantization_scale")?;
@@ -233,9 +161,6 @@ impl TurnTrainingConfig {
         let r_max = require_f64(&raw, "/model/r_max")?;
         let rayon_threads = usize::try_from(require_u64(&raw, "/runtime/rayon_threads")?)
             .map_err(|_| "rayon_threads does not fit usize".to_string())?;
-        let eta_r0 = optional_f64(&raw, "/model/eta_r0")?;
-        let lambda_turn = optional_f64(&raw, "/model/lambda_turn")?;
-
         if updates == 0 || validation_every == 0 || validation_every > updates {
             return Err(
                 "updates and validation_every must be positive, with cadence <= updates".into(),
@@ -244,11 +169,14 @@ impl TurnTrainingConfig {
         if rayon_threads == 0 {
             return Err("rayon_threads must be positive".into());
         }
-        if !eta_q0.is_finite() || eta_q0 <= 0.0 {
-            return Err("eta_q0 must be finite and positive".into());
+        if !eta0.is_finite() || eta0 <= 0.0 {
+            return Err("eta0 must be finite and positive".into());
         }
         if !lambda_edge.is_finite() || lambda_edge < 0.0 {
             return Err("lambda_edge must be finite and nonnegative".into());
+        }
+        if !lambda_transition.is_finite() || lambda_transition < 0.0 {
+            return Err("lambda_transition must be finite and nonnegative".into());
         }
         if !q_min.is_finite() || !q_max.is_finite() || q_min <= 0.0 || q_max < q_min {
             return Err("q_min/q_max must define a finite positive box".into());
@@ -262,43 +190,20 @@ impl TurnTrainingConfig {
         if !r_max.is_finite() || r_max <= 0.0 {
             return Err("r_max must be finite and positive".into());
         }
-        match arm.updates_residuals() {
-            true => {
-                if eta_r0.is_none_or(|value| !value.is_finite() || value <= 0.0) {
-                    return Err("turn-only/joint arms require finite positive eta_r0".into());
-                }
-                if lambda_turn.is_none_or(|value| !value.is_finite() || value < 0.0) {
-                    return Err(
-                        "turn-only/joint arms require finite nonnegative lambda_turn".into(),
-                    );
-                }
-            }
-            false if eta_r0.is_some() || lambda_turn.is_some() => {
-                return Err("expanded-edge arm must omit eta_r0 and lambda_turn".into());
-            }
-            false => {}
-        }
-
         Ok(Self {
             raw,
             run_id,
-            protocol_id,
-            stage,
             city,
             train_variant,
             validation_variant,
-            initialization_path,
-            initialization_sha256,
-            arm,
             updates,
             validation_every,
-            eta_q0,
+            eta0,
             lambda_edge,
+            lambda_transition,
             q_min,
             q_max,
             quantization_scale,
-            eta_r0,
-            lambda_turn,
             residual_scale,
             r_max,
             rayon_threads,
@@ -564,10 +469,9 @@ impl RunOptions {
 fn print_help() {
     println!(
         "edge-weight-recovery train\n\
-         Train the edge-only baseline or run a configured turn-residual job.\n\
+         Train the edge-only baseline or the fully optimized expanded-road model.\n\
          Training always drops cyclic complete paths, uses full CCH customization,\n\
-         selects checkpoints on validation only, and never reads test. Historical\n\
-         turn runs retain their model-relative metric for replay, not model ranking.\n\n\
+         selects checkpoints on validation only, and never reads test.\n\n\
          Usage:\n\
            train --config PATH --output-dir PATH\n\n\
          Options:\n\
@@ -671,10 +575,10 @@ pub fn load_checkpoint(path: &Path) -> Result<Value, String> {
     );
     if !matches!(
         checkpoint_kind,
-        (Some(2), Some("edge_only")) | (Some(3), Some("turn_aware"))
+        (Some(2), Some("edge_only")) | (Some(4), Some("expanded"))
     ) {
         return Err(format!(
-            "{} is not a supported edge-only schema-2 or turn-aware schema-3 checkpoint",
+            "{} is not a supported edge-only schema-2 or expanded schema-4 checkpoint",
             path.display()
         ));
     }
@@ -723,16 +627,6 @@ fn require_f64(value: &Value, pointer: &str) -> Result<f64, String> {
         .ok_or_else(|| format!("missing number {pointer}"))
 }
 
-fn optional_f64(value: &Value, pointer: &str) -> Result<Option<f64>, String> {
-    match value.pointer(pointer) {
-        None => Ok(None),
-        Some(value) => value
-            .as_f64()
-            .map(Some)
-            .ok_or_else(|| format!("{pointer} must be a number when present")),
-    }
-}
-
 fn require_safe_component(value: &Value, pointer: &str, label: &str) -> Result<String, String> {
     let component = require_str(value, pointer)?;
     if component.is_empty() || component.contains('/') || component.contains("..") {
@@ -741,14 +635,6 @@ fn require_safe_component(value: &Value, pointer: &str, label: &str) -> Result<S
         ));
     }
     Ok(component.to_string())
-}
-
-fn validate_sha256(value: &str, pointer: &str) -> Result<(), String> {
-    if value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        Ok(())
-    } else {
-        Err(format!("{pointer} must be 64 hexadecimal characters"))
-    }
 }
 
 fn read_json(path: &Path) -> Result<Value, String> {
@@ -808,35 +694,25 @@ mod tests {
         })
     }
 
-    fn turn_config_value(arm: &str) -> Value {
-        let mut value = json!({
+    fn expanded_config_value() -> Value {
+        json!({
             "schema_version": 1,
-            "run_id": "turn_screen",
-            "protocol_id": "turn_residual_v1",
-            "stage": "screen_10pct",
-            "initialization": {
-                "path": "/tmp/frozen_edge_initialization.json",
-                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-            },
+            "run_id": "expanded_smoke",
             "data": {
                 "city": "beijing",
-                "train_variant": "scale_10pct_seed42",
-                "validation_variant": "time_dev_20090513_excl_previous",
+                "train_variant": "scale_1pct_seed42",
+                "validation_variant": "scale_fixed_seed20260715",
                 "path_contract": "complete_original_edge_id_sequence",
                 "cycle_policy": "drop"
             },
             "model": {
-                "kind": "turn_aware",
-                "arm": arm,
-                "solver": "blockwise_projected_subgradient",
-                "eta_q0": 3e-4,
+                "kind": "expanded",
+                "eta0": 1000.0,
                 "lambda_edge": 1e5,
+                "lambda_transition": 1e5,
                 "q_min": 0.1,
                 "q_max": 10.0,
                 "quantization_scale": 1.0,
-                "eta_r0": 3e-4,
-                "lambda_turn": 1e5,
-                "residual_scale_policy": "frozen_edge_metric_median",
                 "residual_scale": 127625.0,
                 "r_max": 10.0
             },
@@ -847,27 +723,15 @@ mod tests {
             },
             "training": {
                 "updates": 30,
-                "validation_every": 10,
-                "early_stop": false
+                "validation_every": 10
             },
             "runtime": {"rayon_threads": 4},
             "selection": {
                 "split": "validation",
-                "metric": "aggregate_relative_regret"
+                "metric": "mean_regret_plus_regularization"
             },
             "test_policy": "never_read"
-        });
-        if arm == "expanded_edge_continuation" {
-            value["model"]
-                .as_object_mut()
-                .expect("model object")
-                .remove("eta_r0");
-            value["model"]
-                .as_object_mut()
-                .expect("model object")
-                .remove("lambda_turn");
-        }
-        value
+        })
     }
 
     #[test]
@@ -886,21 +750,18 @@ mod tests {
     }
 
     #[test]
-    fn turn_config_accepts_the_three_implemented_update_modes() {
-        let turn_only = TurnTrainingConfig::from_value(turn_config_value("turn_only")).unwrap();
-        assert_eq!(turn_only.arm, TurnExperimentArm::TurnOnly);
-        assert_eq!(turn_only.updates, 30);
-        assert_eq!(turn_only.eta_r0, Some(3e-4));
+    fn expanded_config_has_one_training_path() {
+        let config = ExpandedTrainingConfig::from_value(expanded_config_value()).unwrap();
+        assert_eq!(config.updates, 30);
+        assert_eq!(config.eta0, 1000.0);
+        assert_eq!(config.lambda_transition, 1e5);
 
-        let edge = TurnTrainingConfig::from_value(turn_config_value("expanded_edge_continuation"))
-            .unwrap();
-        assert!(edge.arm.updates_q());
-        assert!(!edge.arm.updates_residuals());
-        assert_eq!(edge.eta_r0, None);
-
-        let mut invalid = turn_config_value("turn_only");
-        invalid["model"]["arm"] = json!("signed_turn_residual");
-        assert!(TurnTrainingConfig::from_value(invalid).is_err());
+        let mut unknown = expanded_config_value();
+        unknown["model"]["block_mode"] = json!("freeze_edges");
+        assert_eq!(
+            ExpandedTrainingConfig::from_value(unknown).unwrap_err(),
+            "unknown configuration key /model/block_mode"
+        );
     }
 
     #[test]

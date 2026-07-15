@@ -18,7 +18,7 @@ pub struct PathMetrics {
     /// Aggregate regret divided by aggregate observed path cost under the
     /// current model. This model-relative denominator changes with learned
     /// cost scale, so the value must not be the sole cross-model ranking metric
-    /// for edge-only, frozen-edge turn-only, and joint edge-turn models.
+    /// across metrics whose learned cost scales differ.
     pub relative_regret: f64,
 }
 

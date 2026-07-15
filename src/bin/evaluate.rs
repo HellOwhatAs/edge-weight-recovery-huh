@@ -1,6 +1,7 @@
 use edge_weight_recovery::config::{atomic_write, load_checkpoint};
 use edge_weight_recovery::data::{load_graph, load_trips};
 use edge_weight_recovery::evaluation::{evaluate_expanded_paths, evaluate_paths};
+use edge_weight_recovery::expanded_training::restore_expanded_metric;
 use edge_weight_recovery::oracle::{CchOracle, ExpandedCchOracle};
 use edge_weight_recovery::turn_graph::ExpandedTurnGraph;
 use serde_json::{Value, json};
@@ -49,34 +50,16 @@ fn run() -> Result<(), String> {
             let metric = oracle.customize(&weights)?;
             evaluate_paths(&metric, &trips.paths, threads)?
         }
-        "turn_aware" => {
-            let edge_weights = checkpoint_weights(&checkpoint, "/quantized_edge_weights")?;
-            if edge_weights.len() != graph.tail.len() {
-                return Err(format!(
-                    "checkpoint has {} edge weights but {city} graph has {} edges",
-                    edge_weights.len(),
-                    graph.tail.len()
-                ));
-            }
+        "expanded" => {
             let expanded = ExpandedTurnGraph::build(&graph)?;
-            let transition_weights =
-                checkpoint_weights(&checkpoint, "/quantized_transition_weights")?;
-            if transition_weights.len() != expanded.transition_count() {
-                return Err(format!(
-                    "checkpoint has {} transition weights but expanded graph has {} transitions",
-                    transition_weights.len(),
-                    expanded.transition_count()
-                ));
-            }
             let oracle = ExpandedCchOracle::build(&graph, &expanded)?;
-            if let Some(expected) = checkpoint
-                .pointer("/expanded_topology_identity")
-                .and_then(Value::as_str)
-                && expected != oracle.topology_identity()
-            {
-                return Err("checkpoint expanded topology identity does not match runtime".into());
-            }
-            let metric = oracle.customize(&edge_weights, &transition_weights)?;
+            let weights = restore_expanded_metric(
+                &checkpoint,
+                &graph,
+                &expanded,
+                oracle.topology_identity(),
+            )?;
+            let metric = oracle.customize(weights.edge_weights(), weights.transition_weights())?;
             evaluate_expanded_paths(&metric, &trips.paths, threads)?
         }
         _ => return Err(format!("unsupported checkpoint model {model:?}")),
@@ -85,6 +68,9 @@ fn run() -> Result<(), String> {
         "schema_version": 1,
         "checkpoint": arguments.checkpoint,
         "checkpoint_epoch": checkpoint.pointer("/epoch").and_then(Value::as_u64),
+        "checkpoint_completed_updates": checkpoint
+            .pointer("/completed_updates")
+            .and_then(Value::as_u64),
         "model": model,
         "city": city,
         "split": arguments.split,

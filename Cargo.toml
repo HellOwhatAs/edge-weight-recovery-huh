@@ -14,7 +14,3 @@ sha2 = "0.10"
 [[bin]]
 name = "generate-subsets"
 path = "tools/generate_subsets.rs"
-
-[[bin]]
-name = "import-frozen-edge-checkpoint"
-path = "tools/import_frozen_edge_checkpoint.rs"

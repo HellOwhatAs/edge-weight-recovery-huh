@@ -1,5 +1,5 @@
 mod edge_only;
-mod turn_aware;
+mod expanded_road;
 
 pub use edge_only::EdgeOnlyModel;
-pub use turn_aware::TurnAwareModel;
+pub use expanded_road::{ExpandedMetricWeights, ExpandedRoadModel, TransitionResidualSummary};

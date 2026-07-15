@@ -1,4 +1,4 @@
-//! Generic edge-state expansion for turn-aware shortest paths.
+//! Generic edge-state expansion for transition-aware shortest paths.
 //!
 //! Each original directed edge is one expanded state. Every topologically
 //! legal adjacent edge pair `(previous_edge, next_edge)` is one expanded arc.

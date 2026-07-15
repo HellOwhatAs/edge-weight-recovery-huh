@@ -1,58 +1,169 @@
 # Edge-weight recovery from observed routes
 
-This repository learns one globally shared road-cost metric from complete
-historical routes. The reliable main method is an edge-only inverse
-shortest-path model. A generic nonnegative per-transition residual model is
-also implemented and correctness-checked, but it has not yet been compared
-fairly enough to select a final turn-aware training method.
+This repository studies inverse shortest paths on road networks. The active
+scientific abstraction has two model classes:
 
-## Problem and objective
+1. an edge-only baseline; and
+2. an expanded road model with a nonnegative cost for every legal directed-edge
+   transition.
+
+The expanded model strictly contains the edge-only model. There are no active
+fixed-block or staged model arms: expanded training always optimizes the full
+parameter pair `(q,r)`.
+
+## Models and objectives
 
 For a directed graph `G=(V,E)`, edge `e` has positive baseline cost `b_e` and
-learned multiplier `q_e`:
+learned multiplier `q_e`. The edge-only metric is
 
 ```text
-w_e = b_e q_e
+w_e = b_e q_e.
 ```
 
-For each observed complete edge sequence `P_i` from `s_i` to `t_i`, the route
+In the implementation, `b_e` is the fixed `metric_baseline` obtained as
+`round(original_baseline_e * quantization_scale)`. The optimizer never replaces
+this coordinate scale with the changing quantized weight `round(b_e q_e)`.
+
+For each observed complete edge sequence `P_i` from `s_i` to `t_i`, the data
 term is true shortest-path regret:
 
 ```text
-regret_i(w) = cost_w(P_i) - distance_w(s_i, t_i).
+regret_i = cost(P_i) - distance(s_i,t_i).
 
-J(q) = mean_i regret_i(b .* q)
-     + lambda_edge / (2|E|) ||q - 1||^2.
+J_edge(q) = mean_i regret_i(b .* q)
+          + lambda_edge / (2|E|) ||q - 1||^2.
 ```
 
-The continuous objective is convex. Its data subgradient is obtained from
-observed minus predicted edge counts. The optimizer applies a square-root
-schedule and projects each multiplier to a positive box:
+The expanded topology uses original directed edges as states and legal
+adjacent edge pairs `(e,f)` as transitions. Its continuous transition cost and
+objective are
 
 ```text
-q[t+1] = project_[q_min,q_max](q[t] - eta0/sqrt(t+1) * g[t]).
+kappa_(e,f) = b_f q_f + residual_scale r_(e,f),    r_(e,f) >= 0
+
+J_expanded(q,r) = mean_i regret_i(q,r)
+                + lambda_edge / (2|E|) ||q - 1||^2
+                + lambda_transition / (2|T|) ||r||^2.
 ```
 
-`count_residual_l1` is a tie-dependent diagnostic only; it is not the loss.
+Setting every transition residual to zero reproduces the edge-only metric and
+objective exactly. Thus every feasible edge-only state `(q,0)` is also a
+feasible expanded state; adding transitions does not create a separate arm or
+training mechanism.
 
-## Established edge-only baseline
+`count_residual_l1` remains a tie-dependent diagnostic only. It is not the
+optimization objective.
 
-`EdgeOnlyModel` keeps the latent `f64` multipliers separate from positive
-integer CCH weights. Training uses full CCH customization. Observations sharing
-one OD pair use one query, with distances and predicted counts weighted by OD
-multiplicity.
+## Unified expanded optimizer
 
-The training path has the following enforced contracts:
+Expanded training uses one projected-subgradient optimizer, one learning-rate
+parameter, and one update clock. One optimizer update performs exactly one
+expanded training-set shortest-path batch query. Both edge and transition
+count subgradients come from that same pre-update metric, after which `q` and
+`r` are updated together and both integer metrics are rebuilt. Scheduled
+validation queries are selection-only and never supply an optimizer gradient.
 
-- complete original edge-ID sequences, with continuity and endpoint checks;
-- a single positive-cost policy that drops cyclic observations;
-- validation-only checkpoint selection and no test-data read;
-- atomic checkpoints containing `q`, quantized weights, configuration,
-  selection state, and data/baseline identity;
-- exact reconstruction of integer metric state on checkpoint restore.
+The two parameter blocks have different raw cost scales. To give one `eta0` a
+consistent meaning, optimization is expressed in additive cost coordinates:
 
-The frozen Beijing baseline used 623,275 accepted training routes and selected
-epoch 99 within a bounded 100-epoch run. Its established development result is:
+```text
+u_e = b_e (q_e - 1)
+v_t = residual_scale r_t.
+```
+
+Let
+
+```text
+delta_edge_e       = (observed_edge_e - predicted_edge_e) / N
+delta_transition_t = (observed_transition_t - predicted_transition_t) / N
+eta_k              = eta0 / sqrt(completed_updates + 1).
+```
+
+One update is
+
+```text
+u_e' = project_[b_e(q_min-1), b_e(q_max-1)](
+         u_e - eta_k [delta_edge_e
+                      + lambda_edge u_e / (|E| b_e^2)])
+
+v_t' = project_[0, residual_scale r_max](
+         v_t - eta_k [delta_transition_t
+                      + lambda_transition v_t
+                        / (|T| residual_scale^2)]).
+```
+
+Equivalently, this is deterministic diagonal preconditioning of the original
+`q/r` subgradients:
+
+```text
+g_q,e = b_e delta_edge_e
+        + lambda_edge (q_e - 1) / |E|
+g_r,t = residual_scale delta_transition_t
+        + lambda_transition r_t / |T|
+
+q_e' = project_[q_min,q_max](q_e - eta_k g_q,e / b_e^2)
+r_t' = project_[0,r_max](r_t - eta_k g_r,t / residual_scale^2).
+```
+
+This changes the optimization geometry, not the continuous objective,
+regularizers, or feasible set. Equal count imbalance produces equal additive
+cost movement in `u` and `v` before regularization and projection. It does not
+introduce a second tunable learning rate or a second clock.
+
+The expanded-specific active configuration surface is correspondingly small:
+
+```text
+model.kind = expanded
+eta0
+lambda_edge
+lambda_transition
+q_min
+q_max
+r_max
+quantization_scale
+residual_scale
+updates
+validation_every
+```
+
+Data identity, oracle, runtime, and validation-selection metadata remain
+ordinary run metadata. There is no arm, frozen-block flag, staged-protocol
+field, or block-specific learning rate.
+
+Expanded checkpoint selection is fixed to validation mean regret plus the two
+current regularization terms. Model-relative regret remains a diagnostic and
+does not drive the active expanded selection state.
+
+Continuous latent parameters remain separate from positive integer CCH
+weights. Expanded runs start deterministically from `q=1, r=0`. Checkpoints
+bind `q`, `r`, both quantized metrics, configuration and data identities, that
+initialization identity, expanded-topology identity, validation-selection
+state, and one `completed_updates`. Restore is strict: latent state must
+reproduce the saved integer metrics exactly, without implicit clamping or
+repair.
+
+## Established
+
+The following claims are supported by implementation contracts and existing
+evidence:
+
+- the edge-only inverse shortest-path baseline and its normalized L2 anchor;
+- full CCH customization, unique-OD batching, and correct OD multiplicity;
+- complete-path validation and the single active policy of dropping cyclic
+  observations;
+- validation-only checkpoint selection and no test-data read during training;
+- stable expanded transition IDs and reversible transition-to-edge mapping;
+- correct expanded source/target handling and observed-path cost accounting;
+- exact equality of edge-only and expanded distances and observed costs when
+  `r=0`, allowing different path representations at shortest-path ties;
+- strict nesting of every edge-only state `(q,0)` inside the expanded model;
+- strictly greater representational capacity on a synthetic conflict graph,
+  where edge-only costs cannot make two conditionally opposed routes both
+  uniquely shortest but nonnegative transition costs can.
+
+The frozen Beijing edge-only baseline used 623,275 accepted training routes
+and selected epoch 99 within a bounded 100-epoch run. Its established
+development evidence is:
 
 | Scope | Routes | Relative regret | Mean regret | Edge F1 | Exact match |
 |---|---:|---:|---:|---:|---:|
@@ -60,100 +171,76 @@ epoch 99 within a bounded 100-epoch run. Its established development result is:
 | Spent AM/PM confirmation | 31,662 | 0.06302821 | — | 0.684512 | 0.376508 |
 
 The AM/PM blocks were validation-derived, source-index-disjoint confirmation
-blocks. They are spent evidence, not an untouched final test. The run selected
-its epoch-99 boundary, so full optimization convergence is not established.
-The authoritative baseline records remain
+blocks. They are spent evidence, not an untouched final test. The selected
+epoch was the budget boundary, so convergence is not established. The
+authoritative records are
 [`experiments/configs/beijing_edge_only_full.json`](experiments/configs/beijing_edge_only_full.json)
 and
 [`experiments/summaries/beijing_edge_only.json`](experiments/summaries/beijing_edge_only.json).
 
-## Generic turn-expanded model
+## Not yet established
 
-The expanded topology uses each original directed edge as a state and every
-legal adjacent edge pair `(e,f)` as a transition. It provides stable transition
-IDs, bidirectional ID/pair mapping, and multi-source/multi-target handling for
-original-node OD queries.
+The repository does not yet establish:
 
-The retained nested model is:
+- that a fairly and sufficiently optimized expanded road model outperforms the
+  edge-only baseline on real data;
+- improvement on independent data in raw mean objective, Edge F1, or Exact
+  Match;
+- that either active model has been optimized sufficiently close to its global
+  optimum;
+- that a learned transition residual has a physical, behavioral, or causal
+  interpretation;
+- generalization to another city, time period, or context.
 
-```text
-kappa_(e,f) = b_f q_f + scale r_(e,f),    r_(e,f) >= 0
-
-J(q,r) = mean route regret
-       + lambda_edge / (2|E|) ||q - 1||^2
-       + lambda_turn / (2|T|) ||r||^2.
-```
-
-`TurnAwareModel` retains continuous residuals, projection to `[0,r_max]`, and
-regularization toward zero. The training implementation can update `r` with
-`q` frozen or update both blocks from the same pre-update predicted counts.
-Turn-aware checkpoints bind `q`, `r`, edge and transition weights, independent
-update clocks, data identity, and expanded-topology identity.
-
-At `r=0`, expanded shortest distances and observed-path costs equal the
-edge-only values; reconstructed paths may differ only at ties. This is covered
-on synthetic graphs and by an ignored, validation-only Beijing correctness
-audit. The model implementation, transition counts, regret accounting,
-quantization, and checkpoint restore are retained.
-
-## Turn-aware evidence boundary
-
-Current status:
-
-> implemented, correctness-checked, promising but not yet fairly validated
-
-The archived Beijing development study observed higher edge F1 and exact match
-for one frozen-edge residual run than for its expanded-edge continuation
-control (`0.693069` versus `0.682444`, and `0.390234` versus `0.369874`). This
-suggests possible route-reproduction benefit. It is not a model-selection or
-generalization result. In the same comparison, raw mean regret increased from
-`317,952.34` to `327,845.80`.
-
-The old A/B/C conclusion is retired because:
-
-- joint learning received only a fixed 30-step simultaneous-update budget,
-  although every frozen-edge turn-only state is also feasible for the joint
-  continuous model;
-- the selection ratio used each model's own observed-path cost as denominator,
-  so residuals could change the scale being compared;
-- the 10% screen retained a full-data `q*` for turn-only but let joint updates
-  modify that representation using only the 10% subset;
-- no full-data joint endpoint was run;
-- development data selected checkpoints and supplied the reported metrics.
-
-Therefore the repository does not establish that turn-only is better than
-joint, that joint is ineffective, that residuals reduce raw regret, that the
-effect generalizes independently, or that learned residuals are physical or
-causal turn costs.
-
-## Metric interpretation
-
-Historical `relative_regret` is
+`relative_regret` divides regret by observed-path cost under the current
+model. The frozen edge-only baseline still uses it for checkpoint selection to
+preserve that established run, while expanded training logs it only as a
+diagnostic. Because the denominator changes with the metric, it must not be the
+sole cross-model ranking criterion. A future fair comparison must evaluate only
 
 ```text
-sum(model regret) / sum(model observed-path cost).
+edge-only baseline
+vs.
+fully optimized expanded road model
 ```
 
-It remains useful for reproducing results within a fixed metric convention,
-but it is model-relative: both numerator and denominator use the current
-model. It must not be the sole fair ranking metric across edge-only,
-turn-only, and joint models. A future comparison should report raw mean regret
-or a denominator fixed across all models. Edge F1 and exact match are useful
-cost-scale-independent route-reproduction metrics.
+and should report raw mean regret or a denominator fixed identically across
+both models, together with Edge F1 and Exact Match on independent data. This is
+a future validation requirement, not authorization to read test data or start
+a new large experiment.
+
+## Historical archive
+
+The former Beijing A/B/C study is preserved under
+[`experiments/archive/turn_residual_abc_v1/`](experiments/archive/turn_residual_abc_v1/README.md).
+Its configurations, summaries, protocol decisions, and numerical fields are
+historical audit material only. The study's model-ranking conclusion was
+withdrawn because its finite optimization budgets, model-relative selection
+ratio, subset asymmetry, and lack of an independent endpoint did not support
+the claimed ranking.
+
+Those historical arms are not active model categories and are not future
+research questions. Strings such as `winner`, `promoted`, or `continue` inside
+the archived JSON describe execution-time protocol decisions, not current
+scientific conclusions. The immutable pre-audit recovery point is
+`6b66eae329b0beea3546550292a4efd789276159`.
 
 ## Repository guide
 
-- `src/model/edge_only.rs`: reliable edge-only parameterization.
-- `src/model/turn_aware.rs`: nonnegative per-transition residual state.
-- `src/objective.rs` and `src/optimizer.rs`: regret, diagnostics, and projected
-  updates.
-- `src/turn_graph.rs` and `src/oracle/expanded.rs`: generic expansion and bound
-  expanded queries.
-- `src/training.rs` and `src/turn_training.rs`: validation-selected training.
-- `tests/`: behavioral, correctness, identity, and theoretical contracts.
-- `experiments/configs/`: active baseline and bounded smoke configurations.
-- `experiments/archive/turn_residual_abc_v1/`: original inconclusive A/B/C
-  protocol, configurations, and machine-readable results.
+- `src/model/edge_only.rs`: edge-only parameterization.
+- `src/model/expanded_road.rs`: `ExpandedRoadModel` and continuous transition
+  residual state.
+- `src/objective.rs` and `src/optimizer.rs`: regret, diagnostics, and unified
+  projected updates.
+- `src/turn_graph.rs` and `src/oracle/expanded.rs`: expanded topology and
+  metric-bound expanded queries.
+- `src/training.rs` and `src/expanded_training.rs`: validation-selected
+  training paths.
+- `tests/`: behavioral, correctness, identity, nesting, and checkpoint
+  contracts.
+- `experiments/configs/`: active baseline and bounded configurations.
+- `experiments/archive/turn_residual_abc_v1/`: immutable historical A/B/C
+  audit material.
 
 The CLIs can be inspected without reading data:
 
@@ -162,19 +249,5 @@ cargo run --locked --bin train -- --help
 cargo run --locked --bin evaluate -- --help
 ```
 
-## Historical recovery
-
-The A/B/C files are preserved byte-for-byte under
-[`experiments/archive/turn_residual_abc_v1/`](experiments/archive/turn_residual_abc_v1/README.md).
-The immutable pre-audit commit is
-`6b66eae329b0beea3546550292a4efd789276159`; this workspace also has the local
-annotated tag `pre-turn-abc-audit-20260715` pointing to it. For example:
-
-```bash
-git show 6b66eae329b0beea3546550292a4efd789276159:experiments/turn_residual_protocol.json
-```
-
-Earlier convergence, scale, and exploratory work remains recoverable as
-described in [`experiments/archive/README.md`](experiments/archive/README.md).
-See [`docs/research_status.md`](docs/research_status.md) for the exact current
-claim boundary and requirements for a future fair evaluation.
+See [`docs/research_status.md`](docs/research_status.md) for the precise claim
+boundary and [`EXPERIMENTS.md`](EXPERIMENTS.md) for the evidence index.

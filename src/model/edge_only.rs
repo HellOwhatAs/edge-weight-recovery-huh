@@ -69,6 +69,13 @@ impl EdgeOnlyModel {
         &self.q
     }
 
+    /// Borrow the fixed baseline and continuous multipliers for a model-level
+    /// optimizer update. The baseline remains immutable because it defines the
+    /// coordinate normalization throughout training.
+    pub(crate) fn optimization_state_mut(&mut self) -> (&[u32], &mut [f64]) {
+        (&self.metric_baseline, &mut self.q)
+    }
+
     pub fn quantized_weights(&self) -> Result<Vec<u32>, String> {
         quantize_weights(&self.metric_baseline, &self.q, 1.0)
     }

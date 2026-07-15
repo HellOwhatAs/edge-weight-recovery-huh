@@ -9,8 +9,8 @@ pub struct RegretStats {
     pub mean_data_loss: f64,
     /// Model-relative regret: aggregate regret divided by the observed cost
     /// under this same metric. Because that denominator changes with the
-    /// model's cost scale, this is not a fair sole ranking metric across
-    /// edge-only, frozen-edge turn-only, and joint edge-turn models.
+    /// learned cost scale, this is not a fair sole comparison metric between
+    /// independently optimized models.
     pub relative_data_loss: f64,
 }
 
@@ -51,7 +51,7 @@ pub fn compute_regret(
 /// residual increment because its next-edge cost is already included in the
 /// edge-count term. This is algebraically identical to paying the first edge
 /// as a source offset and every later edge through its transition weight.
-pub fn observed_turn_aware_cost(
+pub fn observed_expanded_cost(
     expanded: &ExpandedTurnGraph,
     edge_weights: &[u32],
     transition_weights: &[u32],
@@ -92,7 +92,7 @@ pub fn observed_turn_aware_cost(
 }
 
 /// Compute true observed-minus-shortest-path regret for an expanded metric.
-pub fn compute_turn_aware_regret(
+pub fn compute_expanded_regret(
     expanded: &ExpandedTurnGraph,
     edge_weights: &[u32],
     transition_weights: &[u32],
@@ -100,7 +100,7 @@ pub fn compute_turn_aware_regret(
     observed_transition_counts: &[u64],
     oracle: &ExpandedOracleStats,
 ) -> Result<RegretStats, String> {
-    let observed_cost_sum = observed_turn_aware_cost(
+    let observed_cost_sum = observed_expanded_cost(
         expanded,
         edge_weights,
         transition_weights,
@@ -221,7 +221,7 @@ mod tests {
         let observed_edges = vec![1, 1, 1, 1];
         let observed_transitions = vec![1, 1];
         assert_eq!(
-            observed_turn_aware_cost(
+            observed_expanded_cost(
                 &expanded,
                 &graph.baseline_weights,
                 &transition_weights,
@@ -240,7 +240,7 @@ mod tests {
             num_queries: 1,
             oracle_duration: Duration::ZERO,
         };
-        let regret = compute_turn_aware_regret(
+        let regret = compute_expanded_regret(
             &expanded,
             &graph.baseline_weights,
             &transition_weights,
