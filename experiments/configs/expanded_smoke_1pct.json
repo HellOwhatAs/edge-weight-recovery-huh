@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "run_id": "expanded_smoke_1pct",
+  "description": "First finite-budget Beijing 1% trajectory for the unified expanded road model from q=1, r=0.",
+  "data": {
+    "city": "beijing",
+    "train_variant": "scale_1pct_seed42",
+    "validation_variant": "scale_fixed_seed20260715",
+    "path_contract": "complete_original_edge_id_sequence",
+    "cycle_policy": "drop",
+    "train_identity": {
+      "path": "data/beijing_data/preprocessed_train_trips_scale_1pct_seed42.pkl",
+      "bytes": 1673185,
+      "sha256": "67dc070b010ae58cfea41ccc1fb2de93b6821db2df537f510aac6e3dd1f629e5",
+      "source_sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
+      "sample_count": 7857,
+      "seed": 42
+    },
+    "validation_identity": {
+      "path": "data/beijing_data/preprocessed_validation_trips_scale_fixed_seed20260715.pkl",
+      "bytes": 4160448,
+      "sha256": "c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade",
+      "source_sha256": "97d9e9231fc6599084e6af9eaa081e08c09f6108f27f304a26264fff1ee0ec6d",
+      "sample_count": 20000,
+      "seed": 20260715
+    }
+  },
+  "model": {
+    "kind": "expanded",
+    "eta0": 1000.0,
+    "lambda_edge": 100000.0,
+    "lambda_transition": 100000.0,
+    "q_min": 0.1,
+    "q_max": 10.0,
+    "quantization_scale": 1.0,
+    "residual_scale": 127625.0,
+    "r_max": 10.0
+  },
+  "oracle": {
+    "kind": "expanded_cch",
+    "customization": "full",
+    "group_unique_od": true
+  },
+  "training": {
+    "updates": 100,
+    "validation_every": 10
+  },
+  "runtime": {
+    "rayon_threads": 4
+  },
+  "selection": {
+    "split": "validation",
+    "metric": "mean_regret_plus_regularization"
+  },
+  "test_policy": "never_read"
+}
