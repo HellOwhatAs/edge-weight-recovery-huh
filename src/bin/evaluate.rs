@@ -1,7 +1,8 @@
 use edge_weight_recovery::config::{atomic_write, load_checkpoint};
 use edge_weight_recovery::data::{load_graph, load_trips};
-use edge_weight_recovery::evaluation::evaluate_paths;
-use edge_weight_recovery::oracle::CchOracle;
+use edge_weight_recovery::evaluation::{evaluate_expanded_paths, evaluate_paths};
+use edge_weight_recovery::oracle::{CchOracle, ExpandedCchOracle};
+use edge_weight_recovery::turn_graph::ExpandedTurnGraph;
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
@@ -28,25 +29,63 @@ fn run() -> Result<(), String> {
     validate_component(&variant, "variant")?;
 
     let graph = load_graph(city)?;
-    let weights = checkpoint_weights(&checkpoint)?;
-    if weights.len() != graph.tail.len() {
-        return Err(format!(
-            "checkpoint has {} weights but {city} graph has {} edges",
-            weights.len(),
-            graph.tail.len()
-        ));
-    }
     let trips = load_trips(city, &arguments.split, &variant, &graph, None)?;
     if trips.paths.is_empty() {
         return Err("no valid evaluation paths remain after validation".to_string());
     }
-    let oracle = CchOracle::build(&graph)?;
-    let metric = oracle.customize(&weights)?;
-    let metrics = evaluate_paths(&metric, &trips.paths, rayon::current_num_threads().max(1))?;
+    let model = required_str(&checkpoint, "/model")?;
+    let threads = rayon::current_num_threads().max(1);
+    let metrics = match model {
+        "edge_only" => {
+            let weights = checkpoint_weights(&checkpoint, "/quantized_metric_weights")?;
+            if weights.len() != graph.tail.len() {
+                return Err(format!(
+                    "checkpoint has {} edge weights but {city} graph has {} edges",
+                    weights.len(),
+                    graph.tail.len()
+                ));
+            }
+            let oracle = CchOracle::build(&graph)?;
+            let metric = oracle.customize(&weights)?;
+            evaluate_paths(&metric, &trips.paths, threads)?
+        }
+        "turn_aware" => {
+            let edge_weights = checkpoint_weights(&checkpoint, "/quantized_edge_weights")?;
+            if edge_weights.len() != graph.tail.len() {
+                return Err(format!(
+                    "checkpoint has {} edge weights but {city} graph has {} edges",
+                    edge_weights.len(),
+                    graph.tail.len()
+                ));
+            }
+            let expanded = ExpandedTurnGraph::build(&graph)?;
+            let transition_weights =
+                checkpoint_weights(&checkpoint, "/quantized_transition_weights")?;
+            if transition_weights.len() != expanded.transition_count() {
+                return Err(format!(
+                    "checkpoint has {} transition weights but expanded graph has {} transitions",
+                    transition_weights.len(),
+                    expanded.transition_count()
+                ));
+            }
+            let oracle = ExpandedCchOracle::build(&graph, &expanded)?;
+            if let Some(expected) = checkpoint
+                .pointer("/expanded_topology_identity")
+                .and_then(Value::as_str)
+                && expected != oracle.topology_identity()
+            {
+                return Err("checkpoint expanded topology identity does not match runtime".into());
+            }
+            let metric = oracle.customize(&edge_weights, &transition_weights)?;
+            evaluate_expanded_paths(&metric, &trips.paths, threads)?
+        }
+        _ => return Err(format!("unsupported checkpoint model {model:?}")),
+    };
     let result = json!({
         "schema_version": 1,
         "checkpoint": arguments.checkpoint,
         "checkpoint_epoch": checkpoint.pointer("/epoch").and_then(Value::as_u64),
+        "model": model,
         "city": city,
         "split": arguments.split,
         "variant": variant,
@@ -130,11 +169,11 @@ impl Arguments {
     }
 }
 
-fn checkpoint_weights(checkpoint: &Value) -> Result<Vec<u32>, String> {
+fn checkpoint_weights(checkpoint: &Value, pointer: &str) -> Result<Vec<u32>, String> {
     checkpoint
-        .pointer("/quantized_metric_weights")
+        .pointer(pointer)
         .and_then(Value::as_array)
-        .ok_or_else(|| "checkpoint is missing quantized_metric_weights".to_string())?
+        .ok_or_else(|| format!("checkpoint is missing {pointer}"))?
         .iter()
         .enumerate()
         .map(|(edge, value)| {

@@ -15,8 +15,50 @@ pub struct EdgeOnlyModel {
 impl EdgeOnlyModel {
     pub fn new(original_baseline: &[u32], quantization_scale: f64) -> Result<Self, String> {
         let q = vec![1.0; original_baseline.len()];
-        let metric_baseline = quantize_weights(original_baseline, &q, quantization_scale)?;
-        Ok(Self { metric_baseline, q })
+        Self::from_q(original_baseline, quantization_scale, &q)
+    }
+
+    /// Restore a latent edge model without clamping or repairing checkpoint
+    /// values. Every multiplier must already be finite, positive, and
+    /// representable as a valid CCH weight.
+    pub fn from_q(
+        original_baseline: &[u32],
+        quantization_scale: f64,
+        q: &[f64],
+    ) -> Result<Self, String> {
+        if original_baseline.is_empty() {
+            return Err("edge model requires at least one baseline edge".to_string());
+        }
+        if original_baseline.len() != q.len() {
+            return Err(format!(
+                "original baseline and q length mismatch: {} != {}",
+                original_baseline.len(),
+                q.len()
+            ));
+        }
+        if let Some((edge, _)) = original_baseline
+            .iter()
+            .enumerate()
+            .find(|(_, baseline)| **baseline == 0)
+        {
+            return Err(format!("edge {edge} has zero original baseline cost"));
+        }
+        for (edge, &multiplier) in q.iter().enumerate() {
+            if !multiplier.is_finite() || multiplier <= 0.0 {
+                return Err(format!(
+                    "q[{edge}] must be finite and greater than zero, got {multiplier}"
+                ));
+            }
+        }
+
+        let unit = vec![1.0; original_baseline.len()];
+        let metric_baseline = quantize_weights(original_baseline, &unit, quantization_scale)?;
+        let model = Self {
+            metric_baseline,
+            q: q.to_vec(),
+        };
+        model.quantized_weights()?;
+        Ok(model)
     }
 
     pub fn metric_baseline(&self) -> &[u32] {
@@ -96,5 +138,23 @@ mod tests {
         model.projected_step(&mut optimizer, &[1, 1, 0], &[1, 0, 1], 1);
         assert_eq!(model.q(), &[1.0, 0.9, 1.1]);
         assert_close(model.regularization(6.0), 0.02);
+    }
+
+    #[test]
+    fn strictly_restores_valid_latent_multipliers() {
+        let model = EdgeOnlyModel::from_q(&[3, 7], 2.5, &[0.92, 1.18]).unwrap();
+        assert_eq!(model.metric_baseline(), &[8, 18]);
+        assert_eq!(model.q(), &[0.92, 1.18]);
+        assert_eq!(model.quantized_weights().unwrap(), vec![7, 21]);
+    }
+
+    #[test]
+    fn strict_restore_rejects_invalid_or_implicitly_repaired_state() {
+        assert!(EdgeOnlyModel::from_q(&[], 1.0, &[]).is_err());
+        assert!(EdgeOnlyModel::from_q(&[1, 2], 1.0, &[1.0]).is_err());
+        assert!(EdgeOnlyModel::from_q(&[0], 1.0, &[1.0]).is_err());
+        assert!(EdgeOnlyModel::from_q(&[1], 1.0, &[0.0]).is_err());
+        assert!(EdgeOnlyModel::from_q(&[1], 1.0, &[f64::NAN]).is_err());
+        assert!(EdgeOnlyModel::from_q(&[u32::MAX], 1.0, &[2.0]).is_err());
     }
 }

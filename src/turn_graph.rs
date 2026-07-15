@@ -6,7 +6,6 @@
 //! edge ID, first by `previous_edge` and then by `next_edge`.
 
 use crate::data::GraphData;
-use routingkit_cch::CCHQuery;
 
 pub const MAX_EXPANDED_ARCS: usize = 12_000_000;
 pub const MAX_RAW_EXPANDED_BYTES: u64 = 512 * 1024 * 1024;
@@ -28,6 +27,9 @@ pub struct ExpandedGraphStats {
     pub original_edges: usize,
     pub expanded_nodes: usize,
     pub expanded_arcs: usize,
+    /// Legal transitions whose previous and next state are the same original
+    /// edge. These are retained, not silently filtered.
+    pub state_self_transitions: usize,
     /// Tail/head, one customized metric, state coordinates, and one order.
     pub estimated_raw_expanded_bytes: u64,
 }
@@ -132,6 +134,11 @@ impl ExpandedTurnGraph {
                 .windows(2)
                 .all(|range| head[range[0]..range[1]].is_sorted())
         );
+        let state_self_transitions = tail
+            .iter()
+            .zip(&head)
+            .filter(|(previous, next)| previous == next)
+            .count();
 
         let mut state_x = Vec::with_capacity(edge_count);
         let mut state_y = Vec::with_capacity(edge_count);
@@ -162,6 +169,7 @@ impl ExpandedTurnGraph {
                 original_edges: edge_count,
                 expanded_nodes: edge_count,
                 expanded_arcs: arc_count,
+                state_self_transitions,
                 estimated_raw_expanded_bytes,
             },
         })
@@ -287,7 +295,7 @@ impl ExpandedTurnGraph {
     /// Cost an observed original-edge path under an already quantized expanded
     /// metric. The first edge is paid as a source-state offset; every remaining
     /// edge and its turn residual are paid by the corresponding transition.
-    pub fn observed_path_cost(
+    pub(crate) fn observed_path_cost(
         &self,
         graph: &GraphData,
         edge_weights: &[u32],
@@ -338,61 +346,7 @@ impl ExpandedTurnGraph {
     }
 }
 
-/// Run a multi-source/multi-target edge-state query and decode the state path
-/// back to original edge IDs.
-pub fn query_expanded_path(
-    query: &mut CCHQuery<'_>,
-    expanded: &ExpandedTurnGraph,
-    graph: &GraphData,
-    edge_weights: &[u32],
-    transition_weights: &[u32],
-    source: u32,
-    target: u32,
-) -> Result<ExpandedPath, String> {
-    validate_edge_weights(edge_weights, expanded.stats.original_edges)?;
-    validate_transition_weights(transition_weights, expanded.transition_count())?;
-    let sources = expanded.source_states(source)?;
-    let targets = expanded.target_states(target)?;
-    if sources.is_empty() || targets.is_empty() {
-        return Err(format!(
-            "expanded OD ({source}, {target}) has {} source states and {} target states",
-            sources.len(),
-            targets.len()
-        ));
-    }
-    for &state in sources {
-        query.add_source(state, edge_weights[state as usize]);
-    }
-    for &state in targets {
-        query.add_target(state, 0);
-    }
-
-    let result = query.run();
-    let distance = result
-        .distance()
-        .ok_or_else(|| format!("expanded OD ({source}, {target}) is unreachable"))?;
-    let original_edges = result
-        .node_path()
-        .into_iter()
-        .map(|edge| edge as usize)
-        .collect::<Vec<_>>();
-    drop(result);
-
-    validate_decoded_path(graph, &original_edges, source, target)?;
-    let reconstructed =
-        expanded.observed_path_cost(graph, edge_weights, transition_weights, &original_edges)?;
-    if reconstructed != distance as u64 {
-        return Err(format!(
-            "expanded OD ({source}, {target}) distance/path mismatch: distance={distance}, reconstructed={reconstructed}"
-        ));
-    }
-    Ok(ExpandedPath {
-        distance,
-        original_edges,
-    })
-}
-
-pub fn validate_decoded_path(
+pub(crate) fn validate_decoded_path(
     graph: &GraphData,
     path: &[usize],
     source: u32,
@@ -510,6 +464,7 @@ fn estimate_raw_bytes(arcs: usize, states: usize) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::oracle::ExpandedCchOracle;
     use routingkit_cch::{CCH, CCHMetric, CCHQuery, compute_order_degree};
 
     fn graph() -> GraphData {
@@ -545,6 +500,24 @@ mod tests {
         assert_eq!(expanded.transition_id(99, 1), None);
         assert_eq!(expanded.source_states(0).unwrap(), &[0, 2]);
         assert_eq!(expanded.target_states(2).unwrap(), &[1, 3]);
+    }
+
+    #[test]
+    fn retains_and_reports_legal_state_self_transitions() {
+        let graph = GraphData {
+            tail: vec![0],
+            head: vec![0],
+            baseline_weights: vec![2],
+            x: vec![0.0],
+            y: vec![0.0],
+        };
+        let expanded = ExpandedTurnGraph::build(&graph).unwrap();
+        assert_eq!(expanded.transition_count(), 1);
+        assert_eq!(expanded.stats.state_self_transitions, 1);
+        assert_eq!(
+            expanded.transition_edges(expanded.transition_id(0, 0).unwrap()),
+            Some((0, 0))
+        );
     }
 
     #[test]
@@ -589,34 +562,15 @@ mod tests {
         let expanded = ExpandedTurnGraph::build(&graph).unwrap();
         assert_eq!(expanded.source_states(0).unwrap(), &[0, 2]);
         assert_eq!(expanded.target_states(2).unwrap(), &[1, 3]);
-        let expanded_order = compute_order_degree(
-            expanded.stats.expanded_nodes as u32,
-            &expanded.tail,
-            &expanded.head,
-        );
-        let expanded_cch = CCH::new(
-            &expanded_order,
-            &expanded.tail,
-            &expanded.head,
-            |_| {},
-            false,
-        );
         let zero_residuals = vec![0.0; expanded.transition_count()];
         let expanded_weights = expanded
             .transition_metric_weights(&graph.baseline_weights, &zero_residuals, 1.0)
             .unwrap();
-        let expanded_metric = CCHMetric::new(&expanded_cch, expanded_weights.clone());
-        let mut expanded_query = CCHQuery::new(&expanded_metric);
-        let result = query_expanded_path(
-            &mut expanded_query,
-            &expanded,
-            &graph,
-            &graph.baseline_weights,
-            &expanded_weights,
-            0,
-            2,
-        )
-        .unwrap();
+        let expanded_oracle = ExpandedCchOracle::build(&graph, &expanded).unwrap();
+        let expanded_metric = expanded_oracle
+            .customize(&graph.baseline_weights, &expanded_weights)
+            .unwrap();
+        let result = expanded_metric.query(0, 2).unwrap();
 
         assert_eq!(original_distance, 4);
         assert_eq!(result.distance, original_distance);

@@ -2,6 +2,9 @@ use rayon::prelude::*;
 use routingkit_cch::shp_utils;
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use crate::turn_graph::ExpandedTurnGraph;
 
 /// One complete observed path expressed in original directed edge IDs.
 pub type TripPath = ((u32, u32), Vec<usize>);
@@ -194,6 +197,50 @@ pub fn compute_observed_edge_counts(
         )
 }
 
+/// Count legal adjacent-edge transitions in complete observed paths.
+///
+/// Counts use the stable transition IDs owned by `ExpandedTurnGraph`. A
+/// one-edge path contributes no transition; no synthetic source or target
+/// transition is introduced.
+pub fn compute_observed_transition_counts(
+    paths: &[TripPath],
+    expanded: &ExpandedTurnGraph,
+    num_chunks: usize,
+) -> Result<Vec<u64>, String> {
+    let transition_count = expanded.transition_count();
+    if paths.is_empty() {
+        return Ok(vec![0; transition_count]);
+    }
+
+    // One dense atomic array avoids allocating one potentially very large
+    // transition vector per worker on the expanded graph.
+    let counts = (0..transition_count)
+        .map(|_| AtomicU64::new(0))
+        .collect::<Vec<_>>();
+    paths
+        .par_chunks(chunk_size(paths.len(), num_chunks))
+        .try_for_each(|chunk| {
+            for (_, path) in chunk {
+                for pair in path.windows(2) {
+                    let transition = expanded.transition_id(pair[0], pair[1]).ok_or_else(|| {
+                        format!(
+                            "observed path contains missing transition {} -> {}",
+                            pair[0], pair[1]
+                        )
+                    })?;
+                    counts[transition.index()]
+                        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+                            count.checked_add(1)
+                        })
+                        .map_err(|_| "observed transition count overflow".to_string())?;
+                }
+            }
+            Ok::<(), String>(())
+        })?;
+
+    Ok(counts.into_iter().map(AtomicU64::into_inner).collect())
+}
+
 /// Group observations by OD so each unique pair needs one oracle query.
 pub fn group_paths_by_od(paths: &[TripPath]) -> Vec<OdGroup> {
     let mut counts = BTreeMap::<(u32, u32), u64>::new();
@@ -218,6 +265,16 @@ fn chunk_size(len: usize, num_chunks: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn graph() -> GraphData {
+        GraphData {
+            tail: vec![0, 1, 0, 2],
+            head: vec![1, 3, 2, 3],
+            baseline_weights: vec![5, 5, 2, 2],
+            x: vec![0.0, 1.0, 1.0, 2.0],
+            y: vec![0.0, 0.0, 1.0, 0.0],
+        }
+    }
 
     #[test]
     fn validates_complete_paths_and_rejects_cycles() {
@@ -270,5 +327,33 @@ mod tests {
     #[test]
     fn empty_edge_count_workload_is_well_defined() {
         assert_eq!(compute_observed_edge_counts(&[], 3, 64), vec![0; 3]);
+    }
+
+    #[test]
+    fn counts_observed_transitions_by_stable_id() {
+        let expanded = ExpandedTurnGraph::build(&graph()).unwrap();
+        let paths = vec![
+            ((0, 3), vec![0, 1]),
+            ((0, 3), vec![2, 3]),
+            ((0, 3), vec![0, 1]),
+            ((0, 1), vec![0]),
+        ];
+        let counts = compute_observed_transition_counts(&paths, &expanded, 16).unwrap();
+
+        assert_eq!(counts.len(), expanded.transition_count());
+        assert_eq!(counts[expanded.transition_id(0, 1).unwrap().index()], 2);
+        assert_eq!(counts[expanded.transition_id(2, 3).unwrap().index()], 1);
+        assert_eq!(counts.iter().sum::<u64>(), 3);
+    }
+
+    #[test]
+    fn transition_counting_rejects_missing_pairs() {
+        let expanded = ExpandedTurnGraph::build(&graph()).unwrap();
+        let paths = vec![((0, 3), vec![0, 3])];
+        assert!(compute_observed_transition_counts(&paths, &expanded, 1).is_err());
+        assert_eq!(
+            compute_observed_transition_counts(&[], &expanded, 1).unwrap(),
+            vec![0; expanded.transition_count()]
+        );
     }
 }

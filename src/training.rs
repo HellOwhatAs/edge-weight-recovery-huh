@@ -272,7 +272,7 @@ pub fn run_training(config: &TrainingConfig, output_dir: &Path) -> Result<Traini
     })
 }
 
-fn log_data_report(
+pub(crate) fn log_data_report(
     logger: &mut JsonlLogger,
     split: &str,
     variant: &str,
@@ -324,7 +324,7 @@ fn runtime_identity(
     })
 }
 
-fn baseline_fingerprint(graph: &GraphData) -> String {
+pub(crate) fn baseline_fingerprint(graph: &GraphData) -> String {
     let mut hash = 0xcbf29ce484222325u64;
     for value in graph
         .tail
@@ -340,7 +340,7 @@ fn baseline_fingerprint(graph: &GraphData) -> String {
     format!("{hash:016x}")
 }
 
-fn metrics_json(metrics: &PathMetrics) -> Value {
+pub(crate) fn metrics_json(metrics: &PathMetrics) -> Value {
     json!({
         "samples": metrics.sample_count,
         "mean_regret": metrics.mean_regret,
@@ -353,7 +353,7 @@ fn metrics_json(metrics: &PathMetrics) -> Value {
     })
 }
 
-fn q_summary(q: &[f64], lower: f64, upper: f64) -> Value {
+pub(crate) fn q_summary(q: &[f64], lower: f64, upper: f64) -> Value {
     let min = q.iter().copied().fold(f64::INFINITY, f64::min);
     let max = q.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     json!({
@@ -380,23 +380,23 @@ fn regularization(q: &[f64], lambda: f64) -> f64 {
     lambda * q.iter().map(|value| (value - 1.0).powi(2)).sum::<f64>() / (2.0 * q.len() as f64)
 }
 
-fn process_peak_rss_kib() -> Option<u64> {
+pub(crate) fn process_peak_rss_kib() -> Option<u64> {
     let status = std::fs::read_to_string("/proc/self/status").ok()?;
     let line = status.lines().find(|line| line.starts_with("VmHWM:"))?;
     line.split_whitespace().nth(1)?.parse().ok()
 }
 
-fn milliseconds(started: Instant) -> f64 {
+pub(crate) fn milliseconds(started: Instant) -> f64 {
     started.elapsed().as_secs_f64() * 1_000.0
 }
 
-struct JsonlLogger {
-    path: PathBuf,
+pub(crate) struct JsonlLogger {
+    pub(crate) path: PathBuf,
     file: File,
 }
 
 impl JsonlLogger {
-    fn new(output_dir: &Path) -> Result<Self, String> {
+    pub(crate) fn new(output_dir: &Path) -> Result<Self, String> {
         std::fs::create_dir_all(output_dir)
             .map_err(|error| format!("failed to create {}: {error}", output_dir.display()))?;
         let path = output_dir.join("training.jsonl");
@@ -405,7 +405,7 @@ impl JsonlLogger {
         Ok(Self { path, file })
     }
 
-    fn log(&mut self, event: Value) -> Result<(), String> {
+    pub(crate) fn log(&mut self, event: Value) -> Result<(), String> {
         let line = serde_json::to_string(&event)
             .map_err(|error| format!("failed to encode structured log event: {error}"))?;
         println!("{line}");
