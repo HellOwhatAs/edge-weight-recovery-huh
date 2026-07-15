@@ -118,10 +118,58 @@ rates or two decay clocks.
 The active expanded checkpoint selector is validation mean regret plus both
 regularization terms. Model-relative regret is logged only as a diagnostic.
 
+## Current bounded 10-percent development comparison
+
+The first active two-model development comparison used exactly the same
+deterministic Beijing 10-percent train subset and fixed validation split for
+both models:
+
+```text
+train       scale_10pct_seed42       78,570 raw / 62,348 accepted
+validation  scale_fixed_seed20260715 20,000 raw / 15,812 accepted
+cycle policy                         drop
+Rayon threads                        4
+test read                            false
+```
+
+Three learning rates were reported for each model. Raw validation mean regret
+selected `eta0=2e-4` for edge-only and `eta0=16000` for expanded. Each selected
+configuration ran a main budget and, because its best state was at the
+boundary, exactly one extension from the default regularization center. The
+hard caps were 300 edge epochs and 600 expanded updates.
+
+| Model | Best state | Raw mean regret | Edge F1 | Exact Match |
+|---|---:|---:|---:|---:|
+| edge-only | 289 | 310,343.73 | 0.682145 | 0.368454 |
+| expanded | 600 | 619,093.64 | 0.590588 | 0.314318 |
+
+The finite edge-only checkpoint is better on all three fixed metrics. This is
+not a model-class win: expanded selected the hard-cap boundary and improved at
+every cadence through update 600. Its q and r blocks and both quantized metrics
+continued to change without numerical failure, upper-bound saturation, or
+quantization stall. The evidence therefore falls in category F—expanded is
+still underoptimized, so this run cannot distinguish optimizer shortfall from
+model value.
+
+At the expanded best state, setting r to zero while retaining learned q made
+raw mean regret 9,102.34 worse and reduced both F1 and Exact Match. This
+evaluation-only diagnostic shows that the learned residuals help their current
+q state; it is not a third training model.
+
+Active machine-readable records:
+
+- [finite calibration](experiments/summaries/beijing_10pct_calibration.json)
+- [edge-only final run](experiments/summaries/beijing_edge_only_10pct.json)
+- [expanded final run](experiments/summaries/beijing_expanded_10pct.json)
+- [unified comparison](experiments/summaries/beijing_10pct_model_comparison.json)
+- [edge-only configuration](experiments/configs/beijing_edge_only_10pct.json)
+- [expanded configuration](experiments/configs/beijing_expanded_10pct.json)
+
 ## Not yet established
 
-There is no active real-data result showing that the expanded model beats the
-edge-only baseline. In particular, the repository has not established:
+The bounded development result does not show that either model class is
+intrinsically better after sufficient optimization. In particular, the
+repository has not established:
 
 - lower independent-data raw mean objective;
 - higher independent-data Edge F1 or Exact Match;
@@ -149,7 +197,7 @@ fully optimized expanded road model.
 
 That comparison must use raw mean regret or a shared fixed denominator, report
 Edge F1 and Exact Match, and separate checkpoint selection from independent
-reporting. No new Beijing full-data or test run belongs to the present cleanup.
+reporting. No test result belongs to the bounded development comparison above.
 
 ## Historical archive
 

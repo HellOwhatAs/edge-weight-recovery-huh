@@ -119,6 +119,50 @@ regularization, and logs model-relative regret only as a diagnostic. The
 frozen edge-only baseline retains its historical selection convention for
 reproducibility; that convention is not a future cross-model gate.
 
+### Current bounded 10-percent development comparison
+
+A finite, transparent development comparison was run on the deterministic
+Beijing `scale_10pct_seed42` train subset and the fixed
+`scale_fixed_seed20260715` validation split. Both models saw the same 62,348
+accepted training routes and 15,812 accepted validation routes under the same
+path contract and cycle policy. Test data was not read.
+
+Each model received three learning-rate candidates, one selected main run, and
+at most one predeclared extension. Cross-configuration comparison used
+validation raw mean regret as the primary metric and always co-reported Edge
+F1 and Exact Match. The selected finite checkpoints were:
+
+| Model | State | Validation raw mean regret | Edge F1 | Exact Match | Boundary |
+|---|---:|---:|---:|---:|---|
+| edge-only | epoch 289 | 310,343.73 | 0.682145 | 0.368454 | no |
+| expanded | update 600 | 619,093.64 | 0.590588 | 0.314318 | yes |
+
+The edge-only raw-regret best preceded its 300-epoch cap by one validation
+cadence. The expanded run improved at every validation cadence through its
+single 600-update hard cap, including a further raw-regret decrease of about
+528 over the final 25 updates. It changed both q and r and both integer metric
+blocks throughout training, with no NaN, infinity, latent-only quantization
+stall, or upper-bound saturation. At update 600, 30,410 of 188,249 residuals
+were positive and none reached `r_max`.
+
+A diagnostic evaluation kept the learned expanded q and set r exactly to
+zero. Relative to the full expanded checkpoint, raw mean regret worsened by
+9,102.34, Edge F1 by 0.007662, and Exact Match by 0.008854. Thus residuals
+directly helped that finite learned-q state; this was one evaluation, not a
+third trained model.
+
+The result is category F: the observed edge-only checkpoint is substantially
+better on all three fixed metrics, but the expanded trajectory is still
+clearly optimization-limited. Because the expanded feasible set contains the
+edge-only state, a boundary trajectory that remains far from an edge-like
+competitive state cannot establish intrinsic expanded-model inferiority.
+
+Authoritative records are the
+[calibration summary](../experiments/summaries/beijing_10pct_calibration.json),
+[edge-only summary](../experiments/summaries/beijing_edge_only_10pct.json),
+[expanded summary](../experiments/summaries/beijing_expanded_10pct.json), and
+[comparison summary](../experiments/summaries/beijing_10pct_model_comparison.json).
+
 ## 2. Not yet established
 
 The repository does not establish that:
@@ -137,9 +181,10 @@ The repository does not establish that:
 - dropping cyclic observations is empirically superior to every alternative
   path policy.
 
-No new real-data result is created by the code and concept cleanup. In
-particular, expanded-graph correctness and synthetic representational capacity
-do not establish a learned real-data advantage.
+The bounded 10-percent development comparison adds an optimization diagnostic,
+not a model-ranking result. In particular, expanded-graph correctness,
+synthetic representational capacity, and a still-improving finite trajectory
+do not establish a learned real-data advantage or disadvantage.
 
 ## 3. Requirements for a future fair evaluation
 
@@ -151,7 +196,7 @@ vs.
 fully optimized expanded road model.
 ```
 
-A future preregistered evaluation must:
+A conclusive future evaluation must:
 
 1. optimize the complete expanded parameter pair `(q,r)` with a defensible
    procedure and budget;

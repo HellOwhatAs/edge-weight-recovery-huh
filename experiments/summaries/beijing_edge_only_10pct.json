@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "status": "completed_development_training_at_predeclared_hard_cap",
+  "scientific_scope": "Optimized edge-only development result on the deterministic Beijing 10% train subset and fixed validation split; test was never read.",
+  "code_commit": "62b23eb9471ce490f05512af3c942235a5962410",
+  "configuration_path": "experiments/configs/beijing_edge_only_10pct.json",
+  "configuration_sha256": "9f4fa58620dd2b0fc2c16100169b9bdf6731ebf5b64c2a0026204b13c5fb39b8",
+  "test_read": false,
+  "configuration": {
+    "schema_version": 1,
+    "run_id": "edge_10pct_final_eta2e4_e300",
+    "description": "Primary edge-only training on fixed Beijing 10% train and validation.",
+    "data": {
+      "city": "beijing",
+      "train_variant": "scale_10pct_seed42",
+      "validation_variant": "scale_fixed_seed20260715",
+      "path_contract": "complete_original_edge_id_sequence",
+      "cycle_policy": "drop",
+      "train_identity": {
+        "path": "data/beijing_data/preprocessed_train_trips_scale_10pct_seed42.pkl",
+        "bytes": 16680638,
+        "sha256": "8943d8958f3b4fadd7d3eb2f351b97268543961e441436e0ad68408cee45cc0a",
+        "source_sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
+        "sample_count": 78570,
+        "seed": 42
+      },
+      "validation_identity": {
+        "path": "data/beijing_data/preprocessed_validation_trips_scale_fixed_seed20260715.pkl",
+        "bytes": 4160448,
+        "sha256": "c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade",
+        "source_sha256": "97d9e9231fc6599084e6af9eaa081e08c09f6108f27f304a26264fff1ee0ec6d",
+        "sample_count": 20000,
+        "seed": 20260715
+      }
+    },
+    "model": {
+      "kind": "edge_only",
+      "solver": "projected_subgradient",
+      "eta0": 0.0002,
+      "lambda_edge": 100000.0,
+      "q_min": 0.1,
+      "q_max": 10.0,
+      "quantization_scale": 1.0
+    },
+    "oracle": {
+      "kind": "cch",
+      "customization": "full",
+      "group_unique_od": true
+    },
+    "training": {
+      "epochs": 300,
+      "validation_every": 10,
+      "early_stop_patience": 1000,
+      "early_stop_min_delta": 0.0
+    },
+    "selection": {
+      "split": "validation",
+      "metric": "aggregate_relative_regret"
+    },
+    "test_policy": "never_read"
+  },
+  "runtime_data": {
+    "train_available": 78570,
+    "train_accepted_after_dropping_cycles": 62348,
+    "train_unique_od": 61253,
+    "validation_available": 20000,
+    "validation_accepted_after_dropping_cycles": 15812,
+    "validation_unique_od": 15730,
+    "graph_nodes": 31199,
+    "graph_edges": 72156,
+    "baseline_identity": "fnv1a64:ad08fec01f56dd3c"
+  },
+  "calibration": {
+    "summary": "experiments/summaries/beijing_10pct_calibration.json",
+    "candidates": [
+      {
+        "eta0": 0.0001,
+        "validation_raw_mean_regret": 392772.20832279284,
+        "validation_edge_f1": 0.6728842192594753,
+        "validation_exact_match": 0.3654186693650392
+      },
+      {
+        "eta0": 0.0002,
+        "validation_raw_mean_regret": 370583.858082469,
+        "validation_edge_f1": 0.6743424640823791,
+        "validation_exact_match": 0.36295218821148495
+      },
+      {
+        "eta0": 0.0003,
+        "validation_raw_mean_regret": 372573.0858208955,
+        "validation_edge_f1": 0.6728702632382938,
+        "validation_exact_match": 0.36377434859600305
+      }
+    ],
+    "selected_eta0": 0.0002,
+    "selection_basis": "lowest validation raw mean regret, with the highest Edge F1 among candidates"
+  },
+  "actual_runs": [
+    {
+      "role": "main_budget",
+      "command": "RAYON_NUM_THREADS=4 target/release/train --config /tmp/ewr-compare/configs/edge_main_150.json --output-dir /tmp/ewr-compare/runs/main/edge_10pct_main_eta2e4_e150",
+      "config_sha256": "45225928ad796541b9cdd66e6195804e78909169e582fb7a5c5d08155cb6d5fd",
+      "epochs": 150,
+      "optimizer_updates": 149,
+      "selected_epoch": 149,
+      "validation_raw_mean_regret": 334414.99386541866,
+      "best_at_budget_boundary": true,
+      "wall_seconds": 62.27874348599835,
+      "peak_rss_kib": 153856,
+      "shortest_path_queries": 9455442,
+      "extension_decision": "extend_once_because_the_last_three_validation_cadences_still_improved_and_the_best_was_at_the_boundary"
+    },
+    {
+      "role": "single_hard_cap_rerun_from_q_equal_one",
+      "command": "RAYON_NUM_THREADS=4 target/release/train --config /tmp/ewr-compare/configs/edge_final_300.json --output-dir /tmp/ewr-compare/runs/final/edge_10pct_final_eta2e4_e300",
+      "reproducible_committed_command": "RAYON_NUM_THREADS=4 target/release/train --config experiments/configs/beijing_edge_only_10pct.json --output-dir /tmp/edge_10pct_final_eta2e4_e300",
+      "epochs": 300,
+      "optimizer_updates": 299,
+      "selected_epoch": 289,
+      "wall_seconds": 123.1621077180007,
+      "peak_rss_kib": 153856,
+      "shortest_path_queries": 18879342
+    }
+  ],
+  "validation_trajectory": [
+    {
+      "epoch": 0,
+      "raw_mean_regret": 650449.9359347331,
+      "relative_regret": 0.0945596880145798,
+      "regularized_objective": 650449.9359347331
+    },
+    {
+      "epoch": 59,
+      "raw_mean_regret": 370583.858082469,
+      "relative_regret": 0.0647254330018218,
+      "regularized_objective": 370827.03462330875
+    },
+    {
+      "epoch": 99,
+      "raw_mean_regret": 349492.37383000256,
+      "relative_regret": 0.06298977152774277,
+      "regularized_objective": 349816.26849609386
+    },
+    {
+      "epoch": 149,
+      "raw_mean_regret": 334414.99386541866,
+      "relative_regret": 0.062105555368001455,
+      "regularized_objective": 334824.80998240423
+    },
+    {
+      "epoch": 199,
+      "raw_mean_regret": 323933.98507462686,
+      "relative_regret": 0.06166782868193011,
+      "regularized_objective": 324419.06274720584
+    },
+    {
+      "epoch": 249,
+      "raw_mean_regret": 316207.2684669871,
+      "relative_regret": 0.06144272711093774,
+      "regularized_objective": 316761.11458966753
+    },
+    {
+      "epoch": 289,
+      "raw_mean_regret": 310343.73374652164,
+      "relative_regret": 0.061200710617144466,
+      "regularized_objective": 310949.7297934237,
+      "raw_best": true,
+      "internal_selection_best": true
+    },
+    {
+      "epoch": 299,
+      "raw_mean_regret": 311137.48488489754,
+      "relative_regret": 0.06164191944677813,
+      "regularized_objective": 311756.22104318696
+    }
+  ],
+  "best_checkpoint": {
+    "epoch": 289,
+    "selection_metric": "aggregate_validation_relative_regret",
+    "selection_value": 0.061200710617144466,
+    "validation_raw_mean_regret": 310343.73374652164,
+    "validation_relative_regret": 0.061200710617144466,
+    "validation_edge_f1": 0.6821453478322816,
+    "validation_exact_match": 0.368454338477106,
+    "regularization": 605.9960469021114,
+    "regularized_objective": 310949.7297934237,
+    "q": {
+      "count": 72156,
+      "mean": 0.9649523502537882,
+      "min": 0.1,
+      "max": 2.03890950230121,
+      "l2_drift_from_one": 29.572369117224447,
+      "at_min": 22,
+      "at_max": 0
+    },
+    "checkpoint_restore_verified": true,
+    "external_validation_exactly_reproduced_training_evaluation": true,
+    "temporary_checkpoint_sha256": "cf499d68d30401d912ef5ad6e974fa07fffacabdeda8b0960ab1e642c9aeb3cc",
+    "temporary_checkpoint_bytes": 1435732,
+    "temporary_checkpoint_committed": false,
+    "best_at_budget_boundary": false,
+    "distance_from_last_epoch": 10
+  },
+  "optimizer_diagnostics": {
+    "max_projected_edges_in_final_run": 31,
+    "minimum_changed_edges_per_applied_update": 33553,
+    "latent_only_no_integer_change": 0,
+    "nan_or_inf_observed": false,
+    "quantization_stall_observed": false
+  },
+  "resource_accounting_all_actual_runs": {
+    "calibration_candidate_count": 3,
+    "total_optimizer_updates_including_calibration_and_both_budgets": 625,
+    "total_wall_seconds": 262.401465085999,
+    "peak_rss_kib": 153984,
+    "shortest_path_queries_in_training_runs": 39738090,
+    "additional_external_checkpoint_verification_queries": 15812
+  },
+  "sufficiency_assessment": {
+    "judgment": "reasonably_optimized_within_this_development_protocol",
+    "evidence": "the raw-regret best was at epoch 289 rather than the epoch-299 boundary, and the last cadence regressed slightly after broad improvement",
+    "caveat": "late-cadence oscillation means this is a credible finite-budget optimum, not a convergence or global-optimality proof"
+  },
+  "result_boundary": "development-only; no untouched test or generalization claim"
+}

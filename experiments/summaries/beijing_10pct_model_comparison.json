@@ -1,0 +1,378 @@
+{
+  "schema_version": 1,
+  "status": "completed_but_optimization_inconclusive",
+  "scientific_question": "On identical Beijing training data and validation, does a reasonably optimized expanded road model outperform the edge-only baseline?",
+  "code_commit": "62b23eb9471ce490f05512af3c942235a5962410",
+  "test_read": false,
+  "data_and_evaluation_protocol": {
+    "city": "beijing",
+    "path_contract": "complete_original_edge_id_sequence",
+    "cycle_policy": "drop",
+    "primary_metric": "validation_raw_mean_regret",
+    "route_reproduction_metrics": [
+      "validation_edge_f1",
+      "validation_exact_match"
+    ],
+    "diagnostic_only_metric": "model_relative_regret",
+    "train": {
+      "path": "data/beijing_data/preprocessed_train_trips_scale_10pct_seed42.pkl",
+      "variant": "scale_10pct_seed42",
+      "bytes": 16680638,
+      "sha256": "8943d8958f3b4fadd7d3eb2f351b97268543961e441436e0ad68408cee45cc0a",
+      "source_sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
+      "sample_count": 78570,
+      "accepted_after_dropping_cycles": 62348,
+      "unique_od": 61253,
+      "seed": 42
+    },
+    "validation": {
+      "path": "data/beijing_data/preprocessed_validation_trips_scale_fixed_seed20260715.pkl",
+      "variant": "scale_fixed_seed20260715",
+      "bytes": 4160448,
+      "sha256": "c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade",
+      "source_sha256": "97d9e9231fc6599084e6af9eaa081e08c09f6108f27f304a26264fff1ee0ec6d",
+      "sample_count": 20000,
+      "accepted_after_dropping_cycles": 15812,
+      "unique_od": 15730,
+      "seed": 20260715
+    },
+    "rayon_threads": 4,
+    "external_evaluation_command_pattern": "RAYON_NUM_THREADS=4 target/release/evaluate --checkpoint <checkpoint.json> --output <external_validation.json>"
+  },
+  "complete_final_configurations": {
+    "edge_only": {
+      "path": "experiments/configs/beijing_edge_only_10pct.json",
+      "sha256": "9f4fa58620dd2b0fc2c16100169b9bdf6731ebf5b64c2a0026204b13c5fb39b8",
+      "model": {
+        "kind": "edge_only",
+        "solver": "projected_subgradient",
+        "eta0": 0.0002,
+        "lambda_edge": 100000.0,
+        "q_min": 0.1,
+        "q_max": 10.0,
+        "quantization_scale": 1.0
+      },
+      "oracle": {
+        "kind": "cch",
+        "customization": "full",
+        "group_unique_od": true
+      },
+      "training": {
+        "epochs": 300,
+        "optimizer_updates": 299,
+        "validation_every": 10,
+        "early_stop_patience": 1000,
+        "early_stop_min_delta": 0.0
+      },
+      "selection_inside_run": "aggregate_validation_relative_regret",
+      "initialization": "q=1"
+    },
+    "expanded": {
+      "path": "experiments/configs/beijing_expanded_10pct.json",
+      "sha256": "eebc3d8ec398eb9a1a798a2d5aa8fedcefc45652616cc6fe4637270ebeec2631",
+      "model": {
+        "kind": "expanded",
+        "eta0": 16000.0,
+        "lambda_edge": 100000.0,
+        "lambda_transition": 100000.0,
+        "q_min": 0.1,
+        "q_max": 10.0,
+        "r_max": 10.0,
+        "quantization_scale": 1.0,
+        "residual_scale": 127625.0
+      },
+      "oracle": {
+        "kind": "expanded_cch",
+        "customization": "full",
+        "group_unique_od": true
+      },
+      "training": {
+        "updates": 600,
+        "validation_every": 25
+      },
+      "selection_inside_run": "validation_mean_regret_plus_regularization",
+      "initialization": "q=1,r=0"
+    },
+    "shared_data": "exactly the train and validation identities above",
+    "test_policy": "never_read"
+  },
+  "calibration_audit": {
+    "summary": "experiments/summaries/beijing_10pct_calibration.json",
+    "candidate_count": {
+      "edge_only": 3,
+      "expanded": 3
+    },
+    "all_candidates": {
+      "edge_only": [
+        {
+          "eta0": 0.0001,
+          "validation_raw_mean_regret": 392772.20832279284,
+          "validation_edge_f1": 0.6728842192594753,
+          "validation_exact_match": 0.3654186693650392
+        },
+        {
+          "eta0": 0.0002,
+          "validation_raw_mean_regret": 370583.858082469,
+          "validation_edge_f1": 0.6743424640823791,
+          "validation_exact_match": 0.36295218821148495,
+          "selected": true
+        },
+        {
+          "eta0": 0.0003,
+          "validation_raw_mean_regret": 372573.0858208955,
+          "validation_edge_f1": 0.6728702632382938,
+          "validation_exact_match": 0.36377434859600305
+        }
+      ],
+      "expanded": [
+        {
+          "eta0": 1000.0,
+          "validation_raw_mean_regret": 649894.1208575765,
+          "validation_edge_f1": 0.589664583815996,
+          "validation_exact_match": 0.3339236023273463
+        },
+        {
+          "eta0": 4000.0,
+          "validation_raw_mean_regret": 648269.7234378953,
+          "validation_edge_f1": 0.5892085280403565,
+          "validation_exact_match": 0.3331646850493296
+        },
+        {
+          "eta0": 16000.0,
+          "validation_raw_mean_regret": 642382.007083228,
+          "validation_edge_f1": 0.5882907051787006,
+          "validation_exact_match": 0.327409562357703,
+          "selected": true
+        }
+      ]
+    },
+    "selection_rule": "validation raw mean regret was fixed before comparison; F1 and Exact Match were always co-reported; no lambda was tuned",
+    "selective_reporting": false
+  },
+  "budget_protocol": {
+    "edge_only": {
+      "main_budget": 150,
+      "hard_cap": 300,
+      "single_extension_used": true,
+      "final_run_restarted_from_default_center": true
+    },
+    "expanded": {
+      "main_budget": 300,
+      "hard_cap": 600,
+      "single_extension_used": true,
+      "final_run_restarted_from_default_center": true
+    },
+    "no_further_extension_after_hard_cap": true
+  },
+  "trajectory_milestones": {
+    "edge_only": [
+      {
+        "state": 0,
+        "validation_raw_mean_regret": 650449.9359347331
+      },
+      {
+        "state": 59,
+        "validation_raw_mean_regret": 370583.858082469
+      },
+      {
+        "state": 149,
+        "validation_raw_mean_regret": 334414.99386541866
+      },
+      {
+        "state": 199,
+        "validation_raw_mean_regret": 323933.98507462686
+      },
+      {
+        "state": 249,
+        "validation_raw_mean_regret": 316207.2684669871
+      },
+      {
+        "state": 289,
+        "validation_raw_mean_regret": 310343.73374652164,
+        "best": true
+      },
+      {
+        "state": 299,
+        "validation_raw_mean_regret": 311137.48488489754
+      }
+    ],
+    "expanded": [
+      {
+        "state": 0,
+        "validation_raw_mean_regret": 650449.9359347331
+      },
+      {
+        "state": 100,
+        "validation_raw_mean_regret": 635959.2751075133
+      },
+      {
+        "state": 200,
+        "validation_raw_mean_regret": 630629.0697571465
+      },
+      {
+        "state": 300,
+        "validation_raw_mean_regret": 626864.8460662788
+      },
+      {
+        "state": 400,
+        "validation_raw_mean_regret": 623850.3032506957
+      },
+      {
+        "state": 500,
+        "validation_raw_mean_regret": 621304.7650518593
+      },
+      {
+        "state": 600,
+        "validation_raw_mean_regret": 619093.6357829496,
+        "best": true
+      }
+    ],
+    "full_model_summaries": {
+      "edge_only": "experiments/summaries/beijing_edge_only_10pct.json",
+      "expanded": "experiments/summaries/beijing_expanded_10pct.json"
+    }
+  },
+  "best_checkpoint_comparison": {
+    "edge_only": {
+      "selected_state": 289,
+      "validation_raw_mean_regret": 310343.73374652164,
+      "validation_relative_regret": 0.061200710617144466,
+      "validation_edge_f1": 0.6821453478322816,
+      "validation_exact_match": 0.368454338477106,
+      "regularized_objective": 310949.7297934237,
+      "best_at_hard_cap_boundary": false,
+      "checkpoint_restore_verified": true
+    },
+    "expanded": {
+      "selected_state": 600,
+      "validation_raw_mean_regret": 619093.6357829496,
+      "validation_relative_regret": 0.09012923794987121,
+      "validation_edge_f1": 0.590587754364229,
+      "validation_exact_match": 0.314318239311915,
+      "edge_regularization": 12.568335383662383,
+      "transition_regularization": 0.11300362600981506,
+      "regularized_objective": 619106.3171219593,
+      "best_at_hard_cap_boundary": true,
+      "checkpoint_restore_verified": true
+    },
+    "expanded_minus_edge_only": {
+      "validation_raw_mean_regret": 308749.902036428,
+      "validation_raw_mean_regret_percent_of_edge_only": 99.48643019440004,
+      "validation_edge_f1": -0.0915575934680527,
+      "validation_exact_match": -0.05413609916519102
+    },
+    "external_evaluator_exact_reproduction": true
+  },
+  "initial_to_best_raw_regret_change": {
+    "common_initial_raw_mean_regret": 650449.9359347331,
+    "edge_only": {
+      "absolute_decrease": 340106.2021882115,
+      "percent_decrease": 52.28783698770909
+    },
+    "expanded": {
+      "absolute_decrease": 31356.300151783507,
+      "percent_decrease": 4.820709238247943
+    }
+  },
+  "resource_accounting": {
+    "edge_only": {
+      "calibration_candidates": 3,
+      "optimizer_updates_across_all_actual_runs": 625,
+      "training_runner_wall_seconds": 262.401465085999,
+      "peak_rss_kib": 153984,
+      "shortest_path_queries_across_training_runs": 39738090,
+      "additional_external_verification_queries": 15812,
+      "total_queries_including_external_verification": 39753902
+    },
+    "expanded": {
+      "calibration_candidates": 3,
+      "optimizer_updates_across_all_actual_runs": 990,
+      "training_runner_wall_seconds": 1959.607668374998,
+      "peak_rss_kib": 226600,
+      "shortest_path_queries_across_training_runs": 61812295,
+      "additional_external_verification_queries": 15812,
+      "additional_learned_q_r_zero_diagnostic_queries": 15812,
+      "total_queries_including_both_extra_evaluations": 61843919
+    },
+    "final_training_run_only": {
+      "edge_only": {
+        "wall_seconds": 123.1621077180007,
+        "peak_rss_kib": 153856,
+        "shortest_path_queries": 18879342
+      },
+      "expanded": {
+        "wall_seconds": 1163.2511224219998,
+        "peak_rss_kib": 223656,
+        "shortest_path_queries": 37222115
+      }
+    }
+  },
+  "expanded_state_diagnostics": {
+    "q_mean": 1.000862612757446,
+    "q_min": 0.2923173733232586,
+    "q_max": 1.5667983074955945,
+    "q_l2_drift_from_one": 4.258828026449396,
+    "positive_residuals": 30410,
+    "positive_residual_fraction": 0.16154136276952336,
+    "quantized_nonzero_residuals": 30077,
+    "quantized_nonzero_residual_fraction": 0.15977242907000835,
+    "residual_mean": 0.0002867679580813792,
+    "residual_max": 0.05207084925292689,
+    "residual_l2_norm": 0.6522701831713861,
+    "residual_at_r_max": 0,
+    "maximum_projected_edges": 0,
+    "maximum_projected_transitions": 32602,
+    "minimum_changed_edges_per_applied_update": 7515,
+    "minimum_changed_transitions_per_applied_update": 17611,
+    "latent_only_no_integer_change": 0,
+    "nan_or_inf": false,
+    "quantization_stall": false,
+    "upper_bound_saturation": false
+  },
+  "learned_q_r_zero_auxiliary": {
+    "role": "one_evaluation_only_not_a_third_trained_model",
+    "validation_raw_mean_regret": 628195.9719200607,
+    "validation_edge_f1": 0.5829259395924985,
+    "validation_exact_match": 0.30546420440172023,
+    "interpretation": "at the learned update-600 q, removing r worsened all three fixed metrics, so residuals directly help that finite state"
+  },
+  "fairness_and_selective_reporting_audit": {
+    "identical_train": true,
+    "identical_validation": true,
+    "identical_cycle_policy": true,
+    "identical_path_contract": true,
+    "same_external_evaluator_implementation": true,
+    "equal_candidate_count": true,
+    "all_candidates_reported": true,
+    "lambda_changed_after_results": false,
+    "winner_metric_changed_after_results": false,
+    "test_read": false,
+    "model_specific_learning_rates_allowed_and_reported": true,
+    "single_extension_per_model": true,
+    "large_logs_checkpoints_and_generated_data_not_committed": true,
+    "known_tie_limitation": "edge CCH and expanded CCH may decode different shortest-path representatives under exact ties; raw regret is tie-invariant, while route-reproduction metrics can reflect tie-breaking"
+  },
+  "conclusion": {
+    "category": "F",
+    "label": "at_least_one_trajectory_remains_clearly_underoptimized_so_the_model_classes_cannot_yet_be_compared",
+    "observed_finite_checkpoint_result": "edge-only is substantially better on raw mean regret, Edge F1, and Exact Match at the selected finite checkpoints",
+    "why_not_category_E": "the expanded feasible set contains the edge-only state, yet expanded was still improving at every cadence and selected the update-600 hard-cap boundary; the finite optimizer had not reached an edge-like competitive state",
+    "claim_boundary": "this development run diagnoses an expanded optimization shortfall, not intrinsic model inferiority and not test-set performance"
+  },
+  "single_recommended_next_step": "On the same 10% train and fixed validation protocol, perform one bounded, higher-scale eta0 calibration for the unchanged expanded optimizer before spending more budget or increasing data; do not add a model, warm start, frozen block, second learning rate, or other training mechanism.",
+  "artifact_policy": {
+    "committed": [
+      "two exact final configurations",
+      "calibration summary",
+      "two final model summaries",
+      "this comparison summary"
+    ],
+    "not_committed": [
+      "generated 10% pickle",
+      "training logs",
+      "checkpoints",
+      "external evaluator outputs",
+      "temporary learned-q/r=0 helper"
+    ]
+  }
+}

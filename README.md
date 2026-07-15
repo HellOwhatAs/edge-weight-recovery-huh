@@ -178,6 +178,15 @@ authoritative records are
 and
 [`experiments/summaries/beijing_edge_only.json`](experiments/summaries/beijing_edge_only.json).
 
+A bounded active comparison has also used the same deterministic Beijing
+10-percent train subset and fixed validation for both models. The selected
+finite edge-only checkpoint was better on raw mean regret, Edge F1, and Exact
+Match, but expanded improved at every cadence through its single 600-update
+hard cap. This is category F—an optimization diagnostic, not a model-class
+ranking. See the
+[comparison summary](experiments/summaries/beijing_10pct_model_comparison.json)
+for every candidate, resource accounting, and the no-test-read audit.
+
 ## Not yet established
 
 The repository does not yet establish:
@@ -196,7 +205,7 @@ The repository does not yet establish:
 model. The frozen edge-only baseline still uses it for checkpoint selection to
 preserve that established run, while expanded training logs it only as a
 diagnostic. Because the denominator changes with the metric, it must not be the
-sole cross-model ranking criterion. A future fair comparison must evaluate only
+sole cross-model ranking criterion. A conclusive comparison must evaluate only
 
 ```text
 edge-only baseline
@@ -205,9 +214,9 @@ fully optimized expanded road model
 ```
 
 and should report raw mean regret or a denominator fixed identically across
-both models, together with Edge F1 and Exact Match on independent data. This is
-a future validation requirement, not authorization to read test data or start
-a new large experiment.
+both models, together with Edge F1 and Exact Match on independent data. This
+requirement is not authorization to read test data or start a new large
+experiment.
 
 ## Historical archive
 
