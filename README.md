@@ -92,6 +92,7 @@ RAYON_NUM_THREADS=4 cargo run --release --locked -- \
   --eval-every 1 \
   --solver projected \
   --metric-update full \
+  --selection-metric relative-regret \
   --eta0 0.00001 \
   --lambda 10000000 \
   --run-test \
@@ -103,6 +104,8 @@ Use `cargo run --release -- --help` for all options. In particular:
 - `--solver projected|adam-shock` selects the scientific method or legacy
   ablation;
 - `--metric-update full|partial` supports measured CCH customization studies;
+- `--selection-metric mean-regret|relative-regret` controls validation-only
+  checkpoint selection;
 - `--train-variant all_partial_1.0` uses an existing partial training file;
 - `--eval-every 0` disables validation during training;
 - `--run-test` explicitly enables the one final test evaluation after the
@@ -113,7 +116,9 @@ Use `cargo run --release -- --help` for all options. In particular:
 regret and the data gradient relative to `lambda`; changing it requires retuning
 both `eta0` and `lambda`, so it is not merely a harmless precision switch.
 
-The validation split selects checkpoints using validation regret alone. Test is
+The validation split selects checkpoints using validation regret alone. The
+randomized scale study uses aggregate relative regret so routes are weighted by
+their observed cost. Test is
 skipped by default; with `--run-test`, it is loaded and queried once after the
 chosen checkpoint is restored. This makes validation-only tuning the default
 and reduces accidental test leakage across repeated runs.
@@ -135,19 +140,61 @@ precision/recall/F1, and edge Jaccard. Standard set metrics replace the old
 one-sided baseline-weighted overlap score. `relative_regret` is the aggregate
 ratio `sum(regret) / sum(observed_cost)`, not a mean of per-route ratios.
 
-## Scaling protocol
+## Reproducible randomized scale study
 
-Do not jump directly to the full Beijing split. A defensible sequence is:
+The formal validation study is specified by CSV matrices in
+`experiments/scale_study/`. Generated pickle subsets remain ignored, while their
+source indices, fixed RNG algorithm, seeds, sizes, and SHA-256 hashes are kept
+in versioned manifests. Subsets with the same seed are nested, so 1%, 5%, and
+10% comparisons are paired by construction.
 
-1. run unit tests and 128–512 route smoke experiments;
-2. tune `eta0`, `lambda`, and the multiplier box on validation data;
-3. compare full and partial customization at measured changed-edge ratios;
-4. move through `all_partial_1.0`, `all_partial_5.0`, and larger subsets;
-5. run the full split only after per-epoch time and memory are understood.
+```bash
+# Build once and generate the seeded subsets serially (avoids concurrent full-file loads).
+cargo build --release --locked --all-targets
+python3 scripts/generate_scale_subsets.py \
+  --plan experiments/scale_study/subset_plan.csv \
+  --manifest-dir experiments/scale_study/subsets \
+  --aggregate-manifest experiments/scale_study/subset_manifest.json
+
+# Run any matrix. Completed checkpoints are cached; no --run-test is passed.
+python3 scripts/run_experiment_matrix.py \
+  --matrix experiments/scale_study/matrix_grid_1pct.csv \
+  --run-root /tmp/edge-weight-scale-study/runs \
+  --validation-variant scale_fixed_seed20260715 \
+  --summary-csv experiments/scale_study/results.csv \
+  --summary-json experiments/scale_study/results.json \
+  --jobs 3 --rayon-threads 4 --timeout-seconds 900
+
+# Rebuild aggregate grid and scale tables.
+python3 scripts/analyze_scale_results.py \
+  --results experiments/scale_study/results.json \
+  --coverage experiments/scale_study/coverage_all_seeds.json \
+  --coverage-audit experiments/scale_study/coverage_audit.json \
+  --output-json experiments/scale_study/aggregate_results.json \
+  --scale-csv experiments/scale_study/scale_curve.csv \
+  --grid-csv experiments/scale_study/grid_ranking.csv
+```
+
+The study followed this sequence:
+
+1. coverage audit at 1,000, 5,000, 1%, 5%, 10%, and full metadata;
+2. a fixed 20,000-record validation subset and nested train subsets for seeds
+   42, 43, and 44;
+3. a 15-point 1% grid, followed by top-three multi-seed replication;
+4. top-two configurations at 5% and 10%;
+5. one fixed-configuration full-train endpoint after its runtime was shown safe;
+6. per-route epsilon, seen/unseen, and route-length diagnostics;
+7. controlled full/partial customization timings at 1%, 5%, and 10% changed
+   edges.
+
+See [EXPERIMENTS.md](EXPERIMENTS.md) for interpretation and
+`experiments/scale_study/aggregate_results.json` for exact values. Full Beijing
+was trained once with the already selected primary configuration; it was not a
+new hyperparameter-search stage.
 
 Full Beijing train/validation/test contain roughly 786k/309k/322k samples, and
 deserializing the full collections can require well over one GiB of memory.
 The current pickle reader must deserialize a whole file before applying
 `--max-*-samples`, and a limit takes the first records rather than a random
 sample. Use the existing prebuilt partial/small files for memory-bounded runs;
-use randomized, pre-generated subsets for formal statistical comparisons.
+use the manifest-backed randomized subsets for formal statistical comparisons.

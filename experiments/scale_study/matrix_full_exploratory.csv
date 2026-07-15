@@ -1,0 +1,2 @@
+run_id,phase,scale,seed,eta0,lambda,train_variant,metric_update,epochs,patience
+scale_full_e1m4_l1e5,full_exploratory,full,42,1e-4,1e5,all,full,20,5

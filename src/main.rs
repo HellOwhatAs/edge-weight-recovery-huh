@@ -1,21 +1,18 @@
-mod config;
-mod graph;
-mod optimizer;
-mod utils;
-
-use config::{MetricUpdateMode, SolverKind, TrainingConfig, TrainingState};
-use graph::{
-    PathValidationReport, compute_observed_edge_counts, compute_oracle_stats, compute_regret,
-    count_residual_l1, evaluate_paths, group_paths_by_od, load_graph, load_trips,
+use edge_weight_recovery::config::{
+    MetricUpdateMode, SelectionMetric, SolverKind, TrainingConfig, TrainingState,
 };
-use optimizer::{
+use edge_weight_recovery::graph::{
+    PathMetrics, PathValidationReport, compute_observed_edge_counts, compute_oracle_stats,
+    compute_regret, count_residual_l1, evaluate_paths, group_paths_by_od, load_graph, load_trips,
+};
+use edge_weight_recovery::optimizer::{
     AdamOptimizer, ProjectedSubgradientOptimizer, quantize_weights, regularization_loss,
 };
+use edge_weight_recovery::utils::perturb_weights;
 use routingkit_cch::{CCH, CCHMetric, CCHMetricPartialUpdater, compute_order_inertial};
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::{Duration, Instant};
-use utils::perturb_weights;
 
 fn main() {
     if let Err(error) = run() {
@@ -52,7 +49,7 @@ fn prepare_output(config: &TrainingConfig) -> Result<(), String> {
 
 fn run_training(config: &TrainingConfig) -> Result<(), String> {
     config.log(&format!(
-        "CONFIG city={} epochs={} train={} validation={} test={} solver={:?} metric_update={:?} \
+        "CONFIG city={} epochs={} train={} validation={} test={} solver={:?} metric_update={:?} selection_metric={:?} \
          eta0={} lambda={} q_box=[{},{}] scale={} cycle_policy={:?} trim_boundary_edges={} \
          run_test={} seed={}",
         config.city,
@@ -62,6 +59,7 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
         config.test_variant,
         config.solver,
         config.metric_update_mode,
+        config.selection_metric,
         config.eta0,
         config.lambda,
         config.q_min,
@@ -220,7 +218,11 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
             // Regularization shapes the learned parameters through the training
             // update. Held-out checkpoint selection uses only the validation
             // task metric so lambda is not counted a second time.
-            (validation_regret.mean_data_loss, true)
+            let selection_loss = match config.selection_metric {
+                SelectionMetric::MeanRegret => validation_regret.mean_data_loss,
+                SelectionMetric::RelativeRegret => validation_regret.relative_data_loss,
+            };
+            (selection_loss, true)
         } else if validation_data.is_none() {
             (train_objective, true)
         } else {
@@ -380,7 +382,7 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
             max_quantization_error(metric.weights(), &metric_baseline, &latent_q);
         let best_marker = if is_best { " BEST" } else { "" };
         let selection_log = if evaluated {
-            format!(" selection_loss={selection_loss:.6}")
+            format!(" selection_loss={selection_loss:.12}")
         } else {
             " selection_loss=NA".to_string()
         };
@@ -475,12 +477,13 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
         }
         SolverKind::LegacyAdamShock => 0.0,
     };
+    let peak_rss_kib = process_peak_rss_kib().unwrap_or(0);
     config.log(&format!(
-        "FINISHED best_epoch={} selection_loss={:.6} best_train_regret={:.6} \
+        "FINISHED best_epoch={} selection_loss={:.12} best_train_regret={:.6} \
          best_regularization={best_regularization:.6} best_q_min={best_q_min:.6} \
          best_q_max={best_q_max:.6} best_q_at_min={best_q_at_min} best_q_at_max={best_q_at_max} \
          train_regret_improvement_pct={improvement:.3} restore_full_customization_ms={:.3} \
-         checkpoint_path={} weights_path={} multipliers_path={}",
+         peak_rss_kib={peak_rss_kib} checkpoint_path={} weights_path={} multipliers_path={}",
         state.best_epoch,
         state.best_selection_loss,
         state.best_train_data_loss,
@@ -489,6 +492,12 @@ fn run_training(config: &TrainingConfig) -> Result<(), String> {
         config.best_weights_path,
         config.best_multipliers_path,
     ))
+}
+
+fn process_peak_rss_kib() -> Option<u64> {
+    let status = std::fs::read_to_string("/proc/self/status").ok()?;
+    let line = status.lines().find(|line| line.starts_with("VmHWM:"))?;
+    line.split_whitespace().nth(1)?.parse().ok()
 }
 
 fn log_split_report(
@@ -514,7 +523,7 @@ fn log_split_report(
 fn log_path_metrics(
     config: &TrainingConfig,
     label: &str,
-    metrics: &graph::PathMetrics,
+    metrics: &PathMetrics,
 ) -> Result<(), String> {
     config.log(&format!(
         "EVAL split={label} samples={} mean_regret={:.6} relative_regret={:.8} exact_match={:.6} \

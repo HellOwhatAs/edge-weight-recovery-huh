@@ -1,0 +1,13 @@
+split,source_variant,output_variant,sample_count,seed,purpose
+validation,all,scale_fixed_seed20260715,20000,20260715,fixed validation used for every tuning run
+train,all,scale_1000_seed42,1000,42,coverage audit
+train,all,scale_5000_seed42,5000,42,coverage audit
+train,all,scale_1pct_seed42,7857,42,one-percent tuning and replicate
+train,all,scale_1pct_seed43,7857,43,one-percent replicate
+train,all,scale_1pct_seed44,7857,44,one-percent replicate
+train,all,scale_5pct_seed42,39285,42,scale replicate
+train,all,scale_5pct_seed43,39285,43,scale replicate
+train,all,scale_5pct_seed44,39285,44,scale replicate
+train,all,scale_10pct_seed42,78570,42,scale replicate
+train,all,scale_10pct_seed43,78570,43,scale replicate
+train,all,scale_10pct_seed44,78570,44,scale replicate

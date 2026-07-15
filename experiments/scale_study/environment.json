@@ -1,0 +1,25 @@
+{
+  "date": "2026-07-15",
+  "timezone": "Asia/Shanghai",
+  "git_base_revision": "074c2c4c0a2b04512f46fffe90eaa1e40b5c13c9",
+  "cpu": {
+    "model": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+    "physical_cores": 8,
+    "logical_cpus": 16
+  },
+  "memory_bytes": 8245624832,
+  "swap_bytes": 2147483648,
+  "rustc": "1.96.0-nightly (55e86c996 2026-04-02)",
+  "cargo": "1.96.0-nightly (888f67534 2026-03-30)",
+  "training_build": "cargo build --release --locked --all-targets",
+  "matrix_parallelism": {
+    "processes": 3,
+    "rayon_threads_per_process": 4,
+    "per_run_timeout_seconds": 900
+  },
+  "full_endpoint": {
+    "processes": 1,
+    "rayon_threads": 4,
+    "per_run_timeout_seconds": 900
+  }
+}

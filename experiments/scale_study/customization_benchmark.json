@@ -1,0 +1,103 @@
+{
+  "city": "beijing",
+  "edge_selection": "one fixed random permutation; nested prefixes at 1%, 5%, and 10%",
+  "graph_edges": 72156,
+  "rayon_threads": 4,
+  "repeats": 9,
+  "results": [
+    {
+      "changed_edges": 722,
+      "changed_ratio": 0.010006097898996619,
+      "full_median_ms": 11.57695,
+      "full_ms": [
+        11.518467,
+        11.870926,
+        11.393984,
+        11.694376,
+        11.57695,
+        11.434593,
+        11.287284,
+        11.623517,
+        11.935092
+      ],
+      "partial_median_ms": 21.470717999999998,
+      "partial_ms": [
+        21.374102,
+        21.470717999999998,
+        21.685402,
+        21.820518,
+        21.136408999999997,
+        21.09076,
+        21.093052,
+        21.634159999999998,
+        22.413784999999997
+      ],
+      "partial_over_full": 1.8546092019055103,
+      "requested_changed_ratio": 0.01
+    },
+    {
+      "changed_edges": 3608,
+      "changed_ratio": 0.05000277177227119,
+      "full_median_ms": 11.715551,
+      "full_ms": [
+        11.838201,
+        11.760192,
+        11.727926,
+        11.432759,
+        11.432118,
+        11.715551,
+        11.567509,
+        12.282968,
+        11.333117
+      ],
+      "partial_median_ms": 45.804461999999994,
+      "partial_ms": [
+        47.272503,
+        45.687586,
+        46.56887,
+        45.663478,
+        45.895027999999996,
+        46.008328,
+        45.730945000000006,
+        44.936104,
+        45.804461999999994
+      ],
+      "partial_over_full": 3.9097147031326136,
+      "requested_changed_ratio": 0.05
+    },
+    {
+      "changed_edges": 7216,
+      "changed_ratio": 0.10000554354454239,
+      "full_median_ms": 11.673384,
+      "full_ms": [
+        12.083867,
+        11.525251,
+        11.388117999999999,
+        11.911809,
+        11.783842,
+        11.673384,
+        12.050684,
+        11.594184,
+        11.246125
+      ],
+      "partial_median_ms": 54.869561999999995,
+      "partial_ms": [
+        53.808796,
+        52.896162,
+        55.343846,
+        56.621588,
+        55.075538,
+        54.869561999999995,
+        55.244478,
+        54.363561999999995,
+        53.700171
+      ],
+      "partial_over_full": 4.700398958862314,
+      "requested_changed_ratio": 0.1
+    }
+  ],
+  "schema_version": 1,
+  "seed": 42,
+  "timing_policy": "median; fresh baseline metric prepared outside partial timer; alternating measurement order",
+  "weight_change": "new weight = baseline + max(1, floor(baseline / 100))"
+}

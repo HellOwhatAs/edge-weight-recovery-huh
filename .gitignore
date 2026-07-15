@@ -1,4 +1,7 @@
 /target
 /data
+__pycache__/
+*.pyc
 *.json
 *.log
+!experiments/**/*.json

@@ -14,6 +14,12 @@ pub enum MetricUpdateMode {
     Full,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SelectionMetric {
+    MeanRegret,
+    RelativeRegret,
+}
+
 #[derive(Debug)]
 pub struct TrainingConfig {
     pub city: String,
@@ -30,6 +36,7 @@ pub struct TrainingConfig {
     pub cycle_policy: CyclePolicy,
     pub solver: SolverKind,
     pub metric_update_mode: MetricUpdateMode,
+    pub selection_metric: SelectionMetric,
     pub eta0: f64,
     pub lambda: f64,
     pub q_min: f64,
@@ -64,6 +71,7 @@ impl Default for TrainingConfig {
             cycle_policy: CyclePolicy::Drop,
             solver: SolverKind::ProjectedSubgradient,
             metric_update_mode: MetricUpdateMode::Full,
+            selection_metric: SelectionMetric::MeanRegret,
             eta0: 1e-5,
             lambda: 10_000_000.0,
             q_min: 0.1,
@@ -145,6 +153,13 @@ impl TrainingConfig {
                         "partial" => MetricUpdateMode::Partial,
                         "full" => MetricUpdateMode::Full,
                         _ => return Err(format!("unknown metric update mode {value:?}")),
+                    }
+                }
+                "--selection-metric" => {
+                    config.selection_metric = match value.as_str() {
+                        "mean-regret" => SelectionMetric::MeanRegret,
+                        "relative-regret" => SelectionMetric::RelativeRegret,
+                        _ => return Err(format!("unknown selection metric {value:?}")),
                     }
                 }
                 "--eta0" => config.eta0 = parse(value, flag)?,
@@ -258,6 +273,7 @@ fn print_help() {
            --max-train-samples N (likewise validation/test)\n\
            --solver projected|adam-shock\n\
            --metric-update partial|full\n\
+           --selection-metric mean-regret|relative-regret\n\
            --eta0 FLOAT --lambda FLOAT --q-min FLOAT --q-max FLOAT\n\
            --quantization-scale FLOAT (also rescales data loss/gradient)\n\
            --seed N (legacy shock reproducibility)\n\
@@ -333,6 +349,7 @@ impl TrainingState {
             "random_seed": config.random_seed,
             "solver": format!("{:?}", config.solver),
             "metric_update_mode": format!("{:?}", config.metric_update_mode),
+            "selection_metric": format!("{:?}", config.selection_metric),
             "cycle_policy": format!("{:?}", config.cycle_policy),
             "trim_boundary_edges": config.trim_boundary_edges,
             "eta0": config.eta0,
@@ -382,6 +399,8 @@ mod tests {
             "adam-shock",
             "--metric-update",
             "full",
+            "--selection-metric",
+            "relative-regret",
             "--run-test",
         ])
         .unwrap()
@@ -391,6 +410,7 @@ mod tests {
         assert_eq!(config.max_train_samples, Some(128));
         assert_eq!(config.solver, SolverKind::LegacyAdamShock);
         assert_eq!(config.metric_update_mode, MetricUpdateMode::Full);
+        assert_eq!(config.selection_metric, SelectionMetric::RelativeRegret);
         assert!(config.run_test);
         assert_eq!(config.output_prefix, "porto_adam_shock");
     }

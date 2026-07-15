@@ -1,0 +1,16 @@
+run_id,phase,scale,seed,eta0,lambda,train_variant,metric_update,epochs,patience
+grid_e1m6_l1e5,grid_1pct,1pct,42,1e-6,1e5,scale_1pct_seed42,full,20,5
+grid_e1m6_l1e7,grid_1pct,1pct,42,1e-6,1e7,scale_1pct_seed42,full,20,5
+grid_e1m6_l1e9,grid_1pct,1pct,42,1e-6,1e9,scale_1pct_seed42,full,20,5
+grid_e3m6_l1e5,grid_1pct,1pct,42,3e-6,1e5,scale_1pct_seed42,full,20,5
+grid_e3m6_l1e7,grid_1pct,1pct,42,3e-6,1e7,scale_1pct_seed42,full,20,5
+grid_e3m6_l1e9,grid_1pct,1pct,42,3e-6,1e9,scale_1pct_seed42,full,20,5
+grid_e1m5_l1e5,grid_1pct,1pct,42,1e-5,1e5,scale_1pct_seed42,full,20,5
+grid_e1m5_l1e7,grid_1pct,1pct,42,1e-5,1e7,scale_1pct_seed42,full,20,5
+grid_e1m5_l1e9,grid_1pct,1pct,42,1e-5,1e9,scale_1pct_seed42,full,20,5
+grid_e3m5_l1e5,grid_1pct,1pct,42,3e-5,1e5,scale_1pct_seed42,full,20,5
+grid_e3m5_l1e7,grid_1pct,1pct,42,3e-5,1e7,scale_1pct_seed42,full,20,5
+grid_e3m5_l1e9,grid_1pct,1pct,42,3e-5,1e9,scale_1pct_seed42,full,20,5
+grid_e1m4_l1e5,grid_1pct,1pct,42,1e-4,1e5,scale_1pct_seed42,full,20,5
+grid_e1m4_l1e7,grid_1pct,1pct,42,1e-4,1e7,scale_1pct_seed42,full,20,5
+grid_e1m4_l1e9,grid_1pct,1pct,42,1e-4,1e9,scale_1pct_seed42,full,20,5
