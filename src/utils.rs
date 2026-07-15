@@ -1,22 +1,23 @@
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rand::prelude::*;
-use std::borrow::Cow;
+use rand::rngs::StdRng;
 use std::collections::HashSet;
 
-/// Apply "Ruin & Recreate" style perturbation
+/// Reproducible perturbation retained only for the legacy Adam+shock ablation.
+/// Positive metric weights are preserved even when a factor is below one.
 pub fn perturb_weights(
     weights: &[u32],
     target_indices: Option<&[usize]>,
     ratio: f32,
     factor: std::ops::Range<f32>,
+    seed: u64,
 ) -> Vec<u32> {
-    let mut rng = rand::thread_rng();
+    let mut rng = StdRng::seed_from_u64(seed);
     let edge_count = weights.len();
 
     let shock_set: HashSet<usize> = if let Some(indices) = target_indices {
-        indices.iter().cloned().collect()
+        indices.iter().copied().collect()
     } else {
-        let shock_count = (edge_count as f32 * ratio) as usize;
+        let shock_count = (edge_count as f32 * ratio).round() as usize;
         let mut shock_indices: Vec<usize> = (0..edge_count).collect();
         shock_indices.shuffle(&mut rng);
         shock_indices.into_iter().take(shock_count).collect()
@@ -25,32 +26,31 @@ pub fn perturb_weights(
     weights
         .iter()
         .enumerate()
-        .map(|(i, &w)| {
-            if shock_set.contains(&i) {
-                let factor = rng.gen_range(factor.clone());
-                (w as f32 * factor) as u32
+        .map(|(edge, &weight)| {
+            if shock_set.contains(&edge) {
+                let multiplier = rng.gen_range(factor.clone());
+                (weight as f64 * multiplier as f64)
+                    .round()
+                    .clamp(1.0, (i32::MAX - 1) as f64) as u32
             } else {
-                w
+                weight
             }
         })
         .collect()
 }
 
-pub fn build_pb(
-    num_epochs: u64,
-    color: &str,
-    prefix: impl Into<Cow<'static, str>>,
-    m: &MultiProgress,
-) -> ProgressBar {
-    let pb = m.add(ProgressBar::new(num_epochs));
-    pb.set_style(
-        ProgressStyle::with_template(
-            &("{prefix} [{elapsed_precise}] [{bar:40.".to_string()
-                + color
-                + "}] {pos}/{len} ({eta})"),
-        )
-        .unwrap(),
-    );
-    pb.set_prefix(prefix);
-    pb
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn perturbation_is_positive_and_reproducible() {
+        let left = perturb_weights(&[1, 10, 20], None, 1.0, 0.1..0.5, 7);
+        let right = perturb_weights(&[1, 10, 20], None, 1.0, 0.1..0.5, 7);
+        assert_eq!(left, right);
+        assert!(left.iter().all(|&weight| weight >= 1));
+
+        let capped = perturb_weights(&[(i32::MAX - 1) as u32], None, 1.0, 2.0..3.0, 9);
+        assert_eq!(capped, vec![(i32::MAX - 1) as u32]);
+    }
 }
