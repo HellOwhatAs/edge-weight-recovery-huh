@@ -1,229 +1,117 @@
 # Research status
 
-This document is the claim boundary for the active repository. The project has
-two nested model classes: an edge-only inverse shortest-path baseline and an
-expanded road model with nonnegative transition residuals. The expanded model
-is trained through one joint `(q,r)` optimization path; historical training
-arms are not active scientific abstractions.
+## Current claim
 
-## 1. Established
+The project treats graph representation and inverse shortest-path optimization
+as separate concerns. `original_edges` and `edge_transition_arcs` share the
+same relative-coordinate objective, optimizer, update clock, projection logic,
+training loop, and direct-weight checkpoint state. Their intended differences
+are topology, trajectory mapping, coordinate interpretation, and route
+decoding.
 
-### Edge-only inverse shortest paths
+The direct-weight Euclidean calibration exposed an optimization regression and
+is no longer the active training geometry. A generic `q=w/w0` recovery has now
+reproduced the historical edge-only result and produced substantial learning
+gain for both representations. On that Beijing 10% development protocol,
+`edge_transition_arcs` has higher decoded Edge F1 and Exact Match than
+`original_edges`; this is a development result, not a test-set or general
+superiority claim.
 
-- The edge-only metric is `w_e = b_e q_e`, with `q` projected to a positive
-  box and regularized toward one.
-- The data objective is observed-path cost minus true shortest distance.
-  Aggregate count residual is a tie-dependent subgradient diagnostic, not the
-  loss.
-- Continuous latent state is separate from the positive integer CCH metric;
-  quantization is explicit and checked against the CCH infinity sentinel.
-- Production queries use full CCH customization and unique-OD batching. OD
-  multiplicity weights distances and predicted edge counts correctly.
-- Complete paths are checked for edge IDs, continuity, endpoints, and cycles.
-  The only active cycle policy drops cyclic observations.
-- Checkpoint selection is validation-only. Formal training does not read test
-  data.
-- Edge-only checkpoints bind configuration, `q`, quantized weights, selection
-  state, and data/baseline identity. The edge model's strict constructor can
-  reconstruct weights from finite positive `q` without implicit repair.
+## Representation definitions
 
-The frozen full-Beijing baseline selected epoch 99 at the boundary of a
-bounded 100-epoch run. On 129,033 accepted development routes it reported
-relative regret `0.06348409`, raw mean regret `339523.40`, Edge F1 `0.681488`,
-and Exact Match `0.371068`. On pooled validation-derived AM/PM confirmation
-blocks it reported relative regret `0.06302821`, Edge F1 `0.684512`, and Exact
-Match `0.376508`. Those confirmation blocks are spent evidence, not untouched
-test data, and boundary selection does not establish convergence.
+In `original_edges`, the original directed road graph is routed directly.
+Every original road edge is one learned coordinate, and an observed road
+sequence maps to itself.
 
-### Expanded-road correctness and nesting
+`edge_transition_arcs` is the original graph's directed line graph (line
+digraph / edge-based graph):
 
-The active expanded model is
+- one routing node represents one original directed edge `e`;
+- one routing arc `e -> f` represents each legal transition satisfying
+  `head(e) = tail(f)`; and
+- that routing arc carries the directly learned weight `w[e,f]`.
+
+Thus `(e1,...,eN)` is a line-graph node path with the `N - 1` coordinate arcs
+returned by `windows(2)`. Its cost is
 
 ```text
-kappa_(e,f) = b_f q_f + residual_scale r_(e,f),    r_(e,f) >= 0
-
-J(q,r) = mean route regret
-       + lambda_edge / (2|E|) ||q - 1||^2
-       + lambda_transition / (2|T|) ||r||^2.
+w[e1,e2] + w[e2,e3] + ... + w[e{N-1},eN].
 ```
 
-Here the implementation's `b_e` is its fixed, quantized `metric_baseline`, not
-the changing integer weight reconstructed from the current `q`.
+Source states are the original directed edges leaving the source vertex;
+target states are the original directed edges entering the target vertex.
+Both endpoint offsets are zero, and a returned routing-node sequence decodes
+directly to the corresponding original-road sequence.
 
-The following properties are established:
+The representation contains only the original-edge routing nodes and directly
+learned transition arcs described above. All experiments filter trajectories
+with `N < 2` for both representations rather than introducing a start node,
+first-edge cost, or other special parameter.
 
-- original directed edges are expanded states, while legal adjacent edge
-  pairs are transitions with stable IDs and reversible pair mapping;
-- source and target state handling pays the first edge exactly once and
-  preserves original OD endpoints;
-- each expanded query is bound to the edge weights, transition weights,
-  topology, coordinates, and CCH order used to create its metric;
-- expanded observed-path cost counts each edge cost and each transition
-  residual exactly once;
-- at `r=0`, expanded shortest distances and observed-path costs equal their
-  edge-only values; reconstructed shortest paths may differ only at ties;
-- every feasible edge-only state `(q,0)` is exactly the same state inside the
-  expanded feasible set, with the same metric and objective value;
-- on the synthetic conflict graph, edge-only costs cannot make two
-  conditionally opposed observed routes both strictly shortest, while
-  nonnegative transition residuals can.
+## Optimization invariant
 
-Synthetic tests enforce these contracts. An ignored, fixed validation-only
-Beijing audit remains available for a larger `q=1, r=0` check, but it was not
-run during this cleanup. No real-data correctness number or test-data result
-is introduced here.
-
-### Unified optimization contract
-
-`ExpandedRoadModel` is optimized as one parameter vector. There is one
-expanded training batch query, one pre-update subgradient snapshot, one
-`eta0`, one square-root schedule, and one `completed_updates` per joint step.
-Scheduled validation queries affect selection only. Both integer metrics are
-reconstructed after `q` and `r` have been updated.
-
-The fixed coordinate normalization is
+For either representation the trainer owns one stored direct vector `w`
+initialized at `w0`, optimizes `q=w/w0`, and applies
 
 ```text
-u_e = b_e (q_e - 1)
-v_t = residual_scale r_t
-eta_k = eta0 / sqrt(completed_updates + 1).
+J(q) = average[observed path cost under w0*q
+               - predicted shortest-path cost under w0*q]
+       + lambda / (2m) * ||q - 1||^2,
+
+g_q = w0 * (observed_counts - predicted_counts) / N
+      + lambda / m * (q - 1),
+
+eta_k = eta0 / sqrt(k + 1),
+q <- project(q - eta_k * g_q),
+w <- w0 * q.
 ```
 
-For normalized observed-minus-predicted counts `delta_edge_e` and
-`delta_transition_t`, the cost-coordinate update is
+A single global `completed_updates` value controls the schedule and is stored
+with the direct weights in the representation-independent checkpoint. This is
+equivalent to `diag(w0^2)` preconditioning in direct-weight space and introduces
+no representation-specific optimizer state.
 
-```text
-u_e' = project_[b_e(q_min-1), b_e(q_max-1)](
-         u_e - eta_k [delta_edge_e
-                      + lambda_edge u_e / (|E| b_e^2)])
+The prior direct geometry is retained behind the explicit
+`projected_subgradient` configuration value for reproducibility; the active
+geometry is `relative_projected_subgradient`. Configurations are never silently
+reinterpreted.
 
-v_t' = project_[0, residual_scale r_max](
-         v_t - eta_k [delta_transition_t
-                      + lambda_transition v_t
-                        / (|T| residual_scale^2)]).
-```
+## Known oracle boundary
 
-Equivalently, the raw `q` subgradient is divided by `b_e^2` and the raw `r`
-subgradient by `residual_scale^2`. This deterministic diagonal
-preconditioning makes `eta0` control movement in common additive cost units;
-it does not change the objective, regularization anchors, or projection set.
+`routingkit-cch` currently accepts only `u32` metric weights. The graph layer
+rounds the direct `f64` weights for route selection, then evaluates the returned
+coordinate path under the direct vector. When rounding changes path ordering,
+this is not a strictly exact oracle for the written continuous objective and
+its count subgradient. Replacing it with an exact continuous-weight oracle is
+explicitly deferred; there is still only one learned/checkpointed vector and
+one optimizer.
 
-Expanded checkpoints retain `q`, `r`, both quantized metrics, configuration,
-data and initialization identities, expanded-topology identity,
-validation-selection state, and one optimizer clock. Restore requires exact
-continuous-to-integer metric reconstruction and rejects identity mismatches,
-clock discontinuity, implicit clamping, and repair.
+## Verification and calibration status
 
-Expanded selection uses validation mean regret plus edge and transition
-regularization, and logs model-relative regret only as a diagnostic. The
-frozen edge-only baseline retains its historical selection convention for
-reproducibility; that convention is not a future cross-model gate.
+Synthetic mapping, decoding, optimizer, projection, clock, CCH/reference, and
+checkpoint-resume tests remain the correctness gate. The prior Beijing 1%
+technical smokes established healthy execution for both representations.
 
-### Current bounded 10-percent development comparison
+The first bounded Beijing 10% calibration used the same 62,348 filtered train
+trajectories and 15,812 fixed validation trajectories for both representations.
+Its direct-weight geometry improved F1 by only about `2e-5`, exposing the scale
+regression described in its [diagnostic report](../experiments/line_graph_10pct_calibration/report.md).
 
-A finite, transparent development comparison was run on the deterministic
-Beijing `scale_10pct_seed42` train subset and the fixed
-`scale_fixed_seed20260715` validation split. Both models saw the same 62,348
-accepted training routes and 15,812 accepted validation routes under the same
-path contract and cycle policy. Test data was not read.
+The recovery then used the same data and one common configuration:
+`eta0=0.0002`, `lambda=100000`, relative bounds `[0.1,10]`, 299 updates,
+validation cadence 10, and four threads. `original_edges` recovered historical
+edge-only performance: Edge F1 0.685404 and Exact Match 0.373640 at update 290,
+versus the old 0.682145 and 0.368454. The same optimizer brought
+`edge_transition_arcs` to F1 0.694125 and Exact Match 0.377245 at update 299.
+These are gains of 0.095503 and 0.090658 F1 from their respective update-0
+states, so meaningful learning is now established.
 
-Each model received three learning-rate candidates, one selected main run, and
-at most one predeclared extension. Cross-configuration comparison used
-validation raw mean regret as the primary metric and always co-reported Edge
-F1 and Exact Match. The selected finite checkpoints were:
-
-| Model | State | Validation raw mean regret | Edge F1 | Exact Match | Boundary |
-|---|---:|---:|---:|---:|---|
-| edge-only | epoch 289 | 310,343.73 | 0.682145 | 0.368454 | no |
-| expanded | update 600 | 619,093.64 | 0.590588 | 0.314318 | yes |
-
-The edge-only raw-regret best preceded its 300-epoch cap by one validation
-cadence. The expanded run improved at every validation cadence through its
-single 600-update hard cap, including a further raw-regret decrease of about
-528 over the final 25 updates. It changed both q and r and both integer metric
-blocks throughout training, with no NaN, infinity, latent-only quantization
-stall, or upper-bound saturation. At update 600, 30,410 of 188,249 residuals
-were positive and none reached `r_max`.
-
-A diagnostic evaluation kept the learned expanded q and set r exactly to
-zero. Relative to the full expanded checkpoint, raw mean regret worsened by
-9,102.34, Edge F1 by 0.007662, and Exact Match by 0.008854. Thus residuals
-directly helped that finite learned-q state; this was one evaluation, not a
-third trained model.
-
-The result is category F: the observed edge-only checkpoint is substantially
-better on all three fixed metrics, but the expanded trajectory is still
-clearly optimization-limited. Because the expanded feasible set contains the
-edge-only state, a boundary trajectory that remains far from an edge-like
-competitive state cannot establish intrinsic expanded-model inferiority.
-
-Authoritative records are the
-[calibration summary](../experiments/summaries/beijing_10pct_calibration.json),
-[edge-only summary](../experiments/summaries/beijing_edge_only_10pct.json),
-[expanded summary](../experiments/summaries/beijing_expanded_10pct.json), and
-[comparison summary](../experiments/summaries/beijing_10pct_model_comparison.json).
-
-## 2. Not yet established
-
-The repository does not establish that:
-
-- a fairly and sufficiently optimized expanded road model improves over the
-  edge-only baseline on real data;
-- the expanded model improves independent-data raw objective, Edge F1, or
-  Exact Match;
-- either active optimization run reached, or came sufficiently close to, a
-  global optimum;
-- a learned transition residual represents a physical turn cost, a behavioral
-  preference, or a causal mechanism;
-- any expanded-model gain generalizes to untouched test data, another city,
-  another period, or another context;
-- the 100-epoch edge-only budget reached optimization convergence;
-- dropping cyclic observations is empirically superior to every alternative
-  path policy.
-
-The bounded 10-percent development comparison adds an optimization diagnostic,
-not a model-ranking result. In particular, expanded-graph correctness,
-synthetic representational capacity, and a still-improving finite trajectory
-do not establish a learned real-data advantage or disadvantage.
-
-## 3. Requirements for a future fair evaluation
-
-The only model comparison that remains scientifically relevant is
-
-```text
-edge-only baseline
-vs.
-fully optimized expanded road model.
-```
-
-A conclusive future evaluation must:
-
-1. optimize the complete expanded parameter pair `(q,r)` with a defensible
-   procedure and budget;
-2. use raw mean regret or a denominator fixed identically across both models,
-   rather than model-relative regret as the sole ranking metric;
-3. report Edge F1 and Exact Match as scale-independent route-reproduction
-   measures;
-4. separate validation checkpoint selection from independent reporting data;
-5. distinguish finite-optimizer failure from a limitation of the expanded
-   model class;
-6. freeze the full protocol before any untouched-test access.
-
-These are future evidence requirements, not authorization to launch a new
-grid, full-data endpoint, or test evaluation.
-
-## 4. Historical archive
-
-The previous Beijing A/B/C experiment is preserved byte-for-byte under
-[`experiments/archive/turn_residual_abc_v1/`](../experiments/archive/turn_residual_abc_v1/README.md).
-It used separate finite-budget update arms and a model-relative validation
-ratio. A later audit found that its optimization budgets, 10-percent subset
-asymmetry, changing denominator, and absence of an independent endpoint did
-not support ranking those arms. Its former model-selection conclusion is
-withdrawn.
-
-The archived configurations, protocol, summaries, hashes, numerical fields,
-and execution-time decision strings remain useful only for historical audit.
-They do not constrain the active configuration schema, optimizer, checkpoint,
-or future research question. No historical arm is an active model class, and
-the project will not revisit their ranking as a scientific objective.
+Under the matched recovery protocol, line graph exceeds original edges by
+0.008720 F1 and 0.003605 Exact Match, at 2.42x training wall time and 1.36x
+peak RSS. Its best checkpoint is the final registered update, so convergence is
+still not confirmed. The complete evidence is in the
+[optimizer-recovery report](../experiments/optimizer_recovery/report.md). The
+test split was never read. A later NeuroMLR comparison should carry
+`edge_transition_arcs` with `relative_projected_subgradient`, while preserving
+the single-edge zero-cost, integer-quantization, single-seed, and convergence
+risks.

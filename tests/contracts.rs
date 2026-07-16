@@ -1,12 +1,20 @@
-use edge_weight_recovery::config::{TrainingConfig, TrainingState, load_checkpoint};
-use serde_json::json;
-use sha2::{Digest, Sha256};
+use edge_weight_recovery::checkpoint::TrainingCheckpoint;
+use edge_weight_recovery::config::TrainingConfig;
+use serde_json::{Value, json};
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+const ORIGINAL_EDGES_SMOKE: &str = "experiments/configs/original_edges_smoke_1pct.json";
+const EDGE_TRANSITION_ARCS_SMOKE: &str = "experiments/configs/edge_transition_arcs_smoke_1pct.json";
+const ORIGINAL_RELATIVE_RECOVERY: &str =
+    "experiments/optimizer_recovery/configs/original_edges_relative_10pct_u299.json";
+const TRANSITION_RELATIVE_RECOVERY: &str =
+    "experiments/optimizer_recovery/configs/edge_transition_arcs_relative_10pct_u299.json";
+
 #[test]
-fn train_help_exposes_only_the_mainline_inputs() {
+fn train_help_exposes_only_the_unified_inputs() {
     let output = Command::new(env!("CARGO_BIN_EXE_train"))
         .arg("--help")
         .output()
@@ -15,6 +23,22 @@ fn train_help_exposes_only_the_mainline_inputs() {
     let help = String::from_utf8(output.stdout).expect("UTF-8 help");
     assert!(help.contains("--config PATH"));
     assert!(help.contains("--output-dir PATH"));
+    assert!(help.contains("[--resume CHECKPOINT]"));
+
+    let exposed_long_options = help
+        .split_whitespace()
+        .map(|token| token.trim_matches(['[', ']', ',']))
+        .filter(|token| token.starts_with("--"))
+        .map(str::to_string)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        exposed_long_options,
+        ["--config", "--help", "--output-dir", "--resume"]
+            .into_iter()
+            .map(str::to_string)
+            .collect()
+    );
+
     for retired in [
         "--solver",
         "--metric-update",
@@ -23,128 +47,286 @@ fn train_help_exposes_only_the_mainline_inputs() {
         "--trim-boundary-edges",
         "--run-test",
         "--test-variant",
+        "--graph-order",
+        "--model",
     ] {
         assert!(!help.contains(retired), "retired option leaked: {retired}");
     }
 }
 
 #[test]
-fn atomic_checkpoint_pairs_model_state_config_and_identity() {
-    let config = TrainingConfig::load(Path::new("experiments/configs/smoke_1pct.json"))
-        .expect("load smoke config");
-    let mut state = TrainingState::new(&[10, 20], &[1.0, 1.0]);
-    assert!(state.update(3, 0.25, 4.0, &[9, 21], &[0.9, 1.05], 0.0));
-    let identity = json!({
-        "baseline": {"fingerprint": "fixture"},
-        "train": {"identity": "train-fixture"},
-        "validation": {"identity": "validation-fixture"}
-    });
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock")
-        .as_nanos();
-    let output_dir = std::env::temp_dir().join(format!(
-        "edge-weight-recovery-checkpoint-{}-{nonce}",
-        std::process::id()
-    ));
+fn common_direct_weight_checkpoint_is_saved_and_loaded_atomically() {
+    let config = TrainingConfig::load(Path::new(EDGE_TRANSITION_ARCS_SMOKE))
+        .expect("load transition-arc smoke config through the common schema");
+    let checkpoint = TrainingCheckpoint {
+        graph_representation: config.graph_representation.clone(),
+        completed_updates: 3,
+        weights: vec![12.5, f64::from_bits(0x4034_5555_5555_5555), 91.25],
+        configuration: config.as_json().clone(),
+        runtime_identity: json!({
+            "data": "fixture",
+            "graph": "fixture",
+        }),
+        topology_identity: "fnv1a64:common-checkpoint-fixture".to_string(),
+    };
+    let output_dir = temporary_directory("common-direct-checkpoint");
 
-    let checkpoint_path = state
-        .save_checkpoint(&output_dir, &config, &identity)
-        .expect("save checkpoint");
-    let checkpoint = load_checkpoint(&checkpoint_path).expect("load checkpoint");
-    assert_eq!(checkpoint["epoch"], 3);
+    let checkpoint_path = checkpoint
+        .save(&output_dir)
+        .expect("atomically save common checkpoint");
+    assert_eq!(checkpoint_path, output_dir.join("checkpoint.json"));
     assert_eq!(
-        checkpoint["selection"]["metric"],
-        "aggregate_relative_regret"
+        directory_file_names(&output_dir),
+        vec!["checkpoint.json".to_string()],
+        "atomic save must not leave a temporary file behind"
     );
-    assert_eq!(checkpoint["selection"]["value"], 0.25);
-    assert_eq!(checkpoint["q"], json!([0.9, 1.05]));
-    assert_eq!(checkpoint["quantized_metric_weights"], json!([9, 21]));
-    assert_eq!(checkpoint["configuration"]["run_id"], "smoke_1pct");
-    assert_eq!(checkpoint["runtime_identity"], identity);
+
+    let restored = TrainingCheckpoint::load(&checkpoint_path).expect("load common checkpoint");
+    assert_eq!(restored, checkpoint);
+    assert_eq!(restored.graph_representation, "edge_transition_arcs");
+    assert_eq!(restored.completed_updates, 3);
+    assert_eq!(
+        restored
+            .weights
+            .iter()
+            .map(|weight| weight.to_bits())
+            .collect::<Vec<_>>(),
+        checkpoint
+            .weights
+            .iter()
+            .map(|weight| weight.to_bits())
+            .collect::<Vec<_>>()
+    );
+
+    let raw: Value = serde_json::from_slice(
+        &std::fs::read(&checkpoint_path).expect("read serialized common checkpoint"),
+    )
+    .expect("parse serialized common checkpoint");
+    assert_eq!(
+        raw.as_object()
+            .expect("checkpoint root object")
+            .keys()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>(),
+        [
+            "completed_updates",
+            "configuration",
+            "graph_representation",
+            "runtime_identity",
+            "schema_version",
+            "topology_identity",
+            "weights",
+        ]
+        .into_iter()
+        .collect()
+    );
 
     std::fs::remove_dir_all(output_dir).expect("remove checkpoint fixture");
 }
 
 #[test]
-fn active_configs_do_not_expose_the_archived_turn_study() {
-    for entry in std::fs::read_dir("experiments/configs").expect("read active experiment configs") {
-        let path = entry.expect("read active config entry").path();
-        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        assert!(
-            !(name.starts_with("turn_") && name.ends_with(".json")),
-            "archived turn-study config remains active: {}",
-            path.display()
-        );
-    }
-}
+fn active_smokes_share_one_schema_and_differ_only_by_representation() {
+    let original = TrainingConfig::load(Path::new(ORIGINAL_EDGES_SMOKE))
+        .expect("load original-edge smoke config");
+    let transitions = TrainingConfig::load(Path::new(EDGE_TRANSITION_ARCS_SMOKE))
+        .expect("load transition-arc smoke config");
 
-#[test]
-fn archived_json_tree_is_parseable_and_bitwise_unchanged() {
-    let archive = Path::new("experiments/archive/turn_residual_abc_v1");
-    let mut paths = Vec::new();
-    collect_files_with_extension(archive, "json", &mut paths);
-    let mut entries = paths
-        .into_iter()
-        .map(|path| {
-            let relative = relative_unix_path(archive, &path);
-            (relative, path)
-        })
-        .collect::<Vec<_>>();
-    entries.sort_by(|left, right| left.0.cmp(&right.0));
-    assert_eq!(entries.len(), 19, "archived JSON inventory changed");
-
-    let mut hasher = Sha256::new();
-    for (relative, path) in entries {
-        let raw = std::fs::read(&path)
-            .unwrap_or_else(|error| panic!("read archived JSON {}: {error}", path.display()));
-        let parsed: serde_json::Value = serde_json::from_slice(&raw)
-            .unwrap_or_else(|error| panic!("parse archived JSON {}: {error}", path.display()));
-        assert!(
-            parsed.is_object(),
-            "archived JSON root is not an object: {}",
-            path.display()
-        );
-        hasher.update(relative.as_bytes());
-        hasher.update([0]);
-        hasher.update(&raw);
-        hasher.update([0]);
-    }
+    assert_eq!(original.graph_representation, "original_edges");
+    assert_eq!(transitions.graph_representation, "edge_transition_arcs");
+    assert_eq!(original.city, transitions.city);
+    assert_eq!(original.train_variant, transitions.train_variant);
+    assert_eq!(original.validation_variant, transitions.validation_variant);
     assert_eq!(
-        format!("{:x}", hasher.finalize()),
-        "c7f4df925e9b443645f160dc63a3a094686bf252e3be41a729953d276d68f0ac",
-        "archived JSON bytes or relative paths changed"
+        original.weight_lower_factor,
+        transitions.weight_lower_factor
+    );
+    assert_eq!(
+        original.weight_upper_factor,
+        transitions.weight_upper_factor
+    );
+    assert_eq!(original.eta0, transitions.eta0);
+    assert_eq!(original.optimizer_kind, transitions.optimizer_kind);
+    assert_eq!(original.lambda, transitions.lambda);
+    assert_eq!(original.updates, transitions.updates);
+    assert_eq!(original.validation_every, transitions.validation_every);
+    assert_eq!(original.rayon_threads, transitions.rayon_threads);
+    assert_eq!(original.updates, 3);
+    assert_eq!(original.validation_every, 3);
+    assert_eq!(original.rayon_threads, 4);
+
+    assert_eq!(
+        normalized_smoke_configuration(&original),
+        normalized_smoke_configuration(&transitions),
+        "apart from run metadata, representation must be the only configuration difference"
     );
 }
 
 #[test]
-fn retired_training_terms_do_not_reappear_in_active_code_or_configs() {
+fn registered_calibration_matrix_is_bounded_and_frozen() {
+    let expected = BTreeSet::from([
+        ("edge_transition_arcs".to_string(), 100, 50),
+        ("edge_transition_arcs".to_string(), 300, 50),
+        ("edge_transition_arcs".to_string(), 1000, 50),
+        ("edge_transition_arcs".to_string(), 3000, 50),
+        ("edge_transition_arcs".to_string(), 100, 200),
+        ("original_edges".to_string(), 100, 50),
+        ("original_edges".to_string(), 300, 50),
+        ("original_edges".to_string(), 1000, 50),
+        ("original_edges".to_string(), 3000, 50),
+        ("original_edges".to_string(), 300, 200),
+    ]);
+    let config_paths = directory_file_names(Path::new("experiments/configs"))
+        .into_iter()
+        .filter(|name| name.contains("_10pct_u"))
+        .map(|name| Path::new("experiments/configs").join(name))
+        .collect::<Vec<_>>();
+    assert_eq!(config_paths.len(), expected.len());
+
+    let mut actual = BTreeSet::new();
+    for path in config_paths {
+        let config = TrainingConfig::load(&path)
+            .unwrap_or_else(|error| panic!("load calibration config {}: {error}", path.display()));
+        assert_eq!(config.city, "beijing");
+        assert_eq!(config.train_variant, "scale_10pct_seed42");
+        assert_eq!(config.validation_variant, "scale_fixed_seed20260715");
+        assert_eq!(config.weight_lower_factor, 0.1);
+        assert_eq!(config.weight_upper_factor, 10.0);
+        assert_eq!(config.lambda, 0.001);
+        assert_eq!(config.validation_every, 10);
+        assert_eq!(config.rayon_threads, 4);
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/data/path_contract")
+                .and_then(Value::as_str),
+            Some("complete_original_edge_id_sequence_min_2_edges")
+        );
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/data/cycle_policy")
+                .and_then(Value::as_str),
+            Some("drop")
+        );
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/test_policy")
+                .and_then(Value::as_str),
+            Some("never_read")
+        );
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/data/train_identity/sha256")
+                .and_then(Value::as_str),
+            Some("8943d8958f3b4fadd7d3eb2f351b97268543961e441436e0ad68408cee45cc0a")
+        );
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/data/validation_identity/sha256")
+                .and_then(Value::as_str),
+            Some("c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade")
+        );
+
+        actual.insert((
+            config.graph_representation.clone(),
+            config.eta0 as u64,
+            config.updates,
+        ));
+    }
+    assert_eq!(actual, expected);
+
+    assert_eq!(
+        directory_file_names(Path::new("experiments/configs")),
+        vec![
+            "edge_transition_arcs_eta1000_10pct_u50.json".to_string(),
+            "edge_transition_arcs_eta100_10pct_u200.json".to_string(),
+            "edge_transition_arcs_eta100_10pct_u50.json".to_string(),
+            "edge_transition_arcs_eta3000_10pct_u50.json".to_string(),
+            "edge_transition_arcs_eta300_10pct_u50.json".to_string(),
+            "edge_transition_arcs_smoke_1pct.json".to_string(),
+            "original_edges_eta1000_10pct_u50.json".to_string(),
+            "original_edges_eta100_10pct_u50.json".to_string(),
+            "original_edges_eta3000_10pct_u50.json".to_string(),
+            "original_edges_eta300_10pct_u200.json".to_string(),
+            "original_edges_eta300_10pct_u50.json".to_string(),
+            "original_edges_smoke_1pct.json".to_string(),
+        ],
+        "only the two technical smokes and bounded calibration matrix are active"
+    );
+}
+
+#[test]
+fn relative_optimizer_recovery_is_representation_neutral() {
+    let original = TrainingConfig::load(Path::new(ORIGINAL_RELATIVE_RECOVERY))
+        .expect("load original-edge relative recovery config");
+    let transitions = TrainingConfig::load(Path::new(TRANSITION_RELATIVE_RECOVERY))
+        .expect("load transition-arc relative recovery config");
+
+    for config in [&original, &transitions] {
+        assert_eq!(config.optimizer_kind, "relative_projected_subgradient");
+        assert_eq!(config.eta0, 0.0002);
+        assert_eq!(config.lambda, 100000.0);
+        assert_eq!(config.weight_lower_factor, 0.1);
+        assert_eq!(config.weight_upper_factor, 10.0);
+        assert_eq!(config.updates, 299);
+        assert_eq!(config.validation_every, 10);
+        assert_eq!(config.rayon_threads, 4);
+        assert_eq!(config.train_variant, "scale_10pct_seed42");
+        assert_eq!(config.validation_variant, "scale_fixed_seed20260715");
+    }
+    assert_eq!(original.graph_representation, "original_edges");
+    assert_eq!(transitions.graph_representation, "edge_transition_arcs");
+    assert_eq!(
+        normalized_smoke_configuration(&original),
+        normalized_smoke_configuration(&transitions),
+        "representation must be the only mathematical recovery-config difference"
+    );
+}
+
+#[test]
+fn active_tree_contains_no_retired_qr_terms() {
     let forbidden = [
-        ["TurnExperiment", "Arm"].concat(),
-        ["expanded_edge", "_continuation"].concat(),
-        ["turn", "_only"].concat(),
-        ["joint_edge", "_turn"].concat(),
-        ["q_completed", "_updates"].concat(),
-        ["r_completed", "_updates"].concat(),
-        ["ExpandedEdge", "Continuation"].concat(),
-        ["Turn", "Only"].concat(),
-        ["JointEdge", "Turn"].concat(),
-        ["updates", "_q"].concat(),
-        ["updates", "_residuals"].concat(),
-        ["eta", "_q0"].concat(),
-        ["eta", "_r0"].concat(),
-        ["lambda", "_turn"].concat(),
-        ["turn", "_aware"].concat(),
-        ["turn", "_training"].concat(),
+        ["residual", "_scale"].concat(),
+        ["lambda", "_transition"].concat(),
+        ["r", "_max"].concat(),
+        ["transition", "_residual"].concat(),
+        ["ExpandedProjected", "SubgradientOptimizer"].concat(),
+        ["ExpandedRoad", "Model"].concat(),
+        ["ExpandedTraining", "Config"].concat(),
+        ["expanded", "_training"].concat(),
+        ["pair", "_state"].concat(),
+        ["pair", "-state"].concat(),
+        ["overlap", "_arcs"].concat(),
+        ["overlap", "-arc"].concat(),
+        ["node", "_weight"].concat(),
+        ["node", "-weight"].concat(),
+        ["coordinate", "_to_arc_weights"].concat(),
+        ["Graph", "Order"].concat(),
+        ["graph", "_order"].concat(),
+        ["first", "_order"].concat(),
+        ["second", "_order"].concat(),
     ];
     let mut active_files = Vec::new();
     for root in ["src", "tests", "tools"] {
-        collect_files_with_extension(Path::new(root), "rs", &mut active_files);
+        collect_files_with_extensions(Path::new(root), &["rs"], &mut active_files);
     }
-    collect_files_with_extension(Path::new("experiments/configs"), "json", &mut active_files);
+    collect_files_with_extensions(Path::new("scripts"), &["py"], &mut active_files);
+    collect_files_with_extensions(
+        Path::new("experiments/configs"),
+        &["json"],
+        &mut active_files,
+    );
+    for path in ["README.md", "EXPERIMENTS.md", "docs/research_status.md"] {
+        let path = PathBuf::from(path);
+        if path.is_file() {
+            active_files.push(path);
+        }
+    }
     active_files.sort();
+    active_files.dedup();
 
     for path in active_files {
         let contents = std::fs::read_to_string(&path)
@@ -159,24 +341,65 @@ fn retired_training_terms_do_not_reappear_in_active_code_or_configs() {
     }
 }
 
-fn collect_files_with_extension(root: &Path, extension: &str, output: &mut Vec<PathBuf>) {
+fn normalized_smoke_configuration(config: &TrainingConfig) -> Value {
+    let mut normalized = config.as_json().clone();
+    let root = normalized
+        .as_object_mut()
+        .expect("validated configuration root is an object");
+    root.remove("run_id");
+    root.remove("description");
+    normalized
+        .pointer_mut("/graph")
+        .and_then(Value::as_object_mut)
+        .expect("validated graph configuration is an object")
+        .remove("representation");
+    normalized
+}
+
+fn temporary_directory(label: &str) -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "edge-weight-recovery-{label}-{}-{nonce}",
+        std::process::id()
+    ))
+}
+
+fn directory_file_names(root: &Path) -> Vec<String> {
+    let mut names = std::fs::read_dir(root)
+        .unwrap_or_else(|error| panic!("read directory {}: {error}", root.display()))
+        .map(|entry| {
+            entry
+                .expect("read directory entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect::<Vec<_>>();
+    names.sort();
+    names
+}
+
+fn collect_files_with_extensions(root: &Path, extensions: &[&str], output: &mut Vec<PathBuf>) {
+    if !root.exists() {
+        return;
+    }
+    if root.is_file() {
+        if root
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|extension| extensions.contains(&extension))
+        {
+            output.push(root.to_path_buf());
+        }
+        return;
+    }
     for entry in std::fs::read_dir(root)
         .unwrap_or_else(|error| panic!("read directory {}: {error}", root.display()))
     {
         let path = entry.expect("read directory entry").path();
-        if path.is_dir() {
-            collect_files_with_extension(&path, extension, output);
-        } else if path.extension().and_then(|value| value.to_str()) == Some(extension) {
-            output.push(path);
-        }
+        collect_files_with_extensions(&path, extensions, output);
     }
-}
-
-fn relative_unix_path(root: &Path, path: &Path) -> String {
-    path.strip_prefix(root)
-        .unwrap_or_else(|_| panic!("{} is not below {}", path.display(), root.display()))
-        .components()
-        .map(|component| component.as_os_str().to_string_lossy())
-        .collect::<Vec<_>>()
-        .join("/")
 }

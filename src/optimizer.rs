@@ -1,56 +1,89 @@
+use crate::objective::{direct_regularization, relative_regularization};
+
+/// Representation-neutral optimizer geometry.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum OptimizerGeometry {
+    /// Optimize the stored direct graph weights with one Euclidean step size.
+    DirectWeights,
+    /// Optimize dimensionless multipliers `q[i] = w[i] / w0[i]` while keeping
+    /// direct weights as the sole stored/checkpointed vector.
+    RelativeWeights,
+}
+
+impl OptimizerGeometry {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "projected_subgradient" => Ok(Self::DirectWeights),
+            "relative_projected_subgradient" => Ok(Self::RelativeWeights),
+            _ => Err(format!(
+                "unsupported optimizer kind {value:?}; expected \"projected_subgradient\" or \"relative_projected_subgradient\""
+            )),
+        }
+    }
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::DirectWeights => "projected_subgradient",
+            Self::RelativeWeights => "relative_projected_subgradient",
+        }
+    }
+
+    pub const fn parameterization(self) -> &'static str {
+        match self {
+            Self::DirectWeights => "direct_weights",
+            Self::RelativeWeights => "relative_to_initial",
+        }
+    }
+}
+
 /// Diagnostics for one projected-subgradient update.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProjectedStepStats {
     pub eta: f64,
+    /// Largest mutation of the stored direct-weight vector.
     pub max_abs_delta: f64,
-    pub projected_edges: usize,
+    /// Largest mutation in the optimizer's configured coordinate system.
+    pub max_abs_parameter_delta: f64,
+    pub projected_coordinates: usize,
 }
 
-/// Full-batch projected subgradient descent for the regularized inverse
-/// shortest-path objective.
+/// Full-batch projected subgradient descent for one graph-weight vector.
 ///
-/// Continuous latent multipliers are updated here. Integer quantization stays
-/// separate so sub-integer changes can accumulate across epochs.
+/// The optimizer deliberately has no graph-specific state. The graph problem
+/// supplies the initial point and element-wise projection bounds, while the
+/// trainer supplies observed and predicted coordinate counts. Both geometries
+/// keep direct weights as the sole stored and checkpointed state.
 #[derive(Clone, Debug)]
 pub struct ProjectedSubgradientOptimizer {
+    geometry: OptimizerGeometry,
     eta0: f64,
     lambda: f64,
-    q_min: f64,
-    q_max: f64,
     completed_updates: u64,
 }
 
 impl ProjectedSubgradientOptimizer {
-    pub fn new(eta0: f64, lambda: f64, q_min: f64, q_max: f64) -> Result<Self, String> {
-        Self::with_completed_updates(eta0, lambda, q_min, q_max, 0)
+    pub fn new(geometry: OptimizerGeometry, eta0: f64, lambda: f64) -> Result<Self, String> {
+        Self::with_completed_updates(geometry, eta0, lambda, 0)
     }
 
-    /// Restore an optimizer while continuing its original square-root clock.
+    /// Restore the optimizer while continuing the single global square-root
+    /// learning-rate clock.
     pub fn with_completed_updates(
+        geometry: OptimizerGeometry,
         eta0: f64,
         lambda: f64,
-        q_min: f64,
-        q_max: f64,
         completed_updates: u64,
     ) -> Result<Self, String> {
         if !eta0.is_finite() || eta0 <= 0.0 {
             return Err("eta0 must be finite and greater than zero".to_string());
         }
         if !lambda.is_finite() || lambda < 0.0 {
-            return Err("lambda must be finite and non-negative".to_string());
+            return Err("lambda must be finite and nonnegative".to_string());
         }
-        if !q_min.is_finite() || q_min <= 0.0 {
-            return Err("q_min must be finite and greater than zero".to_string());
-        }
-        if !q_max.is_finite() || q_max < q_min {
-            return Err("q_max must be finite and no smaller than q_min".to_string());
-        }
-
         Ok(Self {
+            geometry,
             eta0,
             lambda,
-            q_min,
-            q_max,
             completed_updates,
         })
     }
@@ -59,397 +92,190 @@ impl ProjectedSubgradientOptimizer {
         self.completed_updates
     }
 
-    /// Apply
-    /// `g[e] = baseline[e] * (observed[e] - predicted[e]) / N
-    ///         + lambda / m * (q[e] - 1)`
-    /// followed by projection onto `[q_min, q_max]`.
+    pub const fn geometry(&self) -> OptimizerGeometry {
+        self.geometry
+    }
+
+    pub const fn lambda(&self) -> f64 {
+        self.lambda
+    }
+
+    /// Evaluate the regularizer paired with this optimizer geometry.
+    pub fn regularization(&self, weights: &[f64], initial: &[f64]) -> Result<f64, String> {
+        match self.geometry {
+            OptimizerGeometry::DirectWeights => {
+                direct_regularization(weights, initial, self.lambda)
+            }
+            OptimizerGeometry::RelativeWeights => {
+                relative_regularization(weights, initial, self.lambda)
+            }
+        }
+    }
+
+    /// In direct geometry, apply
+    ///
+    /// `g[i] = (observed[i] - predicted[i]) / N
+    ///         + lambda / m * (weights[i] - initial[i])`
+    ///
+    /// In relative geometry, let `q[i] = weights[i] / initial[i]` and apply
+    ///
+    /// `g_q[i] = initial[i] * (observed[i] - predicted[i]) / N
+    ///           + lambda / m * (q[i] - 1)`.
+    ///
+    /// The latter is equivalent in direct-weight space to the diagonal
+    /// preconditioner `diag(initial[i]^2)` applied to the gradient of
+    /// `data_loss + lambda/(2m) * ||weights/initial - 1||^2`.
+    ///
+    /// Both updates are followed by projection onto the graph problem's
+    /// element-wise box. Relative geometry maps that box into multiplier
+    /// coordinates before projection. No representation-specific state or
+    /// update rule is introduced.
+    ///
+    /// Every candidate is validated before the supplied weight slice is
+    /// mutated, so a malformed restored state cannot be partially updated.
+    #[allow(clippy::too_many_arguments)]
     pub fn step(
         &mut self,
-        q: &mut [f64],
-        baseline: &[u32],
+        weights: &mut [f64],
+        initial: &[f64],
+        lower_bounds: &[f64],
+        upper_bounds: &[f64],
         observed: &[u64],
         predicted: &[u64],
         sample_count: u64,
-    ) -> ProjectedStepStats {
-        assert_eq!(q.len(), baseline.len(), "q and baseline length mismatch");
-        assert_eq!(q.len(), observed.len(), "q and observed length mismatch");
-        assert_eq!(q.len(), predicted.len(), "q and predicted length mismatch");
+    ) -> Result<ProjectedStepStats, String> {
+        let coordinate_count = weights.len();
+        for (label, actual) in [
+            ("initial", initial.len()),
+            ("lower_bounds", lower_bounds.len()),
+            ("upper_bounds", upper_bounds.len()),
+            ("observed", observed.len()),
+            ("predicted", predicted.len()),
+        ] {
+            if actual != coordinate_count {
+                return Err(format!(
+                    "{label} length {actual} does not match weight length {coordinate_count}"
+                ));
+            }
+        }
+        if coordinate_count == 0 {
+            return Err("direct weight vector must not be empty".to_string());
+        }
+        if sample_count == 0 {
+            return Err("sample_count must be positive for an optimizer update".to_string());
+        }
 
         let eta = self.eta0 / (self.completed_updates as f64 + 1.0).sqrt();
-        let regularization_scale = if q.is_empty() {
-            0.0
-        } else {
-            self.lambda / q.len() as f64
-        };
-        let inverse_sample_count = if sample_count == 0 {
-            0.0
-        } else {
-            1.0 / sample_count as f64
-        };
+        let regularization_scale = self.lambda / coordinate_count as f64;
+        let inverse_sample_count = 1.0 / sample_count as f64;
+        let mut candidates = Vec::with_capacity(coordinate_count);
         let mut max_abs_delta = 0.0_f64;
-        let mut projected_edges = 0;
+        let mut max_abs_parameter_delta = 0.0_f64;
+        let mut projected_coordinates = 0usize;
 
-        for (edge, q_value) in q.iter_mut().enumerate() {
-            let old_q = *q_value;
-            assert!(old_q.is_finite(), "q[{edge}] must be finite");
-            let count_difference = if observed[edge] >= predicted[edge] {
-                (observed[edge] - predicted[edge]) as f64
-            } else {
-                -((predicted[edge] - observed[edge]) as f64)
-            };
-            let data_gradient = baseline[edge] as f64 * count_difference * inverse_sample_count;
-            let regularization_gradient = regularization_scale * (old_q - 1.0);
+        for coordinate in 0..coordinate_count {
+            let weight = weights[coordinate];
+            let initial_weight = initial[coordinate];
+            let lower = lower_bounds[coordinate];
+            let upper = upper_bounds[coordinate];
+            if !weight.is_finite() || !initial_weight.is_finite() {
+                return Err(format!(
+                    "weight state at coordinate {coordinate} must be finite"
+                ));
+            }
+            if !lower.is_finite() || !upper.is_finite() || lower > upper {
+                return Err(format!(
+                    "coordinate {coordinate} has invalid projection bounds [{lower}, {upper}]"
+                ));
+            }
+            if weight < lower || weight > upper {
+                return Err(format!(
+                    "weight[{coordinate}]={weight} is outside [{lower}, {upper}]"
+                ));
+            }
+
+            let count_difference = signed_difference(observed[coordinate], predicted[coordinate]);
+            let (parameter, lower_parameter, upper_parameter, data_gradient, anchor_delta) =
+                match self.geometry {
+                    OptimizerGeometry::DirectWeights => (
+                        weight,
+                        lower,
+                        upper,
+                        count_difference * inverse_sample_count,
+                        weight - initial_weight,
+                    ),
+                    OptimizerGeometry::RelativeWeights => {
+                        if initial_weight <= 0.0 {
+                            return Err(format!(
+                                "relative optimizer requires positive initial[{coordinate}], got {initial_weight}"
+                            ));
+                        }
+                        let parameter = weight / initial_weight;
+                        (
+                            parameter,
+                            lower / initial_weight,
+                            upper / initial_weight,
+                            initial_weight * count_difference * inverse_sample_count,
+                            parameter - 1.0,
+                        )
+                    }
+                };
+            let regularization_gradient = regularization_scale * anchor_delta;
             let gradient = data_gradient + regularization_gradient;
-            assert!(
-                gradient.is_finite(),
-                "gradient for edge {edge} is not finite"
-            );
-
-            let unprojected = old_q - eta * gradient;
-            assert!(
-                unprojected.is_finite(),
-                "unprojected q for edge {edge} is not finite"
-            );
-            if unprojected < self.q_min || unprojected > self.q_max {
-                projected_edges += 1;
+            if !gradient.is_finite() {
+                return Err(format!("gradient at coordinate {coordinate} is not finite"));
             }
-            let new_q = unprojected.clamp(self.q_min, self.q_max);
-            max_abs_delta = max_abs_delta.max((new_q - old_q).abs());
-            *q_value = new_q;
-        }
-
-        self.completed_updates = self.completed_updates.saturating_add(1);
-        ProjectedStepStats {
-            eta,
-            max_abs_delta,
-            projected_edges,
-        }
-    }
-}
-
-/// Diagnostics for one joint expanded-model projected-subgradient update.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ExpandedProjectedStepStats {
-    pub eta: f64,
-    pub max_abs_q_delta: f64,
-    pub max_abs_r_delta: f64,
-    pub max_abs_edge_cost_delta: f64,
-    pub max_abs_transition_cost_delta: f64,
-    pub projected_edges: usize,
-    pub projected_transitions: usize,
-}
-
-/// One projected-subgradient optimizer for the complete expanded road model.
-///
-/// The continuous metric is
-/// `kappa_(e,f) = b_f * q_f + residual_scale * r_(e,f)`. Direct gradients in
-/// `q` and `r` have incompatible coordinate scales because they contain
-/// `b_e` and `residual_scale`, respectively. The optimizer therefore works in
-/// the additive-cost coordinates
-///
-/// `u_e = b_e * (q_e - 1)` and `v_t = residual_scale * r_t`.
-///
-/// With `d = (observed - predicted) / sample_count` and
-/// `eta_k = eta0 / sqrt(k + 1)`, mapping the additive-cost update back to the
-/// stored parameters gives
-///
-/// `q_e <- project(q_e - eta_k *
-///     (d_e / b_e + lambda_edge * (q_e - 1) / (|E| * b_e^2)))`
-///
-/// `r_t <- project(r_t - eta_k *
-///     (d_t / residual_scale
-///      + lambda_transition * r_t / (|T| * residual_scale^2)))`.
-///
-/// Equivalently, this is the fixed diagonal preconditioner
-/// `diag(b_e^-2, residual_scale^-2)` applied to the full gradient, including
-/// regularization. It changes only the optimization geometry: the continuous
-/// objective, its two regularization terms, and both projection sets are
-/// unchanged.
-#[derive(Clone, Debug)]
-pub struct ExpandedProjectedSubgradientOptimizer {
-    eta0: f64,
-    lambda_edge: f64,
-    lambda_transition: f64,
-    q_min: f64,
-    q_max: f64,
-    r_max: f64,
-    completed_updates: u64,
-}
-
-impl ExpandedProjectedSubgradientOptimizer {
-    pub fn new(
-        eta0: f64,
-        lambda_edge: f64,
-        lambda_transition: f64,
-        q_min: f64,
-        q_max: f64,
-        r_max: f64,
-    ) -> Result<Self, String> {
-        Self::with_completed_updates(eta0, lambda_edge, lambda_transition, q_min, q_max, r_max, 0)
-    }
-
-    /// Restore the one global square-root clock used by both parameter blocks.
-    pub fn with_completed_updates(
-        eta0: f64,
-        lambda_edge: f64,
-        lambda_transition: f64,
-        q_min: f64,
-        q_max: f64,
-        r_max: f64,
-        completed_updates: u64,
-    ) -> Result<Self, String> {
-        if !eta0.is_finite() || eta0 <= 0.0 {
-            return Err("expanded eta0 must be finite and greater than zero".to_string());
-        }
-        if !lambda_edge.is_finite() || lambda_edge < 0.0 {
-            return Err("lambda_edge must be finite and non-negative".to_string());
-        }
-        if !lambda_transition.is_finite() || lambda_transition < 0.0 {
-            return Err("lambda_transition must be finite and non-negative".to_string());
-        }
-        if !q_min.is_finite() || q_min <= 0.0 {
-            return Err("q_min must be finite and greater than zero".to_string());
-        }
-        if !q_max.is_finite() || q_max < q_min {
-            return Err("q_max must be finite and no smaller than q_min".to_string());
-        }
-        if !r_max.is_finite() || r_max <= 0.0 {
-            return Err("r_max must be finite and greater than zero".to_string());
-        }
-
-        Ok(Self {
-            eta0,
-            lambda_edge,
-            lambda_transition,
-            q_min,
-            q_max,
-            r_max,
-            completed_updates,
-        })
-    }
-
-    pub const fn completed_updates(&self) -> u64 {
-        self.completed_updates
-    }
-
-    /// Jointly update all edge multipliers and transition residuals from one
-    /// pre-update expanded shortest-path batch.
-    ///
-    /// Every input and every candidate value is validated before either
-    /// parameter slice is mutated. Thus an invalid restored state is rejected
-    /// rather than silently repaired by projection.
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn step(
-        &mut self,
-        q: &mut [f64],
-        transition_residuals: &mut [f64],
-        metric_baseline: &[u32],
-        residual_scale: f64,
-        observed_edge_counts: &[u64],
-        predicted_edge_counts: &[u64],
-        observed_transition_counts: &[u64],
-        predicted_transition_counts: &[u64],
-        sample_count: u64,
-    ) -> Result<ExpandedProjectedStepStats, String> {
-        validate_lengths(
-            q.len(),
-            metric_baseline.len(),
-            observed_edge_counts.len(),
-            predicted_edge_counts.len(),
-            "edge",
-        )?;
-        validate_lengths(
-            transition_residuals.len(),
-            transition_residuals.len(),
-            observed_transition_counts.len(),
-            predicted_transition_counts.len(),
-            "transition",
-        )?;
-        if !residual_scale.is_finite() || residual_scale <= 0.0 {
-            return Err("residual_scale must be finite and greater than zero".to_string());
-        }
-        for (edge, (&multiplier, &baseline)) in q.iter().zip(metric_baseline).enumerate() {
-            if baseline == 0 {
-                return Err(format!("metric_baseline[{edge}] must be positive"));
-            }
-            if !multiplier.is_finite() || multiplier < self.q_min || multiplier > self.q_max {
+            let unprojected_parameter = parameter - eta * gradient;
+            if !unprojected_parameter.is_finite() {
                 return Err(format!(
-                    "q[{edge}]={multiplier} must be finite and inside [{}, {}]",
-                    self.q_min, self.q_max
+                    "unprojected parameter at coordinate {coordinate} is not finite"
                 ));
             }
-        }
-        for (transition, &residual) in transition_residuals.iter().enumerate() {
-            if !residual.is_finite() || residual < 0.0 || residual > self.r_max {
+            if unprojected_parameter < lower_parameter || unprojected_parameter > upper_parameter {
+                projected_coordinates = projected_coordinates
+                    .checked_add(1)
+                    .ok_or_else(|| "projected-coordinate count overflow".to_string())?;
+            }
+            let candidate_parameter = unprojected_parameter.clamp(lower_parameter, upper_parameter);
+            let mapped_candidate = match self.geometry {
+                OptimizerGeometry::DirectWeights => candidate_parameter,
+                OptimizerGeometry::RelativeWeights => initial_weight * candidate_parameter,
+            };
+            if !mapped_candidate.is_finite() {
                 return Err(format!(
-                    "r[{transition}]={residual} must be finite and inside [0, {}]",
-                    self.r_max
+                    "mapped candidate weight[{coordinate}] is not finite"
                 ));
             }
+            // Mapping an exactly projected relative bound back through a
+            // division/multiplication pair may differ by one floating ULP.
+            let candidate = mapped_candidate.clamp(lower, upper);
+            max_abs_delta = max_abs_delta.max((candidate - weight).abs());
+            max_abs_parameter_delta =
+                max_abs_parameter_delta.max((candidate_parameter - parameter).abs());
+            candidates.push(candidate);
         }
 
-        let next_completed_updates = self
+        let next_clock = self
             .completed_updates
             .checked_add(1)
-            .ok_or_else(|| "expanded optimizer update clock overflow".to_string())?;
-        let eta = self.eta0 / (self.completed_updates as f64 + 1.0).sqrt();
-        let inverse_sample_count = if sample_count == 0 {
-            0.0
-        } else {
-            1.0 / sample_count as f64
-        };
-        let edge_regularization_scale = if q.is_empty() {
-            0.0
-        } else {
-            self.lambda_edge / q.len() as f64
-        };
-        let transition_regularization_scale = if transition_residuals.is_empty() {
-            0.0
-        } else {
-            self.lambda_transition / transition_residuals.len() as f64
-        };
-
-        let mut next_q = Vec::with_capacity(q.len());
-        let mut max_abs_q_delta = 0.0_f64;
-        let mut max_abs_edge_cost_delta = 0.0_f64;
-        let mut projected_edges = 0usize;
-        for edge in 0..q.len() {
-            let old_q = q[edge];
-            let baseline = metric_baseline[edge] as f64;
-            let inverse_baseline = 1.0 / baseline;
-            let count_difference =
-                signed_count_difference(observed_edge_counts[edge], predicted_edge_counts[edge]);
-            let normalized_gradient = count_difference * inverse_sample_count * inverse_baseline
-                + edge_regularization_scale * (old_q - 1.0) * inverse_baseline * inverse_baseline;
-            if !normalized_gradient.is_finite() {
-                return Err(format!("normalized gradient for edge {edge} is not finite"));
-            }
-            let unprojected = old_q - eta * normalized_gradient;
-            if !unprojected.is_finite() {
-                return Err(format!("unprojected q for edge {edge} is not finite"));
-            }
-            if unprojected < self.q_min || unprojected > self.q_max {
-                projected_edges += 1;
-            }
-            let new_q = unprojected.clamp(self.q_min, self.q_max);
-            let delta = (new_q - old_q).abs();
-            max_abs_q_delta = max_abs_q_delta.max(delta);
-            max_abs_edge_cost_delta = max_abs_edge_cost_delta.max(baseline * delta);
-            next_q.push(new_q);
-        }
-
-        let inverse_residual_scale = 1.0 / residual_scale;
-        let mut next_residuals = Vec::with_capacity(transition_residuals.len());
-        let mut max_abs_r_delta = 0.0_f64;
-        let mut max_abs_transition_cost_delta = 0.0_f64;
-        let mut projected_transitions = 0usize;
-        for transition in 0..transition_residuals.len() {
-            let old_residual = transition_residuals[transition];
-            let count_difference = signed_count_difference(
-                observed_transition_counts[transition],
-                predicted_transition_counts[transition],
-            );
-            let normalized_gradient =
-                count_difference * inverse_sample_count * inverse_residual_scale
-                    + transition_regularization_scale
-                        * old_residual
-                        * inverse_residual_scale
-                        * inverse_residual_scale;
-            if !normalized_gradient.is_finite() {
-                return Err(format!(
-                    "normalized gradient for transition {transition} is not finite"
-                ));
-            }
-            let unprojected = old_residual - eta * normalized_gradient;
-            if !unprojected.is_finite() {
-                return Err(format!(
-                    "unprojected residual for transition {transition} is not finite"
-                ));
-            }
-            if unprojected < 0.0 || unprojected > self.r_max {
-                projected_transitions += 1;
-            }
-            let new_residual = unprojected.clamp(0.0, self.r_max);
-            let delta = (new_residual - old_residual).abs();
-            max_abs_r_delta = max_abs_r_delta.max(delta);
-            max_abs_transition_cost_delta =
-                max_abs_transition_cost_delta.max(residual_scale * delta);
-            next_residuals.push(new_residual);
-        }
-
-        q.copy_from_slice(&next_q);
-        transition_residuals.copy_from_slice(&next_residuals);
-        self.completed_updates = next_completed_updates;
-
-        Ok(ExpandedProjectedStepStats {
+            .ok_or_else(|| "optimizer update clock overflow".to_string())?;
+        weights.copy_from_slice(&candidates);
+        self.completed_updates = next_clock;
+        Ok(ProjectedStepStats {
             eta,
-            max_abs_q_delta,
-            max_abs_r_delta,
-            max_abs_edge_cost_delta,
-            max_abs_transition_cost_delta,
-            projected_edges,
-            projected_transitions,
+            max_abs_delta,
+            max_abs_parameter_delta,
+            projected_coordinates,
         })
     }
 }
 
-fn validate_lengths(
-    parameters: usize,
-    scales: usize,
-    observed: usize,
-    predicted: usize,
-    kind: &str,
-) -> Result<(), String> {
-    if parameters != scales || parameters != observed || parameters != predicted {
-        return Err(format!(
-            "expanded {kind} length mismatch: parameters={parameters}, scales={scales}, observed={observed}, predicted={predicted}"
-        ));
-    }
-    Ok(())
-}
-
-fn signed_count_difference(observed: u64, predicted: u64) -> f64 {
-    if observed >= predicted {
-        (observed - predicted) as f64
+fn signed_difference(left: u64, right: u64) -> f64 {
+    if left >= right {
+        (left - right) as f64
     } else {
-        -((predicted - observed) as f64)
+        -((right - left) as f64)
     }
-}
-
-/// Quantize `baseline .* q * scale` to positive CCH weights.
-pub fn quantize_weights(baseline: &[u32], q: &[f64], scale: f64) -> Result<Vec<u32>, String> {
-    if baseline.len() != q.len() {
-        return Err(format!(
-            "baseline and q length mismatch: {} != {}",
-            baseline.len(),
-            q.len()
-        ));
-    }
-    if !scale.is_finite() || scale <= 0.0 {
-        return Err("scale must be finite and greater than zero".to_string());
-    }
-
-    baseline
-        .iter()
-        .zip(q)
-        .enumerate()
-        .map(|(edge, (&base, &multiplier))| {
-            if !multiplier.is_finite() {
-                return Err(format!("q[{edge}] is not finite"));
-            }
-            let scaled = base as f64 * multiplier * scale;
-            if !scaled.is_finite() {
-                return Err(format!("quantized weight for edge {edge} is not finite"));
-            }
-            let rounded = scaled.round().max(1.0);
-            if rounded >= i32::MAX as f64 {
-                return Err(format!(
-                    "quantized weight for edge {edge} reaches the CCH infinity sentinel"
-                ));
-            }
-            Ok(rounded as u32)
-        })
-        .collect()
 }
 
 #[cfg(test)]
@@ -464,215 +290,181 @@ mod tests {
     }
 
     #[test]
-    fn update_direction_is_observed_minus_predicted() {
-        let baseline = [10, 10, 10];
-        let observed = [1, 1, 0];
-        let predicted = [1, 0, 1];
-        let mut q = [1.0, 1.0, 1.0];
-        let mut optimizer = ProjectedSubgradientOptimizer::new(0.01, 0.0, 0.1, 10.0).unwrap();
+    fn direct_formula_regularization_projection_and_clock_are_exact() {
+        let mut optimizer =
+            ProjectedSubgradientOptimizer::new(OptimizerGeometry::DirectWeights, 2.0, 4.0).unwrap();
+        let initial = [10.0, 20.0, 30.0];
+        let lower = [9.5, 10.0, 20.0];
+        let upper = [20.0, 21.0, 40.0];
+        let observed = [4, 1, 3];
+        let predicted = [1, 5, 3];
+        let mut weights = [11.0, 19.0, 33.0];
 
-        let stats = optimizer.step(&mut q, &baseline, &observed, &predicted, 1);
+        let first = optimizer
+            .step(
+                &mut weights,
+                &initial,
+                &lower,
+                &upper,
+                &observed,
+                &predicted,
+                2,
+            )
+            .unwrap();
+        assert_close(first.eta, 2.0);
+        // coordinate 0: g = 3/2 + 4/3 * 1, unprojected below 9.5
+        assert_close(weights[0], 9.5);
+        // coordinate 1: g = -4/2 + 4/3 * -1 = -10/3, projected to 21
+        assert_close(weights[1], 21.0);
+        // coordinate 2: g = 0 + 4/3 * 3 = 4
+        assert_close(weights[2], 25.0);
+        assert_eq!(first.projected_coordinates, 2);
+        assert_close(first.max_abs_delta, 8.0);
+        assert_close(first.max_abs_parameter_delta, 8.0);
+        assert_eq!(optimizer.completed_updates(), 1);
 
-        assert_close(q[0], 1.0);
-        assert!(q[1] < 1.0, "observed-only edge should become cheaper");
-        assert!(q[2] > 1.0, "predicted-only edge should become dearer");
-        assert_eq!(stats.projected_edges, 0);
-    }
-
-    #[test]
-    fn uses_sqrt_schedule_and_projects_to_the_box() {
-        let mut q = [1.0, 1.0];
-        let mut optimizer = ProjectedSubgradientOptimizer::new(1.0, 0.0, 0.5, 1.5).unwrap();
-        let first = optimizer.step(&mut q, &[1, 1], &[100, 0], &[0, 100], 1);
-        assert_eq!(q, [0.5, 1.5]);
-        assert_eq!(first.projected_edges, 2);
-        assert_close(first.eta, 1.0);
-        let second = optimizer.step(&mut q, &[1, 1], &[0, 0], &[0, 0], 1);
-        assert_close(second.eta, 1.0 / 2.0_f64.sqrt());
+        let second = optimizer
+            .step(
+                &mut weights,
+                &initial,
+                &lower,
+                &upper,
+                &observed,
+                &predicted,
+                2,
+            )
+            .unwrap();
+        assert_close(second.eta, 2.0 / 2.0_f64.sqrt());
         assert_eq!(optimizer.completed_updates(), 2);
     }
 
     #[test]
-    fn edge_optimizer_continues_the_original_clock() {
-        let mut q = [1.0];
+    fn relative_formula_matches_multiplier_update_and_direct_preconditioner() {
+        let initial = [8.0, 18.0];
+        let lower = [0.8, 1.8];
+        let upper = [80.0, 180.0];
+        let observed = [1, 0];
+        let predicted = [0, 1];
+        let mut weights = initial;
         let mut optimizer =
-            ProjectedSubgradientOptimizer::with_completed_updates(3.0, 0.0, 0.1, 10.0, 8).unwrap();
-        let step = optimizer.step(&mut q, &[1], &[0], &[0], 1);
-        assert_close(step.eta, 1.0);
-        assert_eq!(optimizer.completed_updates(), 9);
+            ProjectedSubgradientOptimizer::new(OptimizerGeometry::RelativeWeights, 0.01, 0.0)
+                .unwrap();
+
+        let step = optimizer
+            .step(
+                &mut weights,
+                &initial,
+                &lower,
+                &upper,
+                &observed,
+                &predicted,
+                1,
+            )
+            .unwrap();
+
+        // q = [1, 1], g_q = [8, -18], so q' = [0.92, 1.18].
+        assert_close(weights[0], 8.0 * 0.92);
+        assert_close(weights[1], 18.0 * 1.18);
+        assert_close(step.max_abs_parameter_delta, 0.18);
+        assert_close(step.max_abs_delta, 3.24);
+        assert_eq!(step.projected_coordinates, 0);
+
+        // In direct coordinates this is w' = w - eta * diag(w0^2) * d.
+        assert_close(weights[0], initial[0] - 0.01 * initial[0].powi(2));
+        assert_close(weights[1], initial[1] + 0.01 * initial[1].powi(2));
     }
 
     #[test]
-    fn latent_updates_accumulate_across_quantization_boundaries() {
-        let baseline = [1];
-        let mut q = [1.0];
-        let mut optimizer = ProjectedSubgradientOptimizer::new(0.1, 0.0, 0.1, 10.0).unwrap();
-        let initial = quantize_weights(&baseline, &q, 1.0).unwrap();
-        let mut changed = false;
-        for _ in 0..21 {
-            optimizer.step(&mut q, &baseline, &[0], &[1], 1);
-            if quantize_weights(&baseline, &q, 1.0).unwrap() != initial {
-                changed = true;
-                break;
-            }
+    fn geometry_selects_the_matching_regularizer() {
+        let weights = [8.0, 30.0];
+        let initial = [10.0, 20.0];
+        let direct =
+            ProjectedSubgradientOptimizer::new(OptimizerGeometry::DirectWeights, 1.0, 4.0).unwrap();
+        let relative =
+            ProjectedSubgradientOptimizer::new(OptimizerGeometry::RelativeWeights, 1.0, 4.0)
+                .unwrap();
+        assert_close(direct.regularization(&weights, &initial).unwrap(), 104.0);
+        assert_close(relative.regularization(&weights, &initial).unwrap(), 0.29);
+    }
+
+    #[test]
+    fn restored_clock_matches_an_uninterrupted_optimizer() {
+        let initial = [10.0, 20.0];
+        let lower = [1.0, 1.0];
+        let upper = [100.0, 100.0];
+        let observed = [2, 0];
+        let predicted = [0, 2];
+        let mut uninterrupted_weights = initial;
+        let mut uninterrupted =
+            ProjectedSubgradientOptimizer::new(OptimizerGeometry::DirectWeights, 1.0, 0.5).unwrap();
+        for _ in 0..4 {
+            uninterrupted
+                .step(
+                    &mut uninterrupted_weights,
+                    &initial,
+                    &lower,
+                    &upper,
+                    &observed,
+                    &predicted,
+                    2,
+                )
+                .unwrap();
         }
-        assert!(changed);
-    }
 
-    #[test]
-    fn rejects_invalid_optimizer_and_quantization_inputs() {
-        assert!(ProjectedSubgradientOptimizer::new(0.0, 0.0, 0.1, 1.0).is_err());
-        assert!(ProjectedSubgradientOptimizer::new(0.1, -1.0, 0.1, 1.0).is_err());
-        assert!(ProjectedSubgradientOptimizer::new(0.1, 0.0, 2.0, 1.0).is_err());
-        assert!(quantize_weights(&[1], &[], 1.0).is_err());
-        assert!(quantize_weights(&[1], &[f64::NAN], 1.0).is_err());
-        assert!(quantize_weights(&[u32::MAX], &[2.0], 1.0).is_err());
-        assert_eq!(quantize_weights(&[0], &[0.25], 1.0).unwrap(), vec![1]);
-    }
-
-    #[test]
-    fn expanded_step_updates_both_blocks_on_one_clock() {
-        let mut q = [1.0, 1.0];
-        let mut residuals = [0.0];
-        let mut optimizer =
-            ExpandedProjectedSubgradientOptimizer::new(0.2, 0.0, 0.0, 0.1, 2.0, 1.0).unwrap();
-
-        let step = optimizer
-            .step(
-                &mut q,
-                &mut residuals,
-                &[2, 8],
-                4.0,
-                &[0, 0],
-                &[1, 1],
-                &[0],
-                &[1],
-                1,
-            )
-            .unwrap();
-
-        assert_close(q[0], 1.1);
-        assert_close(q[1], 1.025);
-        assert_close(residuals[0], 0.05);
-        assert_close(step.eta, 0.2);
-        assert_eq!(optimizer.completed_updates(), 1);
-    }
-
-    #[test]
-    fn additive_cost_preconditioning_equalizes_coordinate_scales() {
-        let mut q = [1.0, 1.0];
-        let mut residuals = [0.0];
-        let mut optimizer =
-            ExpandedProjectedSubgradientOptimizer::new(0.2, 0.0, 0.0, 0.1, 2.0, 1.0).unwrap();
-
-        let step = optimizer
-            .step(
-                &mut q,
-                &mut residuals,
-                &[2, 8],
-                4.0,
-                &[0, 0],
-                &[1, 1],
-                &[0],
-                &[1],
-                1,
-            )
-            .unwrap();
-
-        assert_close(2.0 * (q[0] - 1.0), 0.2);
-        assert_close(8.0 * (q[1] - 1.0), 0.2);
-        assert_close(4.0 * residuals[0], 0.2);
-        assert_close(step.max_abs_edge_cost_delta, 0.2);
-        assert_close(step.max_abs_transition_cost_delta, 0.2);
-    }
-
-    #[test]
-    fn expanded_regularization_keeps_the_original_anchors() {
-        let mut q = [1.5];
-        let mut residuals = [2.0];
-        let mut optimizer =
-            ExpandedProjectedSubgradientOptimizer::new(0.5, 4.0, 8.0, 0.1, 3.0, 3.0).unwrap();
-
-        optimizer
-            .step(&mut q, &mut residuals, &[2], 4.0, &[0], &[0], &[0], &[0], 1)
-            .unwrap();
-
-        // q delta = -eta * lambda_edge * (q-1) / b^2.
-        assert_close(q[0], 1.25);
-        // r delta = -eta * lambda_transition * r / residual_scale^2.
-        assert_close(residuals[0], 1.5);
-    }
-
-    #[test]
-    fn expanded_step_projects_both_blocks() {
-        let mut q = [1.0, 1.0];
-        let mut residuals = [0.0, 1.0];
-        let mut optimizer =
-            ExpandedProjectedSubgradientOptimizer::new(10.0, 0.0, 0.0, 0.5, 1.5, 2.0).unwrap();
-
-        let step = optimizer
-            .step(
-                &mut q,
-                &mut residuals,
-                &[1, 1],
-                1.0,
-                &[1, 0],
-                &[0, 1],
-                &[0, 1],
-                &[1, 0],
-                1,
-            )
-            .unwrap();
-
-        assert_eq!(q, [0.5, 1.5]);
-        assert_eq!(residuals, [2.0, 0.0]);
-        assert_eq!(step.projected_edges, 2);
-        assert_eq!(step.projected_transitions, 2);
-        assert_eq!(optimizer.completed_updates(), 1);
-    }
-
-    #[test]
-    fn expanded_optimizer_restores_one_square_root_clock() {
-        let mut q = [1.0];
-        let mut residuals = [0.0];
-        let mut optimizer = ExpandedProjectedSubgradientOptimizer::with_completed_updates(
-            3.0, 0.0, 0.0, 0.1, 2.0, 1.0, 8,
+        let mut resumed_weights = initial;
+        let mut first_half =
+            ProjectedSubgradientOptimizer::new(OptimizerGeometry::DirectWeights, 1.0, 0.5).unwrap();
+        for _ in 0..2 {
+            first_half
+                .step(
+                    &mut resumed_weights,
+                    &initial,
+                    &lower,
+                    &upper,
+                    &observed,
+                    &predicted,
+                    2,
+                )
+                .unwrap();
+        }
+        let mut resumed = ProjectedSubgradientOptimizer::with_completed_updates(
+            OptimizerGeometry::DirectWeights,
+            1.0,
+            0.5,
+            first_half.completed_updates(),
         )
         .unwrap();
+        for _ in 0..2 {
+            resumed
+                .step(
+                    &mut resumed_weights,
+                    &initial,
+                    &lower,
+                    &upper,
+                    &observed,
+                    &predicted,
+                    2,
+                )
+                .unwrap();
+        }
 
-        let step = optimizer
-            .step(&mut q, &mut residuals, &[1], 1.0, &[0], &[0], &[0], &[0], 1)
-            .unwrap();
-
-        assert_close(step.eta, 1.0);
-        assert_eq!(optimizer.completed_updates(), 9);
-    }
-
-    #[test]
-    fn expanded_step_rejects_invalid_state_before_mutation() {
-        let mut q = [3.0];
-        let mut residuals = [0.5];
-        let original_q = q;
-        let original_residuals = residuals;
-        let mut optimizer =
-            ExpandedProjectedSubgradientOptimizer::new(1.0, 0.0, 0.0, 0.5, 2.0, 1.0).unwrap();
-
-        assert!(
-            optimizer
-                .step(&mut q, &mut residuals, &[1], 1.0, &[0], &[1], &[0], &[1], 1,)
-                .is_err()
+        assert_eq!(resumed_weights, uninterrupted_weights);
+        assert_eq!(
+            resumed.completed_updates(),
+            uninterrupted.completed_updates()
         );
-        assert_eq!(q, original_q);
-        assert_eq!(residuals, original_residuals);
-        assert_eq!(optimizer.completed_updates(), 0);
     }
 
     #[test]
-    fn rejects_invalid_expanded_optimizer_inputs() {
-        assert!(ExpandedProjectedSubgradientOptimizer::new(0.0, 0.0, 0.0, 0.1, 1.0, 1.0).is_err());
-        assert!(ExpandedProjectedSubgradientOptimizer::new(0.1, -1.0, 0.0, 0.1, 1.0, 1.0).is_err());
-        assert!(ExpandedProjectedSubgradientOptimizer::new(0.1, 0.0, -1.0, 0.1, 1.0, 1.0).is_err());
-        assert!(ExpandedProjectedSubgradientOptimizer::new(0.1, 0.0, 0.0, 2.0, 1.0, 1.0).is_err());
-        assert!(ExpandedProjectedSubgradientOptimizer::new(0.1, 0.0, 0.0, 0.1, 1.0, 0.0).is_err());
+    fn invalid_input_does_not_mutate_weights_or_clock() {
+        let mut optimizer =
+            ProjectedSubgradientOptimizer::new(OptimizerGeometry::DirectWeights, 1.0, 0.0).unwrap();
+        let mut weights = [2.0];
+        let error = optimizer
+            .step(&mut weights, &[2.0], &[1.0], &[3.0], &[1], &[], 1)
+            .unwrap_err();
+        assert!(error.contains("predicted length"));
+        assert_eq!(weights, [2.0]);
+        assert_eq!(optimizer.completed_updates(), 0);
     }
 }

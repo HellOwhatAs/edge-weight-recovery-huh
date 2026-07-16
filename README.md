@@ -1,262 +1,165 @@
-# Edge-weight recovery from observed routes
+# Edge-weight recovery
 
-This repository studies inverse shortest paths on road networks. The active
-scientific abstraction has two model classes:
+This project learns one nonnegative graph-weight vector from observed road
+trajectories. Its architecture separates two concerns:
 
-1. an edge-only baseline; and
-2. an expanded road model with a nonnegative cost for every legal directed-edge
-   transition.
+1. a graph-representation layer chooses `original_edges` or
+   `edge_transition_arcs`, maps road trajectories into that topology, and owns
+   route decoding; and
+2. one inverse-shortest-path trainer learns the coordinates supplied by the
+   representation with a common relative-weight optimizer.
 
-The expanded model strictly contains the edge-only model. There are no active
-fixed-block or staged model arms: expanded training always optimizes the full
-parameter pair `(q,r)`.
+The trainer does not inspect whether a coordinate is an original road edge or
+a legal road-to-road transition. Optimization is identical in both cases.
 
-## Models and objectives
+## Graph representations
 
-For a directed graph `G=(V,E)`, edge `e` has positive baseline cost `b_e` and
-learned multiplier `q_e`. The edge-only metric is
-
-```text
-w_e = b_e q_e.
-```
-
-In the implementation, `b_e` is the fixed `metric_baseline` obtained as
-`round(original_baseline_e * quantization_scale)`. The optimizer never replaces
-this coordinate scale with the changing quantized weight `round(b_e q_e)`.
-
-For each observed complete edge sequence `P_i` from `s_i` to `t_i`, the data
-term is true shortest-path regret:
+Let an original trajectory be
 
 ```text
-regret_i = cost(P_i) - distance(s_i,t_i).
-
-J_edge(q) = mean_i regret_i(b .* q)
-          + lambda_edge / (2|E|) ||q - 1||^2.
+(e1, e2, ..., eN).
 ```
 
-The expanded topology uses original directed edges as states and legal
-adjacent edge pairs `(e,f)` as transitions. Its continuous transition cost and
-objective are
+### `original_edges`
+
+The original directed road graph is used directly. Each original road edge is
+one learned coordinate, and the mapped trajectory is unchanged:
 
 ```text
-kappa_(e,f) = b_f q_f + residual_scale r_(e,f),    r_(e,f) >= 0
-
-J_expanded(q,r) = mean_i regret_i(q,r)
-                + lambda_edge / (2|E|) ||q - 1||^2
-                + lambda_transition / (2|T|) ||r||^2.
+(e1, e2, ..., eN).
 ```
 
-Setting every transition residual to zero reproduces the edge-only metric and
-objective exactly. Thus every feasible edge-only state `(q,0)` is also a
-feasible expanded state; adding transitions does not create a separate arm or
-training mechanism.
+### `edge_transition_arcs`
 
-`count_residual_l1` remains a tie-dependent diagnostic only. It is not the
-optimization objective.
+This is the directed line graph (also called a line digraph or edge-based
+graph) of the original road graph:
 
-## Unified expanded optimizer
+- every original directed edge `e` is one routing node;
+- every legal consecutive transition `(e,f)`, with
+  `head(e) = tail(f)`, is one routing arc `e -> f`; and
+- every routing arc has one directly learned coordinate `w[e,f]`.
 
-Expanded training uses one projected-subgradient optimizer, one learning-rate
-parameter, and one update clock. One optimizer update performs exactly one
-expanded training-set shortest-path batch query. Both edge and transition
-count subgradients come from that same pre-update metric, after which `q` and
-`r` are updated together and both integer metrics are rebuilt. Scheduled
-validation queries are selection-only and never supply an optimizer gradient.
-
-The two parameter blocks have different raw cost scales. To give one `eta0` a
-consistent meaning, optimization is expressed in additive cost coordinates:
+The original road trajectory is therefore the line-graph node path
 
 ```text
-u_e = b_e (q_e - 1)
-v_t = residual_scale r_t.
+e1 -> e2 -> ... -> eN
 ```
 
-Let
+and its learned coordinates are obtained with `windows(2)`:
 
 ```text
-delta_edge_e       = (observed_edge_e - predicted_edge_e) / N
-delta_transition_t = (observed_transition_t - predicted_transition_t) / N
-eta_k              = eta0 / sqrt(completed_updates + 1).
+(e1,e2), (e2,e3), ..., (e{N-1},eN).
 ```
 
-One update is
+Its cost has exactly `N - 1` terms:
 
 ```text
-u_e' = project_[b_e(q_min-1), b_e(q_max-1)](
-         u_e - eta_k [delta_edge_e
-                      + lambda_edge u_e / (|E| b_e^2)])
-
-v_t' = project_[0, residual_scale r_max](
-         v_t - eta_k [delta_transition_t
-                      + lambda_transition v_t
-                        / (|T| residual_scale^2)]).
+C_w(P) = sum_i w[e_i,e_{i+1}].
 ```
 
-Equivalently, this is deterministic diagonal preconditioning of the original
-`q/r` subgradients:
+Source states are original edges leaving the requested source vertex; target
+states are original edges entering the requested target vertex. Both endpoint
+offsets are zero. A returned line-graph node path already is the decoded
+original-edge sequence.
+
+The representation contains only those original-edge routing nodes and
+transition coordinates. All experiments filter trajectories with `N < 2`,
+including `original_edges`, so the two representations use the same data
+boundary without introducing a special start structure or first-edge cost.
+
+## One inverse-shortest-path optimizer
+
+For either representation, let `m` be its number of learned coordinates, `w0`
+the initial direct-weight vector, `q = w / w0`, and `N` the number of
+observations. The active optimizer minimizes
 
 ```text
-g_q,e = b_e delta_edge_e
-        + lambda_edge (q_e - 1) / |E|
-g_r,t = residual_scale delta_transition_t
-        + lambda_transition r_t / |T|
-
-q_e' = project_[q_min,q_max](q_e - eta_k g_q,e / b_e^2)
-r_t' = project_[0,r_max](r_t - eta_k g_r,t / residual_scale^2).
+J(q) = average[
+         observed_path_cost(w0 * q)
+         - predicted_shortest_path_cost(w0 * q)
+       ]
+       + lambda / (2m) * ||q - 1||^2.
 ```
 
-This changes the optimization geometry, not the continuous objective,
-regularizers, or feasible set. Equal count imbalance produces equal additive
-cost movement in `u` and `v` before regularization and projection. It does not
-introduce a second tunable learning rate or a second clock.
-
-The expanded-specific active configuration surface is correspondingly small:
+With coordinate counts from the mapped observed and predicted paths, one
+subgradient is
 
 ```text
-model.kind = expanded
-eta0
-lambda_edge
-lambda_transition
-q_min
-q_max
-r_max
-quantization_scale
-residual_scale
-updates
-validation_every
+g_q = w0 * (observed_counts - predicted_counts) / N
+      + lambda / m * (q - 1).
 ```
 
-Data identity, oracle, runtime, and validation-selection metadata remain
-ordinary run metadata. There is no arm, frozen-block flag, staged-protocol
-field, or block-specific learning rate.
-
-Expanded checkpoint selection is fixed to validation mean regret plus the two
-current regularization terms. Model-relative regret remains a diagnostic and
-does not drive the active expanded selection state.
-
-Continuous latent parameters remain separate from positive integer CCH
-weights. Expanded runs start deterministically from `q=1, r=0`. Checkpoints
-bind `q`, `r`, both quantized metrics, configuration and data identities, that
-initialization identity, expanded-topology identity, validation-selection
-state, and one `completed_updates`. Restore is strict: latent state must
-reproduce the saved integer metrics exactly, without implicit clamping or
-repair.
-
-## Established
-
-The following claims are supported by implementation contracts and existing
-evidence:
-
-- the edge-only inverse shortest-path baseline and its normalized L2 anchor;
-- full CCH customization, unique-OD batching, and correct OD multiplicity;
-- complete-path validation and the single active policy of dropping cyclic
-  observations;
-- validation-only checkpoint selection and no test-data read during training;
-- stable expanded transition IDs and reversible transition-to-edge mapping;
-- correct expanded source/target handling and observed-path cost accounting;
-- exact equality of edge-only and expanded distances and observed costs when
-  `r=0`, allowing different path representations at shortest-path ties;
-- strict nesting of every edge-only state `(q,0)` inside the expanded model;
-- strictly greater representational capacity on a synthetic conflict graph,
-  where edge-only costs cannot make two conditionally opposed routes both
-  uniquely shortest but nonnegative transition costs can.
-
-The frozen Beijing edge-only baseline used 623,275 accepted training routes
-and selected epoch 99 within a bounded 100-epoch run. Its established
-development evidence is:
-
-| Scope | Routes | Relative regret | Mean regret | Edge F1 | Exact match |
-|---|---:|---:|---:|---:|---:|
-| Time-blocked development | 129,033 | 0.06348409 | 339,523.40 | 0.681488 | 0.371068 |
-| Spent AM/PM confirmation | 31,662 | 0.06302821 | — | 0.684512 | 0.376508 |
-
-The AM/PM blocks were validation-derived, source-index-disjoint confirmation
-blocks. They are spent evidence, not an untouched final test. The selected
-epoch was the budget boundary, so convergence is not established. The
-authoritative records are
-[`experiments/configs/beijing_edge_only_full.json`](experiments/configs/beijing_edge_only_full.json)
-and
-[`experiments/summaries/beijing_edge_only.json`](experiments/summaries/beijing_edge_only.json).
-
-A bounded active comparison has also used the same deterministic Beijing
-10-percent train subset and fixed validation for both models. The selected
-finite edge-only checkpoint was better on raw mean regret, Edge F1, and Exact
-Match, but expanded improved at every cadence through its single 600-update
-hard cap. This is category F—an optimization diagnostic, not a model-class
-ranking. See the
-[comparison summary](experiments/summaries/beijing_10pct_model_comparison.json)
-for every candidate, resource accounting, and the no-test-read audit.
-
-## Not yet established
-
-The repository does not yet establish:
-
-- that a fairly and sufficiently optimized expanded road model outperforms the
-  edge-only baseline on real data;
-- improvement on independent data in raw mean objective, Edge F1, or Exact
-  Match;
-- that either active model has been optimized sufficiently close to its global
-  optimum;
-- that a learned transition residual has a physical, behavioral, or causal
-  interpretation;
-- generalization to another city, time period, or context.
-
-`relative_regret` divides regret by observed-path cost under the current
-model. The frozen edge-only baseline still uses it for checkpoint selection to
-preserve that established run, while expanded training logs it only as a
-diagnostic. Because the denominator changes with the metric, it must not be the
-sole cross-model ranking criterion. A conclusive comparison must evaluate only
+Update `k` uses one global clock and one projection box:
 
 ```text
-edge-only baseline
-vs.
-fully optimized expanded road model
+eta_k = eta0 / sqrt(k + 1)
+q <- project(q - eta_k * g_q)
+w <- w0 * q.
 ```
 
-and should report raw mean regret or a denominator fixed identically across
-both models, together with Edge F1 and Exact Match on independent data. This
-requirement is not authorization to read test data or start a new large
-experiment.
+The configured lower and upper factors are the projection bounds in `q`. Only
+the mapped direct vector `w` is stored and checkpointed. In direct-weight
+space, the same update is a generic `diag(w0^2)` preconditioner paired with
+relative regularization. There is one learning rate, regularization
+coefficient, clock, projection rule, training loop, and checkpoint format for
+both representations; no optimizer state depends on whether a coordinate is
+an original edge or a transition arc.
 
-## Historical archive
+The explicit `projected_subgradient` kind retains the earlier direct-weight
+Euclidean semantics for reproducibility. Active training uses
+`relative_projected_subgradient`; old configurations are never silently
+reinterpreted.
 
-The former Beijing A/B/C study is preserved under
-[`experiments/archive/turn_residual_abc_v1/`](experiments/archive/turn_residual_abc_v1/README.md).
-Its configurations, summaries, protocol decisions, and numerical fields are
-historical audit material only. The study's model-ranking conclusion was
-withdrawn because its finite optimization budgets, model-relative selection
-ratio, subset asymmetry, and lack of an independent endpoint did not support
-the claimed ranking.
+The current RoutingKit CCH binding accepts `u32` metrics, so direct `f64`
+weights are rounded for route selection and selected paths are evaluated under
+the direct vector. Exact continuous-weight CCH routing remains a deliberately
+deferred oracle limitation; it does not introduce another learned vector or a
+representation-specific optimizer.
 
-Those historical arms are not active model categories and are not future
-research questions. Strings such as `winner`, `promoted`, or `continue` inside
-the archived JSON describe execution-time protocol decisions, not current
-scientific conclusions. The immutable pre-audit recovery point is
-`6b66eae329b0beea3546550292a4efd789276159`.
+## Checkpoints
 
-## Repository guide
+A checkpoint records the representation and topology identity, configuration
+and runtime data identity, current direct weights, and `completed_updates`.
+Restoring it rebuilds `w0`, bounds, and the representation-specific oracle from
+the verified configuration and topology, restores the configured optimizer
+geometry, then resumes the same square-root learning-rate clock. Both
+representations use the same checkpoint structure.
 
-- `src/model/edge_only.rs`: edge-only parameterization.
-- `src/model/expanded_road.rs`: `ExpandedRoadModel` and continuous transition
-  residual state.
-- `src/objective.rs` and `src/optimizer.rs`: regret, diagnostics, and unified
-  projected updates.
-- `src/turn_graph.rs` and `src/oracle/expanded.rs`: expanded topology and
-  metric-bound expanded queries.
-- `src/training.rs` and `src/expanded_training.rs`: validation-selected
-  training paths.
-- `tests/`: behavioral, correctness, identity, nesting, and checkpoint
-  contracts.
-- `experiments/configs/`: active baseline and bounded configurations.
-- `experiments/archive/turn_residual_abc_v1/`: immutable historical A/B/C
-  audit material.
+## Current evidence boundary
 
-The CLIs can be inspected without reading data:
+Synthetic tests and two short Beijing 1% technical smokes establish the
+mapping, optimization, CCH, and checkpoint contracts:
+
+- [`original_edges_smoke_1pct.json`](experiments/configs/original_edges_smoke_1pct.json)
+- [`edge_transition_arcs_smoke_1pct.json`](experiments/configs/edge_transition_arcs_smoke_1pct.json)
+
+The first deterministic Beijing 10% calibration exposed an optimizer
+regression: direct-weight Euclidean updates improved Edge F1 by only about
+`2e-5`. A generic relative-coordinate recovery then reproduced the historical
+`original_edges` result and established meaningful learning for both graph
+representations. At their minimum-objective checkpoints, decoded Edge F1 is
+0.685404 for `original_edges` and 0.694125 for
+`edge_transition_arcs`; Exact Match is 0.373640 and 0.377245. The line graph
+therefore remains the recommended representation for a later NeuroMLR
+comparison, now with learning gain rather than initialization alone as
+evidence. Its best checkpoint is the registered update-299 boundary, so
+convergence remains unconfirmed.
+
+See the [optimizer-recovery report](experiments/optimizer_recovery/report.md)
+and [machine-readable summary](experiments/optimizer_recovery/summary.json).
+The earlier [direct-weight calibration](experiments/line_graph_10pct_calibration/report.md)
+is retained as the diagnostic baseline. No test split was read, so this remains
+development evidence rather than a test-set claim.
+
+## Development checks
 
 ```bash
-cargo run --locked --bin train -- --help
-cargo run --locked --bin evaluate -- --help
+cargo fmt --check
+cargo build --release --locked
+cargo test --locked --all-targets
+cargo clippy --locked --all-targets -- -D warnings
+git diff --check
 ```
 
-See [`docs/research_status.md`](docs/research_status.md) for the precise claim
-boundary and [`EXPERIMENTS.md`](EXPERIMENTS.md) for the evidence index.
+Input loading, deterministic subset generation, CCH infrastructure, reference
+shortest paths, and route metrics remain shared infrastructure.
