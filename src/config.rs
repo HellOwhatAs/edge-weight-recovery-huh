@@ -1,6 +1,33 @@
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
+use crate::time_buckets::{TimeBucketSpec, sha256_file};
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DepartureTimeFilterConfig {
+    pub spec_path: PathBuf,
+    pub spec_sha256: String,
+    pub bucket_id: String,
+    pub expected_train_samples: usize,
+    pub expected_validation_samples: usize,
+}
+
+impl DepartureTimeFilterConfig {
+    pub fn load_spec(&self) -> Result<TimeBucketSpec, String> {
+        let actual = sha256_file(&self.spec_path)?;
+        if actual != self.spec_sha256 {
+            return Err(format!(
+                "{} SHA-256 mismatch: expected {}, got {actual}",
+                self.spec_path.display(),
+                self.spec_sha256
+            ));
+        }
+        let spec = TimeBucketSpec::load(&self.spec_path)?;
+        spec.bucket(&self.bucket_id)?;
+        Ok(spec)
+    }
+}
+
 /// Strict, representation-neutral training configuration.
 #[derive(Clone, Debug)]
 pub struct TrainingConfig {
@@ -9,6 +36,7 @@ pub struct TrainingConfig {
     pub city: String,
     pub train_variant: String,
     pub validation_variant: String,
+    pub departure_time_filter: Option<DepartureTimeFilterConfig>,
     pub graph_representation: String,
     pub weight_lower_factor: f64,
     pub weight_upper_factor: f64,
@@ -57,6 +85,7 @@ impl TrainingConfig {
                 "cycle_policy",
                 "train_identity",
                 "validation_identity",
+                "departure_time_filter",
             ],
         )?;
         for pointer in ["/data/train_identity", "/data/validation_identity"] {
@@ -70,6 +99,20 @@ impl TrainingConfig {
                     "source_sha256",
                     "sample_count",
                     "seed",
+                ],
+            )?;
+        }
+        if raw.pointer("/data/departure_time_filter").is_some() {
+            reject_unknown_keys(
+                &raw,
+                "/data/departure_time_filter",
+                &[
+                    "spec_path",
+                    "spec_sha256",
+                    "bucket_id",
+                    "selection_timestamp",
+                    "expected_train_samples",
+                    "expected_validation_samples",
                 ],
             )?;
         }
@@ -131,6 +174,55 @@ impl TrainingConfig {
         let train_variant = require_safe_component(&raw, "/data/train_variant", "train_variant")?;
         let validation_variant =
             require_safe_component(&raw, "/data/validation_variant", "validation_variant")?;
+        let departure_time_filter = if raw.pointer("/data/departure_time_filter").is_some() {
+            if require_str(&raw, "/data/departure_time_filter/selection_timestamp")? != "start_time"
+            {
+                return Err(
+                    "/data/departure_time_filter/selection_timestamp must be \"start_time\""
+                        .to_string(),
+                );
+            }
+            let spec_path =
+                PathBuf::from(require_str(&raw, "/data/departure_time_filter/spec_path")?);
+            if spec_path.is_absolute()
+                || spec_path
+                    .components()
+                    .any(|component| matches!(component, std::path::Component::ParentDir))
+            {
+                return Err(
+                    "/data/departure_time_filter/spec_path must be repository-relative and safe"
+                        .to_string(),
+                );
+            }
+            let spec_sha256 = require_sha256(&raw, "/data/departure_time_filter/spec_sha256")?;
+            let bucket_id = require_safe_component(
+                &raw,
+                "/data/departure_time_filter/bucket_id",
+                "departure bucket id",
+            )?;
+            let expected_train_samples = usize::try_from(require_u64(
+                &raw,
+                "/data/departure_time_filter/expected_train_samples",
+            )?)
+            .map_err(|_| "expected_train_samples does not fit usize".to_string())?;
+            let expected_validation_samples = usize::try_from(require_u64(
+                &raw,
+                "/data/departure_time_filter/expected_validation_samples",
+            )?)
+            .map_err(|_| "expected_validation_samples does not fit usize".to_string())?;
+            if expected_train_samples == 0 || expected_validation_samples == 0 {
+                return Err("expected filtered sample counts must be positive".to_string());
+            }
+            Some(DepartureTimeFilterConfig {
+                spec_path,
+                spec_sha256,
+                bucket_id,
+                expected_train_samples,
+                expected_validation_samples,
+            })
+        } else {
+            None
+        };
         let graph_representation = require_str(&raw, "/graph/representation")?.to_string();
         if graph_representation != "original_edges"
             && graph_representation != "edge_transition_arcs"
@@ -182,6 +274,7 @@ impl TrainingConfig {
             city,
             train_variant,
             validation_variant,
+            departure_time_filter,
             graph_representation,
             weight_lower_factor,
             weight_upper_factor,
@@ -333,6 +426,14 @@ fn require_f64(value: &Value, pointer: &str) -> Result<f64, String> {
         .ok_or_else(|| format!("missing number {pointer}"))
 }
 
+fn require_sha256(value: &Value, pointer: &str) -> Result<String, String> {
+    let digest = require_str(value, pointer)?;
+    if digest.len() != 64 || !digest.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(format!("{pointer} must be a 64-digit SHA-256 hex digest"));
+    }
+    Ok(digest.to_ascii_lowercase())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -387,6 +488,24 @@ mod tests {
         let mut raw = config_value("original_edges");
         raw["optimizer"]["extra_lambda"] = json!(1.0);
         assert!(TrainingConfig::from_value(raw).is_err());
+    }
+
+    #[test]
+    fn departure_filter_is_optional_data_selection_not_optimizer_state() {
+        let mut raw = config_value("edge_transition_arcs");
+        raw["data"]["departure_time_filter"] = json!({
+            "spec_path": "experiments/independent_time_buckets/time_buckets.json",
+            "spec_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bucket_id": "night_00_06",
+            "selection_timestamp": "start_time",
+            "expected_train_samples": 10,
+            "expected_validation_samples": 2
+        });
+        let config = TrainingConfig::from_value(raw).unwrap();
+        let filter = config.departure_time_filter.as_ref().unwrap();
+        assert_eq!(filter.bucket_id, "night_00_06");
+        assert_eq!(filter.expected_train_samples, 10);
+        assert_eq!(config.optimizer_kind, "projected_subgradient");
     }
 
     #[test]

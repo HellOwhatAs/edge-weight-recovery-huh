@@ -116,66 +116,36 @@ the direct vector. Exact continuous-weight CCH routing remains a deliberately
 deferred oracle limitation; it does not introduce another learned vector or a
 representation-specific optimizer.
 
-## Coarse departure-time conditioning
+## Independent departure-time partitions
 
-The temporal extension retains the pickle's whole-trip `start_time` and
-`end_time` alongside every path. Beijing timestamps are interpreted as Unix
-seconds in `Asia/Shanghai` only after checking the full-train `MMDD` keys:
-all 785,709 match UTC+8 civil dates, whereas 695,129 match UTC dates. Inference
-selects one of five train-derived departure-hour buckets (`00-06`, `06-10`,
-`10-16`, `16-20`, `20-24`). Validation timestamps are used only to select the
-already-defined bucket and report metrics.
+Whole-trip `start_time` and `end_time` remain aligned with every accepted path.
+The full-train `MMDD` audit identifies Unix seconds in `Asia/Shanghai`: all
+785,709 raw train records match the UTC+8 civil date. Five coarse departure
+buckets (`00-06`, `06-10`, `10-16`, `16-20`, `20-24`) were frozen from that
+train audit.
 
-For bucket `b`, the relative coordinate is
-
-```text
-q_b = q_global + r_b
-w_b = w0_b * q_b.
-```
-
-`q_global` is shared by every bucket and each `r_b` is a bounded residual
-regularized toward zero. The full-batch objective is
+Time is only a data-selection and checkpoint-dispatch concern. For bucket `b`,
+the ordinary static trainer receives
 
 ```text
-(1/N) sum_b sum_(trip in b)[observed_cost(w_b) - shortest_path_cost(w_b)]
-+ lambda_global / (2m)  * ||q_global - 1||^2
-+ lambda_residual / (2mB) * sum_b ||r_b||^2.
+D_b = {trip_i : bucket(start_time_i) = b}
 ```
 
-It is convex in the global and residual coordinates. Independent boxes on
-`q_global` and `r_b` guarantee every effective multiplier remains in the
-configured `[0.1, 10]` range. The graph problem still supplies only topology,
-trajectory mapping, coordinate counts, CCH customization, and route decoding;
-it does not inspect temporal optimizer state. Line-graph source states,
-zero endpoint offsets, transition meanings, and the absence of a first-edge
-cost are unchanged.
-
-The optional travel-time baseline uses only accepted training trajectories.
-For a complete trip `t`, it first computes the proxy
-
-```text
-v_t = full_path_length_t / (end_time_t - start_time_t).
-```
-
-This is explicitly a whole-trip average, not an observed per-edge speed. After
-clipping implausible extremes, road-global speeds shrink to the train-wide
-mean and road-bucket speeds shrink to their road-global values. The two prior
-counts are train-support quantiles. An edge baseline is proportional to
-`length / smoothed_speed`; one train-derived positive global fixed-point scale
-reduces CCH `u32` rounding without changing route order. For line-graph
-coordinates, the baseline remains the entered edge's value, so no new first
-edge term is introduced.
+and learns one independent direct vector with the unchanged
+`edge_transition_arcs`, length baseline, relative projected-subgradient
+objective, regularizer, projection, CCH oracle, and static checkpoint. There is
+no shared global parameter, bucket residual, special optimizer, travel-time
+baseline, or temporal checkpoint. At inference, departure time selects one of
+the ordinary static checkpoints before the usual CCH query.
 
 ## Checkpoints
 
-A static checkpoint records the representation and topology identity,
-configuration and runtime data identity, current direct weights, and
-`completed_updates`. A temporal checkpoint records the global relative vector,
-all bucket residuals, the complete bucket definition, train-derived baseline
-vectors and diagnostics, configuration, runtime identity, topology identity,
-and update clock. Restore verifies those identities and resumes the same
-square-root learning-rate clock; inference selects the stored metric using the
-departure timestamp.
+A checkpoint records the representation and topology identity, configuration
+and runtime data identity, current direct weights, and `completed_updates`.
+Restoring it rebuilds the same length anchor, bounds, optimizer geometry, and
+CCH topology, then resumes the square-root learning-rate clock. Bucketed runs
+use this same checkpoint shape; the outer dispatcher chooses which checkpoint
+to load.
 
 ## Current evidence boundary
 
@@ -190,18 +160,23 @@ baseline at F1 0.694125 and Exact Match 0.377245. Full training data moves the
 same static model to F1 0.700554 and Exact Match 0.388186 at interior update
 400; all five departure buckets improve over the 10% model.
 
-The shared departure-time model with a length baseline reaches F1 0.702280
-and Exact Match 0.388629 at update 400. Replacing its anchor with the
-train-only smoothed whole-trip-speed proxy reaches F1 0.703176 and Exact Match
-0.389704 at update 425. The best temporal model is only `+0.002623` F1 and
-`+0.001518` Exact over the full static model, with F1 losses in two of five
-buckets. This is a small, mixed development gain rather than evidence of a
-significant and stable improvement. Decoded metrics peak inside the bounded
-budget, although regularized objectives are still falling at update 500, so
-numerical objective convergence is not confirmed.
+The active departure-time comparison fits five independent ordinary static
+checkpoints with the same eta, regularization, bounds, and 500-update budget as
+the full static reference. The five disjoint validation results are aggregated
+with their fixed sample counts. No bucket-specific hyperparameter search is
+used. The result is negative overall: independent buckets reach F1 0.699198,
+Exact Match 0.384202, and Edge Jaccard 0.626007, versus 0.700554, 0.388186,
+and 0.627908 for one full static model. Mean regret also rises from 303,899.5
+to 320,424.2 mm. Only two of five buckets improve F1, and only the 20-24
+bucket improves Exact Match. All five selected checkpoints are before update
+500, so extending the fixed search solely to rescue this result is not
+justified. The full static line graph remains the recommended model.
 
-See the [full-data time-conditioning report](experiments/full_data_time_conditioning/report.md)
-and its [machine-readable summary](experiments/full_data_time_conditioning/summary.json).
+The former shared-residual and trip-average travel-time study is preserved in
+the [historical archive](experiments/archive/full_data_shared_temporal_residual)
+but its model, optimizer, checkpoint, evaluator, and binaries are no longer
+active. See the [independent-bucket report](experiments/independent_time_buckets/report.md)
+and [machine-readable summary](experiments/independent_time_buckets/summary.json).
 The [optimizer-recovery report](experiments/optimizer_recovery/report.md) and
 earlier [direct-weight calibration](experiments/line_graph_10pct_calibration/report.md)
 remain as historical evidence. No test split was read, so all results are

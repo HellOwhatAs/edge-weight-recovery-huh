@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run bounded original-edge and transition-arc configurations through one CLI."""
+"""Run bounded static configurations through the common train/evaluate CLIs."""
 
 from __future__ import annotations
 
@@ -200,6 +200,7 @@ def validate_evaluation(
         == config["graph"]["representation"],
         "checkpoint_update": evaluation.get("checkpoint_completed_updates")
         == checkpoint["update"],
+        "test_not_read": evaluation.get("test_read") is False,
     }
     metrics = evaluation.get("metrics")
     checks["metrics_object"] = isinstance(metrics, dict)
@@ -211,6 +212,11 @@ def validate_evaluation(
         checks["sample_count"] = isinstance(metrics.get("samples"), int) and metrics[
             "samples"
         ] > 0
+        departure_filter = config.get("data", {}).get("departure_time_filter")
+        if isinstance(departure_filter, dict):
+            checks["filtered_sample_count"] = metrics.get("samples") == departure_filter.get(
+                "expected_validation_samples"
+            )
     failed = [name for name, passed in checks.items() if not passed]
     if failed:
         raise ValueError(f"{path}: failed evaluation checks: {', '.join(failed)}")
@@ -405,6 +411,7 @@ def run_one(
         "lambda": config["optimizer"]["lambda"],
         "updates": config["training"]["updates"],
         "validation_every": config["training"]["validation_every"],
+        "departure_time_filter": config.get("data", {}).get("departure_time_filter"),
         "status": status,
         "returncode": returncode,
         "training_wall_seconds": training_wall_seconds,

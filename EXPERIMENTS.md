@@ -171,13 +171,14 @@ Tracked evidence:
 - [machine-readable recovery summary](experiments/optimizer_recovery/summary.json)
 - [two exact recovery configurations](experiments/optimizer_recovery/configs)
 
-## Full-data and departure-time study
+## Full-data independent departure-bucket study
 
-The next registered study keeps `edge_transition_arcs` and
-`relative_projected_subgradient` fixed. It compares the existing 10% result,
-one full-train static model, one full-train coarse departure-time model with
-the length anchor, and the same temporal model with a train-only travel-time
-anchor. The fixed validation variant is unchanged, and no test file is read.
+The active study keeps `edge_transition_arcs`, the length anchor, and
+`relative_projected_subgradient` fixed. It compares one full-train static model
+with five ordinary static models trained independently after a coarse
+departure-time data partition. Time does not enter the model, optimizer, graph
+problem, or checkpoint. The fixed validation variant is unchanged, and no test
+file is read.
 
 ### Timestamp and bucket audit
 
@@ -202,91 +203,73 @@ training:
 The common path filter drops 162,434 cyclic full-train trajectories and 4,188
 cyclic validation trajectories. There are no empty, short, discontinuous, or
 out-of-bounds paths. The exact audit and bucket file are
-[`time_audit.json`](experiments/full_data_time_conditioning/time_audit.json)
+[`time_audit.json`](experiments/independent_time_buckets/time_audit.json)
 and
-[`time_buckets.json`](experiments/full_data_time_conditioning/time_buckets.json).
+[`time_buckets.json`](experiments/independent_time_buckets/time_buckets.json).
 
-### Shared temporal model
+### Independent static models
 
-For bucket `b`, the effective relative vector is
+For each registered bucket `b`, the data layer constructs
 
 ```text
-q_b = q_global + residual_b
-w_b = w0_b * q_b.
+D_b = {trip_i : bucket(start_time_i) = b}
 ```
 
-The global vector is shared by every bucket. Residuals have a common bounded
-box and an `L2` penalty toward zero; their configured box combined with the
-global box guarantees effective multipliers remain in `[0.1,10]`. The data
-term is the sample-weighted sum of bucket regrets, so this remains a convex
-projected-subgradient problem. The graph representation still owns topology,
-path mapping, CCH, and decoding only. Departure-time state does not add a
-start cost, first-edge parameter, or higher-order graph state.
+and invokes the existing static trainer unchanged. Every bucket uses the same
+`eta0=0.0002`, `lambda=100000`, relative bounds `[0.1,10]`, 500 updates, and
+checkpoint cadence 25. No per-bucket hyperparameter search is allowed. Each
+run stores the same schema-2 direct-weight checkpoint used by the full static
+model.
 
-The full static learning-rate screen used only `0.0002`, `0.0004`, and
-`0.0008`. The `0.0008` arm was stopped after its registered update-10
-validation objective rose from 636,965.750 to 1,135,726.472. At update 60,
-`0.0002` produced F1 0.694756 and Exact Match 0.383569; `0.0004` produced F1
-0.689208 and Exact Match 0.371174. Thus `0.0002` was frozen for all formal
-runs. Residual step multipliers 1 and 2 were effectively tied at update 40
-(F1 0.692307 versus 0.692333), but multiplier 1 had higher Exact Match
-(0.383569 versus 0.381229) and a more stable early trajectory. Multiplier 5
-was rejected after a bounded update-25 instability check (F1 0.675727).
+The only new active mechanism is an optional schema-3
+`data.departure_time_filter`, verified against the train-derived bucket file
+and expected train/validation counts before graph mapping. Overall bucketed
+metrics are validation-sample-weighted; additive regret totals preserve exact
+relative regret.
 
-### Train-only travel-time anchor
+The former shared-global-plus-residual and trip-average travel-time experiment
+is historical only. Its configurations, audit, report, and summary are kept in
+[`experiments/archive/full_data_shared_temporal_residual`](experiments/archive/full_data_shared_temporal_residual),
+while its special optimizer, checkpoint, evaluator, binaries, and runner have
+been removed from the active implementation.
 
-For every accepted training trip, the estimator computes full-path length
-divided by whole-trip duration. It clips the proxy speed to `[1, 33.333...]`
-m/s, affecting 401 low and 307 high observations. The clipped train-wide mean
-is 8.768182 m/s. A road-global mean shrinks to that network mean with 42
-pseudo-observations, and each road-bucket mean shrinks to its road-global mean
-with 74 pseudo-observations; both counts are derived from train support
-quantiles. Validation contributes to none of these values.
+### Formal comparison protocol
 
-The resulting baseline is proportional to `length / smoothed_speed`. A common
-train-derived scale of 8.768182 is applied before `u32` CCH customization and
-recorded with the checkpoint; dividing by it recovers milliseconds. This
-positive global scale cannot change a route ordering, but reduces initial
-maximum relative fixed-point error to about `8.8e-4`, with no coordinate
-quantized to zero. Whole-trip proxy speeds are not claimed to be true per-edge
-travel times.
+The full static reference uses its previously registered update-400
+checkpoint, whose configuration exactly matches the active reference JSON.
+The five independent models each select maximum decoded validation Edge F1
+from updates `0,25,...,500`; maximum Exact Match and then the earlier update
+break exact ties. Their five validation partitions are disjoint and sum to the
+same 15,812 paths used by the full static evaluator.
 
-### Formal development result
+This deliberately gives the independent approach five checkpoint-selection
+opportunities versus one overall selection for the full static model. No
+per-bucket learning-rate or regularization search is added. Raw objectives
+across different bucket datasets are not compared.
 
-Each of the three new formal runs used 500 updates with checkpoint cadence 25;
-selection used
-maximum decoded validation Edge F1, with Exact Match and earlier update only
-as exact tie-breaks. All selected checkpoints are inside the budget:
+### Formal results
 
-| Stage | Selected update | Precision | Recall | F1 | Exact | Jaccard | Mean regret |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Existing 10% static line graph | 299 | 0.707199 | 0.688856 | 0.694125 | 0.377245 | 0.620388 | 321,414.6 mm |
-| Full static line graph | 400 | 0.713366 | 0.695423 | 0.700554 | 0.388186 | 0.627908 | 303,899.5 mm |
-| Full temporal, length baseline | 400 | 0.715654 | 0.696363 | 0.702280 | 0.388629 | 0.629917 | 295,214.9 mm |
-| Full temporal, travel-time baseline | 425 | 0.716090 | 0.697769 | 0.703176 | 0.389704 | 0.631127 | 290,476.5 scaled-ms |
+| Model | Edge Precision | Edge Recall | Edge F1 | Exact Match | Edge Jaccard | Mean regret (mm) |
+|---|---:|---:|---:|---:|---:|---:|
+| One full static model | **0.713366** | **0.695423** | **0.700554** | **0.388186** | **0.627908** | **303,899.5** |
+| Five independent static models | 0.711458 | 0.694377 | 0.699198 | 0.384202 | 0.626007 | 320,424.2 |
+| Independent minus full | -0.001908 | -0.001046 | -0.001356 | -0.003984 | -0.001900 | +16,524.8 |
 
-Full data contributes the clear gain: `+0.006429` F1 and `+0.010941` Exact
-over the 10% model, with positive F1 changes in all five departure buckets.
-Length-based time conditioning adds only `+0.001726` F1 and `+0.000443`
-Exact over the full static model, with F1 losses in three buckets. The
-travel-time anchor adds another `+0.000896` F1 and `+0.001075` Exact over the
-length temporal model, but improves F1 in only two of five buckets. Its
-positive global fixed-point scale means its regret units cannot be compared
-with the length rows; dividing by 8.7681816625 gives 33,128.5 ms overall.
-
-The selected checkpoints are not budget-boundary artifacts, and decoded route
-metrics plateau before update 500. Regularized validation objectives continue
-to decrease through update 500, however, so numerical objective convergence
-is not confirmed. On this single fixed development split, the temporal
-changes are a small mixed-bucket improvement, not evidence of a significant
-and stable gain over the full static line graph. No test data was read.
+The independent models select updates 475, 275, 200, 275, and 150 for the
+five chronological buckets, so none is selected at the 500-update boundary.
+Bucketed F1 improves only for 10-16 (+0.001586) and 20-24 (+0.001192); Exact
+Match improves only for 20-24 (+0.002082). The sparsest 00-06 bucket loses
+0.010841 F1 and 0.021804 Exact Match. Thus simple departure partitioning does
+not offset the loss of shared training data on this fixed validation split,
+and the full static model remains the recommendation. No formal significance
+test was performed.
 
 Tracked evidence:
 
-- [full report](experiments/full_data_time_conditioning/report.md)
-- [machine-readable summary](experiments/full_data_time_conditioning/summary.json)
-- [time and baseline audit](experiments/full_data_time_conditioning/time_audit.json)
-- [formal and screening configurations](experiments/full_data_time_conditioning/configs)
+- [full report](experiments/independent_time_buckets/report.md)
+- [machine-readable summary](experiments/independent_time_buckets/summary.json)
+- [time audit](experiments/independent_time_buckets/time_audit.json)
+- [full static and five bucket configurations](experiments/independent_time_buckets/configs)
 
 Ignored local logs, checkpoints, and per-checkpoint evaluations remain under
-`artifacts/full_data_time_conditioning/`.
+`artifacts/independent_time_buckets/`.

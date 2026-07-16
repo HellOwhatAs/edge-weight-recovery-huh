@@ -3,7 +3,7 @@ use edge_weight_recovery::config::{TrainingConfig, atomic_write};
 use edge_weight_recovery::data::{load_graph, load_trips};
 use edge_weight_recovery::evaluation::{PathMetrics, combine_path_metrics, evaluate_paths};
 use edge_weight_recovery::graph_problem::{GraphProblem, GraphRepresentation};
-use edge_weight_recovery::temporal::TimeBucketSpec;
+use edge_weight_recovery::time_buckets::{TimeBucketSpec, retain_departure_bucket};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
@@ -44,15 +44,55 @@ fn run() -> Result<(), String> {
     if problem.topology_identity() != checkpoint.topology_identity {
         return Err("checkpoint topology identity does not match the loaded graph".to_string());
     }
-    let trips = load_trips(&config.city, &arguments.split, &variant, &graph, None)?;
+    let mut trips = load_trips(&config.city, &arguments.split, &variant, &graph, None)?;
+    let applied_filter = if let Some(filter) = &config.departure_time_filter {
+        if arguments.time_buckets.is_some() {
+            return Err(
+                "--time-buckets cannot repartition a checkpoint already trained on one bucket"
+                    .to_string(),
+            );
+        }
+        let spec = filter.load_spec()?;
+        let selection = retain_departure_bucket(&mut trips, &spec, &filter.bucket_id)?;
+        if arguments.split == "validation"
+            && selection.selected != filter.expected_validation_samples
+        {
+            return Err(format!(
+                "validation bucket {:?} selected {}, expected {}",
+                filter.bucket_id, selection.selected, filter.expected_validation_samples
+            ));
+        }
+        Some((spec, selection))
+    } else {
+        None
+    };
     if trips.paths.is_empty() {
-        return Err("no valid evaluation paths remain after validation".to_string());
+        return Err("no evaluation paths remain after structural and time filtering".to_string());
     }
     let mapped = problem.map_paths(&trips.paths)?;
     let metric = problem.customize(&checkpoint.weights)?;
     let initial_metric = problem.customize(problem.initial_weights())?;
     let threads = rayon::current_num_threads().max(1);
-    let (metrics, time_bucket_output) = if let Some(path) = &arguments.time_buckets {
+    let (metrics, time_bucket_output) = if let Some((spec, selection)) = &applied_filter {
+        let metrics = evaluate_paths(&metric, &mapped, threads)?;
+        let (_, bucket) = spec.bucket(&selection.bucket_id)?;
+        let row = json!({
+            "id": bucket.id,
+            "start_hour": bucket.start_hour,
+            "end_hour": bucket.end_hour,
+            "metrics": metrics_json(&metrics),
+            "metric_totals": metric_totals_json(&metrics),
+        });
+        (
+            metrics,
+            json!({
+                "specification": spec.as_json(),
+                "selection_timestamp": "departure_time",
+                "filter_mode": "single_registered_bucket",
+                "buckets": [row],
+            }),
+        )
+    } else if let Some(path) = &arguments.time_buckets {
         let spec = TimeBucketSpec::load(path)?;
         if mapped.len() != trips.times.len() {
             return Err("evaluation paths and timestamps are not aligned".to_string());
@@ -70,6 +110,7 @@ fn run() -> Result<(), String> {
                 "start_hour": bucket.start_hour,
                 "end_hour": bucket.end_hour,
                 "metrics": metrics_json(&part),
+                "metric_totals": metric_totals_json(&part),
             }));
             bucket_metrics.push(part);
         }
@@ -98,11 +139,20 @@ fn run() -> Result<(), String> {
         "path_report": {
             "available": trips.report.available_samples,
             "accepted": trips.report.accepted_samples,
+            "selected": trips.paths.len(),
             "dropped": trips.report.dropped_samples(),
             "too_short": trips.report.too_short,
         },
         "metrics": metrics_json(&metrics),
+        "metric_totals": metric_totals_json(&metrics),
         "time_bucket_evaluation": time_bucket_output,
+        "departure_time_filter": applied_filter.as_ref().map(|(spec, selection)| json!({
+            "selection_timestamp": "start_time",
+            "bucket_id": selection.bucket_id,
+            "source_accepted": selection.source_accepted,
+            "selected": selection.selected,
+            "specification": spec.as_json(),
+        })),
         "quantization": {
             "max_abs_error": checkpoint.weights.iter().zip(metric.quantized_weights()).map(|(&weight, &integer)| (weight - integer as f64).abs()).fold(0.0, f64::max),
             "maximum_relative_error": checkpoint.weights.iter().zip(metric.quantized_weights()).map(|(&weight, &integer)| (weight - integer as f64).abs() / weight).fold(0.0, f64::max),
@@ -135,6 +185,13 @@ fn metrics_json(metrics: &PathMetrics) -> Value {
         "edge_recall": metrics.edge_recall,
         "edge_f1": metrics.edge_f1,
         "edge_jaccard": metrics.edge_jaccard,
+    })
+}
+
+fn metric_totals_json(metrics: &PathMetrics) -> Value {
+    json!({
+        "regret_sum": metrics.regret_sum,
+        "observed_cost_sum": metrics.observed_cost_sum,
     })
 }
 

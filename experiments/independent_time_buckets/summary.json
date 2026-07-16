@@ -1,0 +1,720 @@
+{
+  "schema_version": 1,
+  "study": "independent_departure_bucket_static_models",
+  "protocol": {
+    "model_difference": "data partition only",
+    "full_static_models": 1,
+    "independent_bucket_static_models": 5,
+    "graph_representation": "edge_transition_arcs",
+    "optimizer": "relative_projected_subgradient",
+    "baseline": "length",
+    "checkpoint_schema": "ordinary static direct weights",
+    "full_static_reference_config": "experiments/independent_time_buckets/configs/static_full_reference_u500.json",
+    "full_static_reference_config_sha256": "95a67e9d5551a67a8ed9c1523487fe9cbdc273335dfdfbb916a6ca3cec1f4519",
+    "full_static_checkpoint_configuration_exact_match": true,
+    "time_bucket_specification": {
+      "buckets": [
+        {
+          "end_hour": 6,
+          "id": "night_00_06",
+          "label": "00:00-06:00",
+          "start_hour": 0
+        },
+        {
+          "end_hour": 10,
+          "id": "morning_06_10",
+          "label": "06:00-10:00",
+          "start_hour": 6
+        },
+        {
+          "end_hour": 16,
+          "id": "day_10_16",
+          "label": "10:00-16:00",
+          "start_hour": 10
+        },
+        {
+          "end_hour": 20,
+          "id": "evening_16_20",
+          "label": "16:00-20:00",
+          "start_hour": 16
+        },
+        {
+          "end_hour": 24,
+          "id": "late_20_24",
+          "label": "20:00-24:00",
+          "start_hour": 20
+        }
+      ],
+      "derived_from": "beijing_full_train_timestamp_audit",
+      "schema_version": 1,
+      "timestamp_unit": "unix_seconds",
+      "timezone": "Asia/Shanghai",
+      "utc_offset_seconds": 28800
+    },
+    "data_identity": {
+      "city": "beijing",
+      "train": {
+        "bytes": 120236049,
+        "path": "data/beijing_data/preprocessed_train_trips_all.pkl",
+        "sample_count": 785709,
+        "sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
+        "source_sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce"
+      },
+      "validation": {
+        "bytes": 4160448,
+        "path": "data/beijing_data/preprocessed_validation_trips_scale_fixed_seed20260715.pkl",
+        "sample_count": 20000,
+        "seed": 20260715,
+        "sha256": "c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade",
+        "source_sha256": "97d9e9231fc6599084e6af9eaa081e08c09f6108f27f304a26264fff1ee0ec6d"
+      }
+    },
+    "data_audit": {
+      "train": {
+        "accepted_timestamp_samples": 623275,
+        "duration_seconds": {
+          "maximum": 55472,
+          "mean": 811.7557354297862,
+          "minimum": 3,
+          "p01": 74,
+          "p10": 226,
+          "p50": 633,
+          "p90": 1597,
+          "p99": 3012
+        },
+        "filtering": {
+          "accepted": 623275,
+          "available": 785709,
+          "cyclic": 162434,
+          "discontinuous": 0,
+          "dropped": 162434,
+          "empty": 0,
+          "inspected": 785709,
+          "out_of_bounds": 0,
+          "too_short": 0
+        },
+        "local_dates": [
+          "2009-05-01",
+          "2009-05-02",
+          "2009-05-04",
+          "2009-05-08",
+          "2009-05-09"
+        ],
+        "local_hour_counts": [
+          12123,
+          6119,
+          4746,
+          3178,
+          3094,
+          5941,
+          11319,
+          23919,
+          34212,
+          36832,
+          34963,
+          33474,
+          34729,
+          38688,
+          39434,
+          39255,
+          38646,
+          39669,
+          38126,
+          34919,
+          32486,
+          31090,
+          27853,
+          18460
+        ],
+        "raw_timestamp_evidence": {
+          "invalid_intervals": 0,
+          "maximum_end_time": 1241884800,
+          "minimum_start_time": 1241107200,
+          "mmdd_keys": 785709,
+          "mmdd_matches_utc": 695129,
+          "mmdd_matches_utc_plus_8": 785709,
+          "samples": 785709
+        },
+        "time_buckets": [
+          {
+            "end_hour": 6,
+            "id": "night_00_06",
+            "samples": 35201,
+            "start_hour": 0
+          },
+          {
+            "end_hour": 10,
+            "id": "morning_06_10",
+            "samples": 106282,
+            "start_hour": 6
+          },
+          {
+            "end_hour": 16,
+            "id": "day_10_16",
+            "samples": 220543,
+            "start_hour": 10
+          },
+          {
+            "end_hour": 20,
+            "id": "evening_16_20",
+            "samples": 151360,
+            "start_hour": 16
+          },
+          {
+            "end_hour": 24,
+            "id": "late_20_24",
+            "samples": 109889,
+            "start_hour": 20
+          }
+        ]
+      },
+      "validation": {
+        "accepted_timestamp_samples": 15812,
+        "duration_seconds": {
+          "maximum": 30359,
+          "mean": 829.5568555527448,
+          "minimum": 7,
+          "p01": 71,
+          "p10": 229,
+          "p50": 643,
+          "p90": 1626,
+          "p99": 3111
+        },
+        "filtering": {
+          "accepted": 15812,
+          "available": 20000,
+          "cyclic": 4188,
+          "discontinuous": 0,
+          "dropped": 4188,
+          "empty": 0,
+          "inspected": 20000,
+          "out_of_bounds": 0,
+          "too_short": 0
+        },
+        "local_dates": [
+          "2009-05-13",
+          "2009-05-16"
+        ],
+        "local_hour_counts": [
+          380,
+          200,
+          123,
+          81,
+          81,
+          144,
+          336,
+          717,
+          767,
+          579,
+          820,
+          937,
+          611,
+          1016,
+          1091,
+          981,
+          1060,
+          1016,
+          1060,
+          930,
+          873,
+          830,
+          671,
+          508
+        ],
+        "raw_timestamp_evidence": {
+          "invalid_intervals": 0,
+          "maximum_end_time": 1242489599,
+          "minimum_start_time": 1242144001,
+          "mmdd_keys": 0,
+          "mmdd_matches_utc": 0,
+          "mmdd_matches_utc_plus_8": 0,
+          "samples": 20000
+        },
+        "time_buckets": [
+          {
+            "end_hour": 6,
+            "id": "night_00_06",
+            "samples": 1009,
+            "start_hour": 0
+          },
+          {
+            "end_hour": 10,
+            "id": "morning_06_10",
+            "samples": 2399,
+            "start_hour": 6
+          },
+          {
+            "end_hour": 16,
+            "id": "day_10_16",
+            "samples": 5456,
+            "start_hour": 10
+          },
+          {
+            "end_hour": 20,
+            "id": "evening_16_20",
+            "samples": 4066,
+            "start_hour": 16
+          },
+          {
+            "end_hour": 24,
+            "id": "late_20_24",
+            "samples": 2882,
+            "start_hour": 20
+          }
+        ]
+      }
+    },
+    "validation_selection_metric": "decoded Edge F1 within each run",
+    "test_read": false
+  },
+  "stages": {
+    "existing_10pct_static": {
+      "role": "historical matched-validation reference",
+      "train_samples": 62348,
+      "selected_update": 299,
+      "selected_at_budget_boundary": true,
+      "metrics": {
+        "edge_f1": 0.6941247956586494,
+        "edge_jaccard": 0.6203883582082851,
+        "edge_precision": 0.7071985947747089,
+        "edge_recall": 0.6888563556667483,
+        "exact_match": 0.37724513028079937,
+        "mean_regret": 321414.632233528,
+        "relative_regret": 0.06280810342036212,
+        "samples": 15812
+      },
+      "configuration": "experiments/optimizer_recovery/configs/edge_transition_arcs_relative_10pct_u299.json",
+      "configuration_sha256": "58c50829f94b0ee95f661f42dbd929d1b943839e3b605da1b3e460506f3af60c",
+      "source_summary": "experiments/optimizer_recovery/summary.json"
+    },
+    "full_static": {
+      "selected_update": 400,
+      "selected_at_budget_boundary": false,
+      "metrics": {
+        "edge_f1": 0.7005537166660434,
+        "edge_jaccard": 0.6279078771106286,
+        "edge_precision": 0.7133658884994432,
+        "edge_recall": 0.6954231393517583,
+        "exact_match": 0.3881861877055401,
+        "mean_regret": 303899.46267860144,
+        "relative_regret": 0.06073123589514775,
+        "samples": 15812
+      },
+      "metric_totals": {
+        "observed_cost_sum": 79123341276.47768,
+        "regret_sum": 4805258303.874046
+      },
+      "time_buckets": [
+        {
+          "end_hour": 6,
+          "id": "night_00_06",
+          "metric_totals": {
+            "observed_cost_sum": 5373373866.1539545,
+            "regret_sum": 370724831.97039026
+          },
+          "metrics": {
+            "edge_f1": 0.6958223925268069,
+            "edge_jaccard": 0.6232044730942858,
+            "edge_precision": 0.7104163374008576,
+            "edge_recall": 0.6892864528516621,
+            "exact_match": 0.38255698711595637,
+            "mean_regret": 367418.0693462738,
+            "relative_regret": 0.06899293464494036,
+            "samples": 1009
+          },
+          "start_hour": 0
+        },
+        {
+          "end_hour": 10,
+          "id": "morning_06_10",
+          "metric_totals": {
+            "observed_cost_sum": 12650159852.946442,
+            "regret_sum": 887274323.1255782
+          },
+          "metrics": {
+            "edge_f1": 0.6952006912091641,
+            "edge_jaccard": 0.6212501456069434,
+            "edge_precision": 0.7082638172614599,
+            "edge_recall": 0.6902017450127033,
+            "exact_match": 0.3734889537307211,
+            "mean_regret": 369851.7395271272,
+            "relative_regret": 0.07013937637467219,
+            "samples": 2399
+          },
+          "start_hour": 6
+        },
+        {
+          "end_hour": 16,
+          "id": "day_10_16",
+          "metric_totals": {
+            "observed_cost_sum": 26619002958.882114,
+            "regret_sum": 1541205810.551436
+          },
+          "metrics": {
+            "edge_f1": 0.702208197532514,
+            "edge_jaccard": 0.6297052333905572,
+            "edge_precision": 0.7146515114648936,
+            "edge_recall": 0.6974874991619128,
+            "exact_match": 0.39222873900293254,
+            "mean_regret": 282479.0708488702,
+            "relative_regret": 0.05789870540726519,
+            "samples": 5456
+          },
+          "start_hour": 10
+        },
+        {
+          "end_hour": 20,
+          "id": "evening_16_20",
+          "metric_totals": {
+            "observed_cost_sum": 19892121207.197186,
+            "regret_sum": 1104163359.0663974
+          },
+          "metrics": {
+            "edge_f1": 0.6983440143277961,
+            "edge_jaccard": 0.6253793364394488,
+            "edge_precision": 0.7102225458252448,
+            "edge_recall": 0.6936650336896678,
+            "exact_match": 0.38711264141662566,
+            "mean_regret": 271560.098147171,
+            "relative_regret": 0.05550757244867878,
+            "samples": 4066
+          },
+          "start_hour": 16
+        },
+        {
+          "end_hour": 24,
+          "id": "late_20_24",
+          "metric_totals": {
+            "observed_cost_sum": 14588683391.29798,
+            "regret_sum": 901889979.1602442
+          },
+          "metrics": {
+            "edge_f1": 0.7066514322203094,
+            "edge_jaccard": 0.635261209184035,
+            "edge_precision": 0.7206464014668917,
+            "edge_recall": 0.700490228940879,
+            "exact_match": 0.39625260235947257,
+            "mean_regret": 312938.92406670516,
+            "relative_regret": 0.061821204489105136,
+            "samples": 2882
+          },
+          "start_hour": 20
+        }
+      ],
+      "quantization": {
+        "changed_from_baseline": 90393,
+        "max_abs_error": 0.5,
+        "maximum_relative_error": 0.0003076463195633306,
+        "zero_quantized_weights": 0
+      },
+      "checkpoint": "artifacts/full_data_time_conditioning/static_final/static_full_eta0002_u500/checkpoint-400.json",
+      "selection": "artifacts/full_data_time_conditioning/static_final/static_full_eta0002_u500/route_selection.json"
+    },
+    "independent_bucket_static": {
+      "metrics": {
+        "samples": 15812,
+        "edge_precision": 0.711458210436374,
+        "edge_recall": 0.6943773969016135,
+        "edge_f1": 0.6991980408751152,
+        "exact_match": 0.38420187199595246,
+        "edge_jaccard": 0.6260074676145831,
+        "mean_regret": 320424.2171218668,
+        "relative_regret": 0.06156227005930109
+      },
+      "buckets": [
+        {
+          "id": "night_00_06",
+          "label": "00:00-06:00",
+          "start_hour": 0,
+          "end_hour": 6,
+          "train_samples": 35201,
+          "validation_samples": 1009,
+          "run_id": "independent_static_night_00_06_u500",
+          "selected_update": 475,
+          "selected_at_budget_boundary": false,
+          "metrics": {
+            "edge_f1": 0.6849811725309785,
+            "edge_jaccard": 0.6101601270970303,
+            "edge_precision": 0.69662731154826,
+            "edge_recall": 0.6815125870706708,
+            "exact_match": 0.3607532210109019,
+            "mean_regret": 354028.7818524795,
+            "relative_regret": 0.06974457915370966,
+            "samples": 1009
+          },
+          "metric_totals": {
+            "observed_cost_sum": 5121760647.546352,
+            "regret_sum": 357215040.8891518
+          },
+          "quantization": {
+            "changed_from_baseline": 62666,
+            "max_abs_error": 0.5,
+            "maximum_relative_error": 0.0001932818428931389,
+            "zero_quantized_weights": 0
+          },
+          "checkpoint": "artifacts/independent_time_buckets/formal/independent_static_night_00_06_u500/checkpoint-475.json",
+          "route_selection": "artifacts/independent_time_buckets/formal/independent_static_night_00_06_u500/route_selection.json",
+          "training_wall_seconds": 329.5282592940057,
+          "peak_rss_kib": 1483556
+        },
+        {
+          "id": "morning_06_10",
+          "label": "06:00-10:00",
+          "start_hour": 6,
+          "end_hour": 10,
+          "train_samples": 106282,
+          "validation_samples": 2399,
+          "run_id": "independent_static_morning_06_10_u500",
+          "selected_update": 275,
+          "selected_at_budget_boundary": false,
+          "metrics": {
+            "edge_f1": 0.6891424552508486,
+            "edge_jaccard": 0.6139563878620491,
+            "edge_precision": 0.7012537241633436,
+            "edge_recall": 0.6847503169666553,
+            "exact_match": 0.362234264276782,
+            "mean_regret": 378773.1458540813,
+            "relative_regret": 0.06925301121505593,
+            "samples": 2399
+          },
+          "metric_totals": {
+            "observed_cost_sum": 13121115760.32654,
+            "regret_sum": 908676776.903941
+          },
+          "quantization": {
+            "changed_from_baseline": 75206,
+            "max_abs_error": 0.5,
+            "maximum_relative_error": 0.00022132522770937062,
+            "zero_quantized_weights": 0
+          },
+          "checkpoint": "artifacts/independent_time_buckets/formal/independent_static_morning_06_10_u500/checkpoint-275.json",
+          "route_selection": "artifacts/independent_time_buckets/formal/independent_static_morning_06_10_u500/route_selection.json",
+          "training_wall_seconds": 903.055495269,
+          "peak_rss_kib": 1486860
+        },
+        {
+          "id": "day_10_16",
+          "label": "10:00-16:00",
+          "start_hour": 10,
+          "end_hour": 16,
+          "train_samples": 220543,
+          "validation_samples": 5456,
+          "run_id": "independent_static_day_10_16_u500",
+          "selected_update": 200,
+          "selected_at_budget_boundary": false,
+          "metrics": {
+            "edge_f1": 0.703793913712332,
+            "edge_jaccard": 0.6308271012235641,
+            "edge_precision": 0.7149492460117517,
+            "edge_recall": 0.7001134076690119,
+            "exact_match": 0.3902126099706745,
+            "mean_regret": 302822.57421015354,
+            "relative_regret": 0.059407284806105846,
+            "samples": 5456
+          },
+          "metric_totals": {
+            "observed_cost_sum": 27811403437.862316,
+            "regret_sum": 1652199964.8905978
+          },
+          "quantization": {
+            "changed_from_baseline": 80370,
+            "max_abs_error": 0.5,
+            "maximum_relative_error": 0.0002153716894133961,
+            "zero_quantized_weights": 0
+          },
+          "checkpoint": "artifacts/independent_time_buckets/formal/independent_static_day_10_16_u500/checkpoint-200.json",
+          "route_selection": "artifacts/independent_time_buckets/formal/independent_static_day_10_16_u500/route_selection.json",
+          "training_wall_seconds": 1716.75767377,
+          "peak_rss_kib": 1502368
+        },
+        {
+          "id": "evening_16_20",
+          "label": "16:00-20:00",
+          "start_hour": 16,
+          "end_hour": 20,
+          "train_samples": 151360,
+          "validation_samples": 4066,
+          "run_id": "independent_static_evening_16_20_u500",
+          "selected_update": 275,
+          "selected_at_budget_boundary": false,
+          "metrics": {
+            "edge_f1": 0.6963639527881821,
+            "edge_jaccard": 0.6226459730632037,
+            "edge_precision": 0.7093092888350107,
+            "edge_recall": 0.6906191898672503,
+            "exact_match": 0.38489916379734385,
+            "mean_regret": 282964.3295907783,
+            "relative_regret": 0.05580745029997524,
+            "samples": 4066
+          },
+          "metric_totals": {
+            "observed_cost_sum": 20616117703.492626,
+            "regret_sum": 1150532964.1161044
+          },
+          "quantization": {
+            "changed_from_baseline": 76543,
+            "max_abs_error": 0.5,
+            "maximum_relative_error": 0.00022888171351856523,
+            "zero_quantized_weights": 0
+          },
+          "checkpoint": "artifacts/independent_time_buckets/formal/independent_static_evening_16_20_u500/checkpoint-275.json",
+          "route_selection": "artifacts/independent_time_buckets/formal/independent_static_evening_16_20_u500/route_selection.json",
+          "training_wall_seconds": 1206.627931818999,
+          "peak_rss_kib": 1494412
+        },
+        {
+          "id": "late_20_24",
+          "label": "20:00-24:00",
+          "start_hour": 20,
+          "end_hour": 24,
+          "train_samples": 109889,
+          "validation_samples": 2882,
+          "run_id": "independent_static_late_20_24_u500",
+          "selected_update": 150,
+          "selected_at_budget_boundary": false,
+          "metrics": {
+            "edge_f1": 0.7078435960567473,
+            "edge_jaccard": 0.6372053936325734,
+            "edge_precision": 0.7215676360709993,
+            "edge_recall": 0.7013382410855763,
+            "exact_match": 0.3983344899375434,
+            "mean_regret": 346260.57402191655,
+            "relative_regret": 0.06385006205353931,
+            "samples": 2882
+          },
+          "metric_totals": {
+            "observed_cost_sum": 15629162168.932411,
+            "regret_sum": 997922974.3311634
+          },
+          "quantization": {
+            "changed_from_baseline": 72762,
+            "max_abs_error": 0.5,
+            "maximum_relative_error": 0.00021547209166537755,
+            "zero_quantized_weights": 0
+          },
+          "checkpoint": "artifacts/independent_time_buckets/formal/independent_static_late_20_24_u500/checkpoint-150.json",
+          "route_selection": "artifacts/independent_time_buckets/formal/independent_static_late_20_24_u500/route_selection.json",
+          "training_wall_seconds": 879.2422708000013,
+          "peak_rss_kib": 1487440
+        }
+      ],
+      "selection_rule": "maximum validation Edge F1 within each bucket; maximum Exact Match then earliest update break exact ties",
+      "runner_result": "artifacts/independent_time_buckets/formal/bucketed_runner_result.json"
+    }
+  },
+  "deltas": {
+    "full_static_minus_existing_10pct_static": {
+      "edge_precision": 0.006167293724734235,
+      "edge_recall": 0.006566783685009958,
+      "edge_f1": 0.006428921007394006,
+      "exact_match": 0.010941057424740719,
+      "edge_jaccard": 0.0075195189023434805,
+      "mean_regret": -17515.16955492657,
+      "relative_regret": -0.002076867525214375
+    },
+    "independent_bucket_static_minus_full_static": {
+      "overall": {
+        "edge_precision": -0.0019076780630691292,
+        "edge_recall": -0.001045742450144771,
+        "edge_f1": -0.0013556757909282124,
+        "exact_match": -0.003984315709587627,
+        "edge_jaccard": -0.0019004094960454188,
+        "mean_regret": 16524.75444326538,
+        "relative_regret": 0.0008310341641533381
+      },
+      "time_buckets": [
+        {
+          "id": "night_00_06",
+          "train_samples": 35201,
+          "validation_samples": 1009,
+          "delta": {
+            "edge_precision": -0.01378902585259767,
+            "edge_recall": -0.007773865780991374,
+            "edge_f1": -0.010841219995828433,
+            "exact_match": -0.021803766105054467,
+            "edge_jaccard": -0.013044345997255569,
+            "mean_regret": -13389.287493794283,
+            "relative_regret": 0.0007516445087693002
+          }
+        },
+        {
+          "id": "morning_06_10",
+          "train_samples": 106282,
+          "validation_samples": 2399,
+          "delta": {
+            "edge_precision": -0.007010093098116288,
+            "edge_recall": -0.005451428046047924,
+            "edge_f1": -0.00605823595831545,
+            "exact_match": -0.011254689453939093,
+            "edge_jaccard": -0.007293757744894269,
+            "mean_regret": 8921.406326954137,
+            "relative_regret": -0.0008863651596162508
+          }
+        },
+        {
+          "id": "day_10_16",
+          "train_samples": 220543,
+          "validation_samples": 5456,
+          "delta": {
+            "edge_precision": 0.0002977345468581083,
+            "edge_recall": 0.002625908507099095,
+            "edge_f1": 0.0015857161798180641,
+            "exact_match": -0.0020161290322580627,
+            "edge_jaccard": 0.0011218678330069398,
+            "mean_regret": 20343.503361283336,
+            "relative_regret": 0.001508579398840658
+          }
+        },
+        {
+          "id": "evening_16_20",
+          "train_samples": 151360,
+          "validation_samples": 4066,
+          "delta": {
+            "edge_precision": -0.0009132569902341459,
+            "edge_recall": -0.00304584382241746,
+            "edge_f1": -0.001980061539614053,
+            "exact_match": -0.0022134776192818117,
+            "edge_jaccard": -0.0027333633762450793,
+            "mean_regret": 11404.231443607248,
+            "relative_regret": 0.0002998778512964609
+          }
+        },
+        {
+          "id": "late_20_24",
+          "train_samples": 109889,
+          "validation_samples": 2882,
+          "delta": {
+            "edge_precision": 0.0009212346041075348,
+            "edge_recall": 0.0008480121446973188,
+            "edge_f1": 0.0011921638364379428,
+            "exact_match": 0.002081887578070818,
+            "edge_jaccard": 0.0019441844485384996,
+            "mean_regret": 33321.64995521138,
+            "relative_regret": 0.002028857564434175
+          }
+        }
+      ]
+    }
+  },
+  "conclusions": {
+    "full_data_edge_f1_improved": true,
+    "full_data_exact_match_improved": true,
+    "overall_edge_f1_improved": false,
+    "overall_exact_match_improved": false,
+    "positive_edge_f1_buckets": 2,
+    "positive_exact_match_buckets": 1,
+    "total_buckets": 5,
+    "cross_bucket_consistent_f1_improvement": false,
+    "all_bucket_checkpoints_inside_budget": true,
+    "formal_significance_test_performed": false,
+    "scope": "single fixed validation split; test never read"
+  },
+  "implementation": {
+    "time_role": "load-time data filtering and inference checkpoint dispatch",
+    "special_temporal_optimizer": false,
+    "special_temporal_checkpoint": false,
+    "travel_time_baseline": false,
+    "historical_shared_residual_archive": "experiments/archive/full_data_shared_temporal_residual"
+  },
+  "test_read": false
+}

@@ -1,8 +1,7 @@
-use edge_weight_recovery::config::atomic_write;
+use edge_weight_recovery::config::{TrainingConfig, atomic_write};
 use edge_weight_recovery::data::{LoadedTrips, load_graph, load_trips};
-use edge_weight_recovery::temporal::{
-    TemporalTrainingConfig, TimeBucketSpec, civil_date_from_unix_day, estimate_baseline_model,
-    local_hour, local_unix_day, sha256_file,
+use edge_weight_recovery::time_buckets::{
+    TimeBucketSpec, civil_date_from_unix_day, local_hour, local_unix_day, sha256_file,
 };
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
@@ -19,8 +18,12 @@ fn run() -> Result<(), String> {
     let Some(arguments) = Arguments::from_args()? else {
         return Ok(());
     };
-    let config = TemporalTrainingConfig::load(&arguments.config)?;
-    let bucket_spec = config.load_bucket_spec()?;
+    let config = TrainingConfig::load(&arguments.config)?;
+    let filter = config
+        .departure_time_filter
+        .as_ref()
+        .ok_or_else(|| "audit config must register a departure_time_filter".to_string())?;
+    let bucket_spec = filter.load_spec()?;
     verify_data(&config, "train", &config.train_variant)?;
     verify_data(&config, "validation", &config.validation_variant)?;
     let graph = load_graph(&config.city)?;
@@ -43,12 +46,12 @@ fn run() -> Result<(), String> {
             ));
         }
     }
-    let baseline =
-        estimate_baseline_model(&graph, &train.paths, &train.times, &bucket_spec, &config)?;
 
+    let train_audit = split_audit(&train, &bucket_spec);
+    let validation_audit = split_audit(&validation, &bucket_spec);
     let output = json!({
         "schema_version": 1,
-        "purpose": "train_only_departure_time_and_trip_average_speed_audit",
+        "purpose": "departure_time_data_partition_audit_for_independent_static_models",
         "configuration": arguments.config,
         "configuration_sha256": sha256_file(&arguments.config)?,
         "data_identity": {
@@ -61,28 +64,24 @@ fn run() -> Result<(), String> {
             "timezone": bucket_spec.timezone,
             "utc_offset_seconds": bucket_spec.utc_offset_seconds,
             "evidence": "full-train MMDD keys are compared against UTC and UTC+8 civil dates",
-            "time_bucket_selection_field": "start_time",
+            "selection_field": "start_time",
         },
         "time_bucket_specification": bucket_spec.as_json(),
         "splits": {
-            "train": split_audit(&train, &bucket_spec),
-            "validation": split_audit(&validation, &bucket_spec),
+            "train": train_audit,
+            "validation": validation_audit,
         },
-        "travel_time_baseline": {
-            "diagnostics": baseline.diagnostics,
-            "estimated_from_split": "train",
-            "validation_used": false,
-            "test_used": false,
+        "model_boundary": {
+            "time_role": "data selection only",
+            "model": "unchanged static direct-weight checkpoint per bucket",
+            "optimizer": config.optimizer_kind,
+            "graph_representation": config.graph_representation,
         },
-        "interpretation_limits": [
-            "timestamps cover only whole trips",
-            "trip-average speed is a proxy assigned to traversed roads, not a per-edge speed observation",
-            "the line graph still omits the first-edge cost by design"
-        ],
         "test_read": false,
     });
-    let bytes = serde_json::to_vec_pretty(&output)
+    let mut bytes = serde_json::to_vec_pretty(&output)
         .map_err(|error| format!("failed to encode time audit: {error}"))?;
+    bytes.push(b'\n');
     atomic_write(&arguments.output, &bytes)
 }
 
@@ -164,7 +163,7 @@ fn duration_summary(sorted: &[u64]) -> Value {
     })
 }
 
-fn verify_data(config: &TemporalTrainingConfig, split: &str, variant: &str) -> Result<(), String> {
+fn verify_data(config: &TrainingConfig, split: &str, variant: &str) -> Result<(), String> {
     if split != "train" && split != "validation" {
         return Err("time audit may only read train or validation".to_string());
     }

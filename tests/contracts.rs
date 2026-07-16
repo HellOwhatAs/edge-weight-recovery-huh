@@ -1,6 +1,6 @@
 use edge_weight_recovery::checkpoint::TrainingCheckpoint;
 use edge_weight_recovery::config::TrainingConfig;
-use edge_weight_recovery::temporal::{TemporalTrainingConfig, TimeBucketSpec};
+use edge_weight_recovery::time_buckets::TimeBucketSpec;
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -13,25 +13,41 @@ const ORIGINAL_RELATIVE_RECOVERY: &str =
     "experiments/optimizer_recovery/configs/original_edges_relative_10pct_u299.json";
 const TRANSITION_RELATIVE_RECOVERY: &str =
     "experiments/optimizer_recovery/configs/edge_transition_arcs_relative_10pct_u299.json";
-const FULL_TIME_BUCKETS: &str = "experiments/full_data_time_conditioning/time_buckets.json";
-const FULL_TEMPORAL_LENGTH: &str =
-    "experiments/full_data_time_conditioning/configs/temporal_length_full_eta0002_u500.json";
-const FULL_TEMPORAL_TRAVEL_TIME: &str =
-    "experiments/full_data_time_conditioning/configs/temporal_travel_time_full_eta0002_u500.json";
+const INDEPENDENT_TIME_BUCKETS: &str = "experiments/independent_time_buckets/time_buckets.json";
+const FULL_STATIC_REFERENCE: &str =
+    "experiments/independent_time_buckets/configs/static_full_reference_u500.json";
+const INDEPENDENT_BUCKET_CONFIGS: [&str; 5] = [
+    "experiments/independent_time_buckets/configs/static_night_00_06_u500.json",
+    "experiments/independent_time_buckets/configs/static_morning_06_10_u500.json",
+    "experiments/independent_time_buckets/configs/static_day_10_16_u500.json",
+    "experiments/independent_time_buckets/configs/static_evening_16_20_u500.json",
+    "experiments/independent_time_buckets/configs/static_late_20_24_u500.json",
+];
 
 #[test]
-fn full_temporal_configs_share_coarse_train_derived_buckets_and_never_read_test() {
-    let buckets = TimeBucketSpec::load(Path::new(FULL_TIME_BUCKETS)).unwrap();
+fn independent_bucket_configs_are_ordinary_static_models_with_data_filters() {
+    let buckets = TimeBucketSpec::load(Path::new(INDEPENDENT_TIME_BUCKETS)).unwrap();
     assert_eq!(buckets.buckets.len(), 5);
     assert_eq!(buckets.buckets.first().unwrap().start_hour, 0);
     assert_eq!(buckets.buckets.last().unwrap().end_hour, 24);
 
-    let length = TemporalTrainingConfig::load(Path::new(FULL_TEMPORAL_LENGTH)).unwrap();
-    let travel = TemporalTrainingConfig::load(Path::new(FULL_TEMPORAL_TRAVEL_TIME)).unwrap();
-    for config in [&length, &travel] {
+    let mut ids = BTreeSet::new();
+    let mut train_samples = 0;
+    let mut validation_samples = 0;
+    let full_static = TrainingConfig::load(Path::new(FULL_STATIC_REFERENCE)).unwrap();
+    assert!(full_static.departure_time_filter.is_none());
+    for path in INDEPENDENT_BUCKET_CONFIGS {
+        let config = TrainingConfig::load(Path::new(path)).unwrap();
         assert_eq!(config.train_variant, "all");
         assert_eq!(config.validation_variant, "scale_fixed_seed20260715");
         assert_eq!(config.graph_representation, "edge_transition_arcs");
+        assert_eq!(config.optimizer_kind, "relative_projected_subgradient");
+        assert_eq!(config.eta0, 0.0002);
+        assert_eq!(config.lambda, 100000.0);
+        assert_eq!(config.optimizer_kind, full_static.optimizer_kind);
+        assert_eq!(config.eta0, full_static.eta0);
+        assert_eq!(config.lambda, full_static.lambda);
+        assert_eq!(config.updates, full_static.updates);
         assert_eq!(
             config
                 .as_json()
@@ -39,10 +55,15 @@ fn full_temporal_configs_share_coarse_train_derived_buckets_and_never_read_test(
                 .and_then(Value::as_str),
             Some("never_read")
         );
-        assert_eq!(config.load_bucket_spec().unwrap(), buckets);
+        let filter = config.departure_time_filter.as_ref().unwrap();
+        assert_eq!(filter.load_spec().unwrap(), buckets);
+        assert!(ids.insert(filter.bucket_id.clone()));
+        train_samples += filter.expected_train_samples;
+        validation_samples += filter.expected_validation_samples;
     }
-    assert_eq!(length.baseline_kind.as_str(), "length");
-    assert_eq!(travel.baseline_kind.as_str(), "trip_average_travel_time");
+    assert_eq!(ids.len(), 5);
+    assert_eq!(train_samples, 623275);
+    assert_eq!(validation_samples, 15812);
 }
 
 #[test]
@@ -321,6 +342,17 @@ fn relative_optimizer_recovery_is_representation_neutral() {
 #[test]
 fn active_tree_contains_no_retired_qr_terms() {
     let forbidden = [
+        ["Temporal", "ProjectedSubgradientOptimizer"].concat(),
+        ["Temporal", "TrainingConfig"].concat(),
+        ["Temporal", "Checkpoint"].concat(),
+        ["temporal", "_training"].concat(),
+        ["train", "_temporal"].concat(),
+        ["evaluate", "_temporal"].concat(),
+        ["trip_average", "_travel_time"].concat(),
+        ["q", "_global"].concat(),
+        ["bucket", "_residual"].concat(),
+        ["lambda", "_residual"].concat(),
+        ["residual", "_eta_multiplier"].concat(),
         ["residual", "_scale"].concat(),
         ["lambda", "_transition"].concat(),
         ["r", "_max"].concat(),

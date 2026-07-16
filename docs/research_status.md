@@ -14,10 +14,12 @@ is no longer the active training geometry. A generic `q=w/w0` recovery
 reproduced the historical edge-only result and established
 `edge_transition_arcs` as the current representation. The subsequent full
 Beijing development study shows that using all training trajectories is the
-clear improvement; coarse departure-time residuals and a train-only
-travel-time proxy add only small, mixed-bucket gains. These are fixed
-validation results, not test-set, statistical-significance, or general
-superiority claims.
+clear improvement. The active time experiment now asks the narrower question:
+does splitting those trajectories by departure time and fitting five ordinary
+static models beat one full static model? The former shared-residual and
+travel-time proxy extension is archived rather than part of the active model.
+All results are fixed validation evidence, not test-set,
+statistical-significance, or general superiority claims.
 
 ## Representation definitions
 
@@ -88,33 +90,31 @@ its count subgradient. Replacing it with an exact continuous-weight oracle is
 explicitly deferred. The static model still has one learned/checkpointed
 vector and one optimizer.
 
-For the temporal model there is one effective vector per registered bucket,
-constructed from a shared global relative vector plus a bounded residual. CCH
-quantization is diagnosed independently for every bucket; the selected formal
-checkpoints have no zero integer weights and maximum relative rounding errors
-between `3.92e-4` (length anchor) and `8.76e-4` (travel-time anchor).
+For independent departure partitions, each bucket has an ordinary static
+checkpoint and its own integer metric. Quantization is diagnosed per
+checkpoint; there is no shared or residual parameter block.
 
-## Temporal extension and train-only baseline
+## Departure-time data partitions
 
 Accepted paths retain aligned whole-trip `start_time` and `end_time` values.
 The full-train `MMDD` keys match the timestamps' UTC+8 civil date for all
 785,709 raw records, so the registered interpretation is Unix seconds in
 `Asia/Shanghai`. Five train-derived departure buckets cover 00-06, 06-10,
-10-16, 16-20, and 20-24; validation timestamps only assign already-frozen
-buckets.
+10-16, 16-20, and 20-24. Validation timestamps only assign already-frozen
+buckets and never determine their boundaries.
 
-The convex temporal parameterization is
+For each bucket `b`, the loader constructs
 
 ```text
-q_b = q_global + residual_b,
-w_b = w0_b * q_b.
+D_b = {trip_i : bucket(start_time_i) = b}.
 ```
 
-All buckets share `q_global`; bounded `L2`-regularized residuals shrink toward
-zero. The optional travel-time anchor estimates only a complete trip's average
-speed, clips it to `[1, 33.333...]` m/s, then shrinks road-bucket speed to
-road-global and train-network means. It is not a per-edge speed observation.
-Validation and test contribute to none of its statistics.
+The unchanged static trainer independently fits one length-anchored direct
+weight vector on each `D_b`. Time does not enter the graph problem, objective,
+optimizer, regularizer, projection, CCH oracle, or checkpoint. Inference maps
+departure time to one of those static checkpoints. The earlier shared-residual
+and trip-average travel-time experiment is retained only in
+[`experiments/archive/full_data_shared_temporal_residual`](../experiments/archive/full_data_shared_temporal_residual).
 
 ## Verification and calibration status
 
@@ -141,29 +141,38 @@ Under the matched recovery protocol, line graph exceeds original edges by
 peak RSS. The complete historical evidence is in the
 [optimizer-recovery report](../experiments/optimizer_recovery/report.md).
 
-The full-data study then used 623,275 filtered train trajectories and the same
-15,812 fixed validation trajectories:
+The full-data static study then used 623,275 filtered train trajectories and
+the same 15,812 fixed validation trajectories. The narrower departure-time
+study uses exactly the same paths and evaluator:
 
-| Stage | Selected update | Edge F1 | Exact Match | Edge Jaccard |
-|---|---:|---:|---:|---:|
-| Existing 10% static line graph | 299 | 0.694125 | 0.377245 | 0.620388 |
-| Full static line graph | 400 | 0.700554 | 0.388186 | 0.627908 |
-| Full temporal, length anchor | 400 | 0.702280 | 0.388629 | 0.629917 |
-| Full temporal, travel-time anchor | 425 | 0.703176 | 0.389704 | 0.631127 |
+| Stage | Selected update | Edge F1 | Exact Match | Edge Jaccard | Mean regret (mm) |
+|---|---:|---:|---:|---:|---:|
+| Existing 10% static line graph | 299 | 0.694125 | 0.377245 | 0.620388 | 321,414.6 |
+| Full static line graph | 400 | **0.700554** | **0.388186** | **0.627908** | **303,899.5** |
+| Five independent bucket static models | 475/275/200/275/150 | 0.699198 | 0.384202 | 0.626007 | 320,424.2 |
 
-Full data adds 0.006429 F1 and 0.010941 Exact, with F1 gains in all five
-buckets. Time conditioning adds only 0.001726 F1 and 0.000443 Exact over the
-full static model, with three bucket F1 losses. The travel-time anchor adds
-another 0.000896 F1 and 0.001075 Exact over the temporal length model, with
-only two bucket F1 gains. All formal selections are before update 500, so
-decoded route quality is no longer budget-boundary selected. Objectives still
-fall at the final update, hence numerical objective convergence is not
-confirmed.
+Using full data adds 0.006429 F1 and 0.010941 Exact over the existing 10%
+result. Splitting that data into five independent models instead loses
+0.001356 F1, 0.003984 Exact, and 0.001900 Jaccard, while mean regret increases
+by 16,524.8 mm. Bucket-specific F1 improves only at 10-16 (+0.001586) and
+20-24 (+0.001192); Exact improves only at 20-24 (+0.002082). The 00-06 bucket,
+with just 35,201 train trajectories, loses 0.010841 F1 and 0.021804 Exact.
+This is consistent with lost cross-time statistical sharing outweighing the
+route-preference difference captured by coarse departure buckets.
 
-The [full report](../experiments/full_data_time_conditioning/report.md),
-[machine-readable summary](../experiments/full_data_time_conditioning/summary.json),
-and [time audit](../experiments/full_data_time_conditioning/time_audit.json)
-retain the complete evidence. The test split was never read. Remaining risks
-are the single fixed date split, sparse road-time support, whole-trip rather
-than per-edge time estimates, zero first-edge cost for line-graph queries, and
+All five independent selections precede update 500, although the sparse night
+model selects update 475. This establishes an interior development peak but
+does not prove numerical convergence of each convex objective. There was no
+bucket-specific hyperparameter search and no formal significance test. The
+full static line graph therefore remains the active recommendation.
+
+The [independent-bucket report](../experiments/independent_time_buckets/report.md),
+[machine-readable summary](../experiments/independent_time_buckets/summary.json),
+and [time audit](../experiments/independent_time_buckets/time_audit.json) retain
+the active evidence. The former shared-residual/trip-average travel-time study
+remains reproducible in the
+[historical archive](../experiments/archive/full_data_shared_temporal_residual)
+but none of its special model code remains active. The test split was never
+read. Remaining risks are the single fixed date split, sparse transition
+support after partitioning, zero first-edge cost for line-graph queries, and
 integer CCH quantization.

@@ -256,40 +256,6 @@ impl GraphProblem {
         line_graph.transition_id(previous, next)
     }
 
-    /// Map one original-edge baseline vector into this representation without
-    /// changing topology or line-graph semantics. Transition coordinates keep
-    /// using the entered edge, and no first-edge/start cost is introduced.
-    pub fn coordinate_weights_from_original(
-        &self,
-        original_edge_weights: &[f64],
-    ) -> Result<Vec<f64>, String> {
-        if original_edge_weights.len() != self.original.tail.len() {
-            return Err(format!(
-                "original baseline has {} edges, expected {}",
-                original_edge_weights.len(),
-                self.original.tail.len()
-            ));
-        }
-        if let Some((edge, weight)) = original_edge_weights
-            .iter()
-            .copied()
-            .enumerate()
-            .find(|(_, weight)| !weight.is_finite() || *weight <= 0.0)
-        {
-            return Err(format!(
-                "original baseline edge {edge} must be finite and positive, got {weight}"
-            ));
-        }
-        match &self.mapping {
-            RepresentationMapping::OriginalEdges => Ok(original_edge_weights.to_vec()),
-            RepresentationMapping::EdgeTransitionArcs(line_graph) => Ok(line_graph
-                .transitions
-                .iter()
-                .map(|&(_, next)| original_edge_weights[next])
-                .collect()),
-        }
-    }
-
     /// Validate and map one complete original-edge trajectory.
     pub fn map_path(&self, original_edges: &[usize]) -> Result<MappedPath, String> {
         let (source, target) = self.validate_original_path(original_edges)?;
@@ -390,35 +356,6 @@ impl GraphProblem {
     /// The returned metric remains inseparably bound to this representation.
     pub fn customize<'a>(&'a self, weights: &[f64]) -> Result<GraphMetric<'a>, String> {
         self.validate_direct_weights(weights)?;
-        self.customize_metric(weights)
-    }
-
-    /// Customize the fixed topology with an externally constructed positive
-    /// direct vector. Temporal models own bucket-specific baselines and convex
-    /// parameter bounds, so those weights need not lie in the static problem's
-    /// length-anchored box. Quantization and all route semantics stay here.
-    pub fn customize_external<'a>(&'a self, weights: &[f64]) -> Result<GraphMetric<'a>, String> {
-        if weights.len() != self.coordinate_count() {
-            return Err(format!(
-                "direct weight count {} does not match coordinate count {}",
-                weights.len(),
-                self.coordinate_count()
-            ));
-        }
-        if let Some((coordinate, weight)) = weights
-            .iter()
-            .copied()
-            .enumerate()
-            .find(|(_, weight)| !weight.is_finite() || *weight <= 0.0)
-        {
-            return Err(format!(
-                "external direct weight[{coordinate}] must be finite and positive, got {weight}"
-            ));
-        }
-        self.customize_metric(weights)
-    }
-
-    fn customize_metric<'a>(&'a self, weights: &[f64]) -> Result<GraphMetric<'a>, String> {
         let quantized_weights = weights
             .iter()
             .enumerate()
@@ -1172,13 +1109,6 @@ mod tests {
         assert_eq!(problem.initial_weights(), expected_initial_weights);
         assert_eq!(problem.lower_bounds(), &[1.5, 0.5, 2.5, 0.5]);
         assert_eq!(problem.upper_bounds(), &[6.0, 2.0, 10.0, 2.0]);
-        assert_eq!(
-            problem
-                .coordinate_weights_from_original(&[20.0, 30.0, 50.0, 10.0, 10.0])
-                .unwrap(),
-            vec![30.0, 10.0, 50.0, 10.0]
-        );
-
         let mapped = problem.map_path(&[0, 1, 2]).unwrap();
         assert_eq!(mapped.coordinates, vec![0, 2]);
         assert_eq!(

@@ -5,6 +5,7 @@ use crate::evaluation::{PathMetrics, evaluate_paths};
 use crate::graph_problem::{GraphProblem, GraphRepresentation};
 use crate::objective::{compute_regret, count_difference_l1};
 use crate::optimizer::{OptimizerGeometry, ProjectedSubgradientOptimizer};
+use crate::time_buckets::retain_departure_bucket;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::fs::File;
@@ -54,26 +55,68 @@ pub fn run_training(
     verify_declared_data(config, "train", &config.train_variant)?;
     verify_declared_data(config, "validation", &config.validation_variant)?;
     let graph = crate::data::load_graph(&config.city)?;
-    let train =
+    let mut train =
         crate::data::load_trips(&config.city, "train", &config.train_variant, &graph, None)?;
-    let validation = crate::data::load_trips(
+    let mut validation = crate::data::load_trips(
         &config.city,
         "validation",
         &config.validation_variant,
         &graph,
         None,
     )?;
-    if train.paths.is_empty() || validation.paths.is_empty() {
-        return Err("train and validation must both contain valid paths".to_string());
-    }
     verify_declared_sample_count(config, "train", &train.report)?;
     verify_declared_sample_count(config, "validation", &validation.report)?;
-    log_data_report(&mut logger, "train", &config.train_variant, &train.report)?;
+    let departure_filter_log = if let Some(filter) = &config.departure_time_filter {
+        let spec = filter.load_spec()?;
+        let train_selection = retain_departure_bucket(&mut train, &spec, &filter.bucket_id)?;
+        let validation_selection =
+            retain_departure_bucket(&mut validation, &spec, &filter.bucket_id)?;
+        if train_selection.selected != filter.expected_train_samples
+            || validation_selection.selected != filter.expected_validation_samples
+        {
+            return Err(format!(
+                "departure bucket {:?} selected train/validation {}/{}, expected {}/{}",
+                filter.bucket_id,
+                train_selection.selected,
+                validation_selection.selected,
+                filter.expected_train_samples,
+                filter.expected_validation_samples
+            ));
+        }
+        json!({
+            "selection_timestamp": "start_time",
+            "bucket_id": filter.bucket_id,
+            "specification": spec.as_json(),
+            "train": {
+                "source_accepted": train_selection.source_accepted,
+                "selected": train_selection.selected,
+            },
+            "validation": {
+                "source_accepted": validation_selection.source_accepted,
+                "selected": validation_selection.selected,
+            },
+        })
+    } else {
+        Value::Null
+    };
+    if train.paths.is_empty() || validation.paths.is_empty() {
+        return Err("train and validation must both contain selected paths".to_string());
+    }
+    log_data_report(
+        &mut logger,
+        "train",
+        &config.train_variant,
+        &train.report,
+        train.paths.len(),
+        &departure_filter_log,
+    )?;
     log_data_report(
         &mut logger,
         "validation",
         &config.validation_variant,
         &validation.report,
+        validation.paths.len(),
+        &departure_filter_log,
     )?;
 
     let build_started = Instant::now();
@@ -326,6 +369,7 @@ pub fn run_training(
         "checkpoint_path": checkpoint_path,
         "topology_identity": problem.topology_identity(),
         "peak_rss_kib": process_peak_rss_kib().unwrap_or(0),
+        "departure_time_filter": config.as_json().pointer("/data/departure_time_filter"),
         "test_read": false,
     }))?;
 
@@ -390,7 +434,7 @@ fn runtime_identity(
     mapped_train: usize,
     mapped_validation: usize,
 ) -> Value {
-    json!({
+    let mut identity = json!({
         "baseline": {
             "city": config.city,
             "nodes": graph.x.len(),
@@ -420,7 +464,11 @@ fn runtime_identity(
             "too_short": validation.too_short,
             "mapped": mapped_validation,
         },
-    })
+    });
+    if let Some(filter) = config.as_json().pointer("/data/departure_time_filter") {
+        identity["departure_time_filter"] = filter.clone();
+    }
+    identity
 }
 
 fn verify_declared_data(config: &TrainingConfig, split: &str, variant: &str) -> Result<(), String> {
@@ -506,6 +554,8 @@ fn log_data_report(
     split: &str,
     variant: &str,
     report: &PathValidationReport,
+    selected_samples: usize,
+    departure_filter: &Value,
 ) -> Result<(), String> {
     logger.log(json!({
         "event": "data",
@@ -514,6 +564,7 @@ fn log_data_report(
         "available": report.available_samples,
         "inspected": report.inspected_samples,
         "accepted": report.accepted_samples,
+        "selected_after_departure_filter": selected_samples,
         "dropped": report.dropped_samples(),
         "cyclic": report.cyclic,
         "empty": report.empty,
@@ -521,6 +572,7 @@ fn log_data_report(
         "out_of_bounds": report.out_of_bounds,
         "discontinuous": report.discontinuous,
         "policy": "complete_paths_min_2_edges_drop_cycles",
+        "departure_time_filter": departure_filter,
     }))
 }
 

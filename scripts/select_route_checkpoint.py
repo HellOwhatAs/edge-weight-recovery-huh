@@ -28,7 +28,6 @@ METRICS = (
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", required=True, type=Path)
-    parser.add_argument("--kind", required=True, choices=("static", "temporal"))
     parser.add_argument("--evaluate-binary", required=True, type=Path)
     parser.add_argument("--time-buckets", type=Path)
     parser.add_argument("--rayon-threads", default=4, type=int)
@@ -80,8 +79,6 @@ def main() -> int:
     args = arguments()
     if args.rayon_threads <= 0 or args.timeout_seconds <= 0:
         raise ValueError("threads and timeout must be positive")
-    if args.kind == "static" and args.time_buckets is None:
-        raise ValueError("--time-buckets is required for static evaluation")
     run_dir = args.run_dir.resolve()
     events = read_events(run_dir / "training.jsonl")
     configurations = [event for event in events if event.get("event") == "configuration"]
@@ -95,6 +92,15 @@ def main() -> int:
     validation_variant = config.get("data", {}).get("validation_variant")
     if not isinstance(validation_variant, str):
         raise ValueError("configuration lacks validation variant")
+    departure_filter = config.get("data", {}).get("departure_time_filter")
+    if departure_filter is None and args.time_buckets is None:
+        raise ValueError(
+            "--time-buckets is required when selecting an unfiltered static run"
+        )
+    if departure_filter is not None and args.time_buckets is not None:
+        raise ValueError(
+            "--time-buckets must be omitted for an already-filtered static run"
+        )
 
     candidates = []
     for event in events:
@@ -131,14 +137,14 @@ def main() -> int:
             str(args.evaluate_binary.resolve()),
             "--checkpoint",
             candidate["checkpoint"],
+            "--split",
+            "validation",
+            "--variant",
+            validation_variant,
         ]
-        if args.kind == "static":
+        if args.time_buckets is not None:
             command.extend(
                 [
-                    "--split",
-                    "validation",
-                    "--variant",
-                    validation_variant,
                     "--time-buckets",
                     str(args.time_buckets.resolve()),
                 ]
@@ -182,14 +188,13 @@ def main() -> int:
                 f"{output}: bucket samples {bucket_sample_count} differ from "
                 f"overall samples {metrics['samples']}"
             )
-        if args.kind == "temporal":
-            baseline = result.get("baseline")
-            if (
-                not isinstance(baseline, dict)
-                or baseline.get("estimated_from_split") != "train"
-                or baseline.get("validation_used") is not False
-            ):
-                raise ValueError(f"{output}: temporal baseline is not train-only")
+        metric_totals = result.get("metric_totals")
+        if (
+            not isinstance(metric_totals, dict)
+            or not finite(metric_totals.get("regret_sum"))
+            or not finite(metric_totals.get("observed_cost_sum"))
+        ):
+            raise ValueError(f"{output}: missing additive metric totals")
         evaluations.append(
             {
                 **candidate,
@@ -197,6 +202,7 @@ def main() -> int:
                 "evaluation_wall_seconds": time.monotonic() - started,
                 "evaluation_output": str(output),
                 "metrics": metrics,
+                "metric_totals": metric_totals,
                 "time_buckets": bucket_rows,
                 "quantization": result.get("quantization"),
             }
@@ -214,13 +220,14 @@ def main() -> int:
     output = args.output or run_dir / "route_selection.json"
     value = {
         "schema_version": 1,
-        "kind": args.kind,
+        "kind": "independent_static_bucket" if departure_filter else "static",
         "run_dir": str(run_dir),
         "selection_rule": (
             "maximum validation Edge F1; maximum Exact Match then earliest update "
             "break exact ties"
         ),
         "validation_variant": validation_variant,
+        "departure_time_filter": departure_filter,
         "candidates": evaluations,
         "selected": selected,
         "selected_at_budget_boundary": selected["update"] == maximum_update,
