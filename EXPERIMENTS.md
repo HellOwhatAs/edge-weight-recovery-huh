@@ -1,8 +1,8 @@
 # Experiments
 
-## Scope of this revision
+## Active invariant and calibration
 
-The current work validates an architectural invariant:
+The architecture retains this invariant:
 
 ```text
 graph representation affects only topology construction, trajectory mapping,
@@ -10,9 +10,12 @@ and route decoding; inverse optimization learns one direct-weight vector on
 the supplied graph.
 ```
 
-No comparative performance conclusion is carried forward. Historical
-large-run configurations and generated summaries are intentionally absent
-from the active tree; Git history remains the recovery authority.
+With that architecture frozen, the active Beijing 10% calibration compares
+decoded route quality for the two representations, screens only
+`eta0={300,1000,3000}` plus the permitted adjacent boundary candidate, and
+runs one 200-update development configuration per representation. The full
+protocol, results, audit, and risk boundary are in
+[`experiments/line_graph_10pct_calibration/report.md`](experiments/line_graph_10pct_calibration/report.md).
 
 ## Representation contract
 
@@ -78,9 +81,9 @@ The correctness suite must establish:
    graphs; and
 6. identical final state for uninterrupted training and checkpoint resume.
 
-## Beijing 1% technical smokes
+## Prior Beijing 1% technical smokes
 
-Only these active experiment configurations belong to this revision:
+These configurations established the technical baseline before calibration:
 
 | Configuration | Representation | Updates | Validation cadence | Threads |
 |---|---:|---:|---:|---:|
@@ -112,8 +115,16 @@ checkpoint after update 3. The two rows remain independent technical health
 checks and must not be interpreted as comparable endpoint-quality
 measurements.
 
-## Explicitly out of scope
+## Beijing 10% route-quality calibration
 
-This revision does not authorize larger-subset or full-data training,
-learning-rate searches, formal representation comparison, or test-split
-evaluation. Smoke values must not be interpreted as endpoint quality.
+The fixed `scale_10pct_seed42` train and `scale_fixed_seed20260715` validation
+calibration selected eta 300 for `original_edges` and eta 100 for
+`edge_transition_arcs`. At their minimum-objective 200-update checkpoints,
+decoded validation Edge F1 was 0.589923 and 0.603495 respectively; Exact Match
+was 0.335947 and 0.346762. Both minima occurred at update 200, so convergence
+is not confirmed and no longer run was added. Raw objectives are not compared
+across representations. No test split was read.
+
+The tracked machine-readable evidence is
+[`summary.json`](experiments/line_graph_10pct_calibration/summary.json). Full
+logs and checkpoints remain under the ignored local artifact tree.

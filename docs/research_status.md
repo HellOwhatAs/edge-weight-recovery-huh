@@ -8,8 +8,10 @@ same objective, optimizer, update clock, projection logic, training loop, and
 checkpoint state. Their intended differences are topology, trajectory
 mapping, coordinate interpretation, and route decoding.
 
-This is an architectural claim. No empirical superiority claim has been
-established in this revision.
+The architecture is now held fixed while representation quality is evaluated.
+On the registered Beijing 10% development protocol, `edge_transition_arcs`
+has higher decoded Edge F1 and Exact Match than `original_edges`; this is a
+development result, not a test-set or general superiority claim.
 
 ## Representation definitions
 
@@ -71,31 +73,23 @@ its count subgradient. Replacing it with an exact continuous-weight oracle is
 explicitly deferred; there is still only one learned/checkpointed vector and
 one optimizer.
 
-## Verification status
+## Verification and calibration status
 
-The required evidence for this pass is deliberately narrow:
+Synthetic mapping, decoding, optimizer, projection, clock, CCH/reference, and
+checkpoint-resume tests remain the correctness gate. The prior Beijing 1%
+technical smokes established healthy execution for both representations.
 
-- synthetic mapping, decoding, optimizer, projection, clock, CCH/reference,
-  and checkpoint-resume tests; and
-- one short Beijing 1% technical smoke per representation.
+The subsequent bounded Beijing 10% calibration used the same 62,348 filtered
+train trajectories and 15,812 fixed validation trajectories for both
+representations. It selected eta 300 for `original_edges` and eta 100 for
+`edge_transition_arcs`. At the minimum-objective 200-update checkpoints,
+decoded Edge F1 was 0.589923 versus 0.603495 and Exact Match was 0.335947
+versus 0.346762. Both checkpoints landed at the final registered update, so
+convergence is not confirmed. The line graph required 2.42x training wall time
+and 1.36x peak RSS.
 
-The active smoke configurations are
-[`original_edges_smoke_1pct.json`](../experiments/configs/original_edges_smoke_1pct.json)
-and
-[`edge_transition_arcs_smoke_1pct.json`](../experiments/configs/edge_transition_arcs_smoke_1pct.json).
-They share the same data identities and optimizer settings. On 2026-07-16 both
-completed three updates with finite objectives, changed direct weights, and
-healthy shortest-path queries. The corrected topologies were 31,199 nodes /
-72,156 arcs for `original_edges` and 72,156 nodes / 188,249 arcs for
-`edge_transition_arcs`; in each case the arc count is also the learned
-coordinate count. Resuming from update 0 reproduced the uninterrupted final
-checkpoint byte for byte. No test split was read, and these technical checks
-establish no representation-quality ranking.
-
-## Claim boundary and next step
-
-The immediate completion gate is finite objectives, changed weights, healthy
-shortest-path queries, and successful checkpoint continuation in both smokes,
-together with the full synthetic correctness suite. Larger training,
-hyperparameter calibration, formal representation comparison, and all
-test-split evaluation remain out of scope until this architecture is verified.
+The complete audit and result tables are in the
+[calibration report](../experiments/line_graph_10pct_calibration/report.md).
+The test split was never read. The next authorized comparison should carry
+`edge_transition_arcs` into NeuroMLR while preserving the reported single-edge
+zero-cost, integer-quantization, and convergence risks.

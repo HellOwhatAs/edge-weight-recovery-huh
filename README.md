@@ -115,23 +115,27 @@ Restoring it rebuilds `w0`, bounds, and the representation-specific oracle from
 the verified configuration and topology, then resumes the same square-root
 learning-rate clock. Both representations use the same checkpoint structure.
 
-## Current verification boundary
+## Current evidence boundary
 
-This revision is an architecture and correctness pass. Verification consists
-of synthetic tests plus two short technical smokes on the deterministic
-Beijing 1% training subset and fixed validation subset:
+Synthetic tests and two short Beijing 1% technical smokes establish the
+mapping, optimization, CCH, and checkpoint contracts:
 
 - [`original_edges_smoke_1pct.json`](experiments/configs/original_edges_smoke_1pct.json)
 - [`edge_transition_arcs_smoke_1pct.json`](experiments/configs/edge_transition_arcs_smoke_1pct.json)
 
-Both configurations completed three updates on 2026-07-16. The original-edge
-run used 31,199 routing nodes and 72,156 direct coordinates; the directed line
-graph used 72,156 routing nodes and 188,249 direct transition-arc coordinates.
-Both produced finite objectives, changed weights, completed shortest-path
-queries, and resumed from update 0 to byte-identical update-3 checkpoints.
-These smokes are independent health checks, not a model comparison.
-This revision does not run larger training, tune learning rates, evaluate a
-test split, or make route-quality claims.
+The frozen architecture was then evaluated on the deterministic Beijing 10%
+train subset and fixed validation. The bounded calibration selected eta 300
+for `original_edges` and eta 100 for `edge_transition_arcs`. Their 200-update
+development checkpoints achieved decoded Edge F1 0.589923 and 0.603495,
+respectively. Both minimum validation objectives occurred at the final update,
+so convergence remains unconfirmed. The line graph is the recommended
+representation for the later NeuroMLR comparison, based on common decoded
+route metrics rather than incomparable raw objectives.
+
+See the [experiment report](experiments/line_graph_10pct_calibration/report.md)
+and [machine-readable summary](experiments/line_graph_10pct_calibration/summary.json).
+No test split was read, so this remains development evidence rather than a
+test-set claim.
 
 ## Development checks
 

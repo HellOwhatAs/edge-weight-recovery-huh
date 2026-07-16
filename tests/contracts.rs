@@ -150,18 +150,106 @@ fn active_smokes_share_one_schema_and_differ_only_by_representation() {
     assert_eq!(original.rayon_threads, 4);
 
     assert_eq!(
-        directory_file_names(Path::new("experiments/configs")),
-        vec![
-            "edge_transition_arcs_smoke_1pct.json".to_string(),
-            "original_edges_smoke_1pct.json".to_string(),
-        ],
-        "only the two bounded technical smoke configurations remain active"
-    );
-
-    assert_eq!(
         normalized_smoke_configuration(&original),
         normalized_smoke_configuration(&transitions),
         "apart from run metadata, representation must be the only configuration difference"
+    );
+}
+
+#[test]
+fn registered_calibration_matrix_is_bounded_and_frozen() {
+    let expected = BTreeSet::from([
+        ("edge_transition_arcs".to_string(), 100, 50),
+        ("edge_transition_arcs".to_string(), 300, 50),
+        ("edge_transition_arcs".to_string(), 1000, 50),
+        ("edge_transition_arcs".to_string(), 3000, 50),
+        ("edge_transition_arcs".to_string(), 100, 200),
+        ("original_edges".to_string(), 100, 50),
+        ("original_edges".to_string(), 300, 50),
+        ("original_edges".to_string(), 1000, 50),
+        ("original_edges".to_string(), 3000, 50),
+        ("original_edges".to_string(), 300, 200),
+    ]);
+    let config_paths = directory_file_names(Path::new("experiments/configs"))
+        .into_iter()
+        .filter(|name| name.contains("_10pct_u"))
+        .map(|name| Path::new("experiments/configs").join(name))
+        .collect::<Vec<_>>();
+    assert_eq!(config_paths.len(), expected.len());
+
+    let mut actual = BTreeSet::new();
+    for path in config_paths {
+        let config = TrainingConfig::load(&path)
+            .unwrap_or_else(|error| panic!("load calibration config {}: {error}", path.display()));
+        assert_eq!(config.city, "beijing");
+        assert_eq!(config.train_variant, "scale_10pct_seed42");
+        assert_eq!(config.validation_variant, "scale_fixed_seed20260715");
+        assert_eq!(config.weight_lower_factor, 0.1);
+        assert_eq!(config.weight_upper_factor, 10.0);
+        assert_eq!(config.lambda, 0.001);
+        assert_eq!(config.validation_every, 10);
+        assert_eq!(config.rayon_threads, 4);
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/data/path_contract")
+                .and_then(Value::as_str),
+            Some("complete_original_edge_id_sequence_min_2_edges")
+        );
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/data/cycle_policy")
+                .and_then(Value::as_str),
+            Some("drop")
+        );
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/test_policy")
+                .and_then(Value::as_str),
+            Some("never_read")
+        );
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/data/train_identity/sha256")
+                .and_then(Value::as_str),
+            Some("8943d8958f3b4fadd7d3eb2f351b97268543961e441436e0ad68408cee45cc0a")
+        );
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/data/validation_identity/sha256")
+                .and_then(Value::as_str),
+            Some("c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade")
+        );
+
+        actual.insert((
+            config.graph_representation.clone(),
+            config.eta0 as u64,
+            config.updates,
+        ));
+    }
+    assert_eq!(actual, expected);
+
+    assert_eq!(
+        directory_file_names(Path::new("experiments/configs")),
+        vec![
+            "edge_transition_arcs_eta1000_10pct_u50.json".to_string(),
+            "edge_transition_arcs_eta100_10pct_u200.json".to_string(),
+            "edge_transition_arcs_eta100_10pct_u50.json".to_string(),
+            "edge_transition_arcs_eta3000_10pct_u50.json".to_string(),
+            "edge_transition_arcs_eta300_10pct_u50.json".to_string(),
+            "edge_transition_arcs_smoke_1pct.json".to_string(),
+            "original_edges_eta1000_10pct_u50.json".to_string(),
+            "original_edges_eta100_10pct_u50.json".to_string(),
+            "original_edges_eta3000_10pct_u50.json".to_string(),
+            "original_edges_eta300_10pct_u200.json".to_string(),
+            "original_edges_eta300_10pct_u50.json".to_string(),
+            "original_edges_smoke_1pct.json".to_string(),
+        ],
+        "only the two technical smokes and bounded calibration matrix are active"
     );
 }
 

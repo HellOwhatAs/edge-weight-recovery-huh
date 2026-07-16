@@ -1,0 +1,2067 @@
+{
+  "schema_version": 1,
+  "experiment": "beijing_10pct_graph_representation_calibration",
+  "source_branch": "line-graph-10pct-calibration",
+  "source_commit": "a587e9ed2b239a448f4eeaaebf274b313a596359",
+  "scope": {
+    "model_architecture_changed": false,
+    "objective_changed": false,
+    "optimizer_changed": false,
+    "graph_definition_changed": false,
+    "lambda_tuned": false,
+    "test_read": false,
+    "neuromlr_run": false,
+    "full_training_run": false
+  },
+  "fixed_configuration": {
+    "train_variant": "scale_10pct_seed42",
+    "validation_variant": "scale_fixed_seed20260715",
+    "lambda": 0.001,
+    "weight_lower_factor": 0.1,
+    "weight_upper_factor": 10.0,
+    "validation_every": 10,
+    "rayon_threads": 4,
+    "checkpoint_selection": "minimum validation objective among saved checkpoints",
+    "eta_selection": "maximum Edge F1, then Exact Match, then lower validation objective"
+  },
+  "data_and_single_edge_audit": {
+    "configuration": "experiments/configs/edge_transition_arcs_eta300_10pct_u50.json",
+    "configuration_sha256": "3942f6ccbc329fd4cc3ab54deb7ee05402c40e344fe08a4bd6f728e569542c58",
+    "data": {
+      "city": "beijing",
+      "cycle_policy": "drop",
+      "path_contract": "complete_original_edge_id_sequence_min_2_edges",
+      "train": {
+        "bytes": 16680638,
+        "declared_sample_count": 78570,
+        "path": "data/beijing_data/preprocessed_train_trips_scale_10pct_seed42.pkl",
+        "seed": 42,
+        "sha256": "8943d8958f3b4fadd7d3eb2f351b97268543961e441436e0ad68408cee45cc0a",
+        "source_sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
+        "variant": "scale_10pct_seed42",
+        "verified": true
+      },
+      "validation": {
+        "bytes": 4160448,
+        "declared_sample_count": 20000,
+        "path": "data/beijing_data/preprocessed_validation_trips_scale_fixed_seed20260715.pkl",
+        "seed": 20260715,
+        "sha256": "c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade",
+        "source_sha256": "97d9e9231fc6599084e6af9eaa081e08c09f6108f27f304a26264fff1ee0ec6d",
+        "variant": "scale_fixed_seed20260715",
+        "verified": true
+      }
+    },
+    "line_graph_initial_metric": {
+      "coordinates": 188249,
+      "endpoint_offsets": 0,
+      "has_first_edge_parameter": false,
+      "has_start_cost": false,
+      "routing_arcs": 188249,
+      "routing_nodes": 72156,
+      "topology_identity": "fnv1a64:2569eeeb8e839a07"
+    },
+    "model_semantics_changed": false,
+    "purpose": "edge_transition_arcs_zero_cost_single_edge_impact_audit",
+    "rayon_threads": 4,
+    "schema_version": 1,
+    "splits": {
+      "train": {
+        "direct_edge_but_observed_route_longer_than_one_edge": {
+          "proportion_conditional_on_direct_edge": 1.0,
+          "proportion_of_effective_trajectories": 0.0004490921922114583,
+          "samples": 28
+        },
+        "direct_original_edge": {
+          "proportion_of_effective_trajectories": 0.0004490921922114583,
+          "proportion_of_unique_ods": 0.0004571204675689354,
+          "samples": 28,
+          "unique_ods": 28
+        },
+        "effective_trajectories": 62348,
+        "filtering": {
+          "accepted": 62348,
+          "available": 78570,
+          "cyclic": 16222,
+          "discontinuous": 0,
+          "dropped": 16222,
+          "empty": 0,
+          "inspected": 78570,
+          "out_of_bounds": 0,
+          "too_short": 0
+        },
+        "initial_edge_transition_prediction": {
+          "affected_samples": 28,
+          "all_affected_observations_have_more_than_one_edge": true,
+          "proportion_of_effective_trajectories": 0.0004490921922114583,
+          "proportion_of_unique_ods": 0.0004571204675689354,
+          "zero_cost_single_edge_ods": 28
+        },
+        "unique_ods": 61253
+      },
+      "validation": {
+        "direct_edge_but_observed_route_longer_than_one_edge": {
+          "proportion_conditional_on_direct_edge": 1.0,
+          "proportion_of_effective_trajectories": 0.0006324310650139134,
+          "samples": 10
+        },
+        "direct_original_edge": {
+          "proportion_of_effective_trajectories": 0.0006324310650139134,
+          "proportion_of_unique_ods": 0.0006357279084551812,
+          "samples": 10,
+          "unique_ods": 10
+        },
+        "effective_trajectories": 15812,
+        "filtering": {
+          "accepted": 15812,
+          "available": 20000,
+          "cyclic": 4188,
+          "discontinuous": 0,
+          "dropped": 4188,
+          "empty": 0,
+          "inspected": 20000,
+          "out_of_bounds": 0,
+          "too_short": 0
+        },
+        "initial_edge_transition_prediction": {
+          "affected_samples": 10,
+          "all_affected_observations_have_more_than_one_edge": true,
+          "proportion_of_effective_trajectories": 0.0006324310650139134,
+          "proportion_of_unique_ods": 0.0006357279084551812,
+          "zero_cost_single_edge_ods": 10
+        },
+        "unique_ods": 15730
+      }
+    },
+    "test_read": false,
+    "wall_seconds": 3.923921909
+  },
+  "learning_rate_screening": {
+    "initial_eta0_grid": [
+      300.0,
+      1000.0,
+      3000.0
+    ],
+    "runs": [
+      {
+        "run_id": "edge_transition_arcs_eta100_10pct_u50",
+        "graph_representation": "edge_transition_arcs",
+        "eta0": 100.0,
+        "lambda": 0.001,
+        "updates": 50,
+        "validation_every": 10,
+        "rayon_threads": 4,
+        "config_path": "experiments/configs/edge_transition_arcs_eta100_10pct_u50.json",
+        "config_sha256": "02f50aaf0c7b967378d2ca11d92cd0eb3c3376762933c3aa8714dac875943874",
+        "training_command": [
+          "target/release/train",
+          "--config",
+          "experiments/configs/edge_transition_arcs_eta100_10pct_u50.json",
+          "--output-dir",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50"
+        ],
+        "training_log": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/training.jsonl",
+        "training_wall_seconds": 55.51390988200001,
+        "total_wall_seconds": 60.778182721999656,
+        "peak_rss_kib": 220320,
+        "final_changed_coordinates": 59950,
+        "final_changed_quantized_coordinates": 11765,
+        "checkpoint_selection": {
+          "rule": "minimum validation objective; earliest update breaks exact ties",
+          "candidates": [
+            {
+              "update": 0,
+              "validation_objective": 636965.7496205413,
+              "validation_mean_regret": 636965.7496205413,
+              "validation_relative_regret": 0.09704587340453025,
+              "train_objective": 611273.6967184192,
+              "regularization": 0.0,
+              "changed_coordinates": 0,
+              "max_quantization_error": 0.0,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/checkpoint-0.json"
+            },
+            {
+              "update": 10,
+              "validation_objective": 636948.0132587544,
+              "validation_mean_regret": 636948.013235413,
+              "validation_relative_regret": 0.09704334647715608,
+              "train_objective": 611256.1956615221,
+              "regularization": 2.334137084735664e-05,
+              "changed_coordinates": 59947,
+              "max_quantization_error": 0.49929669410630595,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/checkpoint-10.json"
+            },
+            {
+              "update": 20,
+              "validation_objective": 636938.9207244262,
+              "validation_mean_regret": 636938.9206710196,
+              "validation_relative_regret": 0.0970420510611366,
+              "train_objective": 611247.2239659589,
+              "regularization": 5.340654799692931e-05,
+              "changed_coordinates": 59947,
+              "max_quantization_error": 0.49946248007472605,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/checkpoint-20.json"
+            },
+            {
+              "update": 30,
+              "validation_objective": 636931.8924921021,
+              "validation_mean_regret": 636931.8924070484,
+              "validation_relative_regret": 0.09704104975148259,
+              "train_objective": 611240.2887505237,
+              "regularization": 8.50536823407116e-05,
+              "changed_coordinates": 59949,
+              "max_quantization_error": 0.496265723137185,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/checkpoint-30.json"
+            },
+            {
+              "update": 40,
+              "validation_objective": 636925.9499291491,
+              "validation_mean_regret": 636925.9498116175,
+              "validation_relative_regret": 0.0970402031091239,
+              "train_objective": 611234.4250082565,
+              "regularization": 0.00011753162123045501,
+              "changed_coordinates": 59949,
+              "max_quantization_error": 0.4999873467022553,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/checkpoint-40.json"
+            },
+            {
+              "update": 50,
+              "validation_objective": 636920.7071334145,
+              "validation_mean_regret": 636920.7069828729,
+              "validation_relative_regret": 0.09703945612595843,
+              "train_objective": 611229.2511784163,
+              "regularization": 0.0001505415337474414,
+              "changed_coordinates": 59950,
+              "max_quantization_error": 0.49987106960907113,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/checkpoint-50.json"
+            }
+          ],
+          "selected_update": 50,
+          "selected_validation_objective": 636920.7071334145,
+          "selected_changed_coordinates": 59950,
+          "selected_checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/checkpoint-50.json"
+        },
+        "selected_evaluation_command": [
+          "target/release/evaluate",
+          "--checkpoint",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/checkpoint-50.json",
+          "--split",
+          "validation",
+          "--variant",
+          "scale_fixed_seed20260715",
+          "--output",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/evaluation-selected.json"
+        ],
+        "selected_validation_metrics": {
+          "edge_f1": 0.6033804414229108,
+          "edge_jaccard": 0.5329768452980196,
+          "edge_precision": 0.6108093798929305,
+          "edge_recall": 0.6028582459825584,
+          "exact_match": 0.3463824943081204,
+          "mean_regret": 636920.7069829137,
+          "relative_regret": 0.09703945612596424,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.6034666866010547,
+          "edge_jaccard": 0.5331433756323303,
+          "edge_precision": 0.6109613573710202,
+          "edge_recall": 0.6028600843897679,
+          "exact_match": 0.3469516822666329,
+          "mean_regret": 636965.7496205413,
+          "relative_regret": 0.09704587340453025,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": -0.0001519774780897043,
+          "edge_recall": -1.8384072094645987e-06,
+          "edge_f1": -8.624517814392885e-05,
+          "exact_match": -0.0005691879585125181,
+          "edge_jaccard": -0.0001665303343106883,
+          "mean_regret": -45.04263762768824,
+          "relative_regret": -6.417278566012152e-06
+        },
+        "health_checks": {
+          "graph_representation": true,
+          "completed_updates": true,
+          "train_objective_finite": true,
+          "validation_objective_finite": true,
+          "weights_changed": true,
+          "shortest_path_queries_ok": true,
+          "checkpoint_restore_verified": true,
+          "test_not_read": true,
+          "checkpoint_exists": true
+        },
+        "test_read": false,
+        "runner_result": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta100_10pct_u50/runner_result.json"
+      },
+      {
+        "run_id": "edge_transition_arcs_eta300_10pct_u50",
+        "graph_representation": "edge_transition_arcs",
+        "eta0": 300.0,
+        "lambda": 0.001,
+        "updates": 50,
+        "validation_every": 10,
+        "rayon_threads": 4,
+        "config_path": "experiments/configs/edge_transition_arcs_eta300_10pct_u50.json",
+        "config_sha256": "3942f6ccbc329fd4cc3ab54deb7ee05402c40e344fe08a4bd6f728e569542c58",
+        "training_command": [
+          "target/release/train",
+          "--config",
+          "experiments/configs/edge_transition_arcs_eta300_10pct_u50.json",
+          "--output-dir",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50"
+        ],
+        "training_log": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/training.jsonl",
+        "training_wall_seconds": 55.45356695600003,
+        "total_wall_seconds": 60.77465213800042,
+        "peak_rss_kib": 220448,
+        "final_changed_coordinates": 59957,
+        "final_changed_quantized_coordinates": 21847,
+        "checkpoint_selection": {
+          "rule": "minimum validation objective; earliest update breaks exact ties",
+          "candidates": [
+            {
+              "update": 0,
+              "validation_objective": 636965.7496205413,
+              "validation_mean_regret": 636965.7496205413,
+              "validation_relative_regret": 0.09704587340453025,
+              "train_objective": 611273.6967184192,
+              "regularization": 0.0,
+              "changed_coordinates": 0,
+              "max_quantization_error": 0.0,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/checkpoint-0.json"
+            },
+            {
+              "update": 10,
+              "validation_objective": 636912.5472267347,
+              "validation_mean_regret": 636912.5470167054,
+              "validation_relative_regret": 0.09703829348460866,
+              "train_objective": 611221.1991829735,
+              "regularization": 0.00021002926279802393,
+              "changed_coordinates": 59950,
+              "max_quantization_error": 0.4992966644203989,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/checkpoint-10.json"
+            },
+            {
+              "update": 20,
+              "validation_objective": 636885.2804496103,
+              "validation_mean_regret": 636885.279969055,
+              "validation_relative_regret": 0.0970344085193139,
+              "train_objective": 611194.2931073536,
+              "regularization": 0.0004805553520028448,
+              "changed_coordinates": 59952,
+              "max_quantization_error": 0.49943534773774445,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/checkpoint-20.json"
+            },
+            {
+              "update": 30,
+              "validation_objective": 636864.2076496386,
+              "validation_mean_regret": 636864.2068843828,
+              "validation_relative_regret": 0.09703140603879087,
+              "train_objective": 611173.4989191549,
+              "regularization": 0.0007652558275500382,
+              "changed_coordinates": 59955,
+              "max_quantization_error": 0.49973534906166606,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/checkpoint-30.json"
+            },
+            {
+              "update": 40,
+              "validation_objective": 636846.4001556997,
+              "validation_mean_regret": 636846.3990983691,
+              "validation_relative_regret": 0.09702886868361327,
+              "train_objective": 611155.9244795789,
+              "regularization": 0.0010573305867898667,
+              "changed_coordinates": 59955,
+              "max_quantization_error": 0.49993601301684976,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/checkpoint-40.json"
+            },
+            {
+              "update": 50,
+              "validation_objective": 636830.6914760973,
+              "validation_mean_regret": 636830.690121992,
+              "validation_relative_regret": 0.09702663046099833,
+              "train_objective": 611140.4261800231,
+              "regularization": 0.0013541052544040588,
+              "changed_coordinates": 59957,
+              "max_quantization_error": 0.4996283659529581,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/checkpoint-50.json"
+            }
+          ],
+          "selected_update": 50,
+          "selected_validation_objective": 636830.6914760973,
+          "selected_changed_coordinates": 59957,
+          "selected_checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/checkpoint-50.json"
+        },
+        "selected_evaluation_command": [
+          "target/release/evaluate",
+          "--checkpoint",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/checkpoint-50.json",
+          "--split",
+          "validation",
+          "--variant",
+          "scale_fixed_seed20260715",
+          "--output",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/evaluation-selected.json"
+        ],
+        "selected_validation_metrics": {
+          "edge_f1": 0.6032596761209872,
+          "edge_jaccard": 0.5328182492309808,
+          "edge_precision": 0.6106677529390682,
+          "edge_recall": 0.6027619991118645,
+          "exact_match": 0.34518087528459396,
+          "mean_regret": 636830.6901219934,
+          "relative_regret": 0.09702663046099859,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.6034666866010547,
+          "edge_jaccard": 0.5331433756323303,
+          "edge_precision": 0.6109613573710202,
+          "edge_recall": 0.6028600843897679,
+          "exact_match": 0.3469516822666329,
+          "mean_regret": 636965.7496205413,
+          "relative_regret": 0.09704587340453025,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": -0.00029360443195203256,
+          "edge_recall": -9.808527790344801e-05,
+          "edge_f1": -0.00020701048006754874,
+          "exact_match": -0.0017708069820389638,
+          "edge_jaccard": -0.0003251264013495181,
+          "mean_regret": -135.0594985479256,
+          "relative_regret": -1.924294353165823e-05
+        },
+        "health_checks": {
+          "graph_representation": true,
+          "completed_updates": true,
+          "train_objective_finite": true,
+          "validation_objective_finite": true,
+          "weights_changed": true,
+          "shortest_path_queries_ok": true,
+          "checkpoint_restore_verified": true,
+          "test_not_read": true,
+          "checkpoint_exists": true
+        },
+        "test_read": false,
+        "runner_result": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta300_10pct_u50/runner_result.json"
+      },
+      {
+        "run_id": "edge_transition_arcs_eta1000_10pct_u50",
+        "graph_representation": "edge_transition_arcs",
+        "eta0": 1000.0,
+        "lambda": 0.001,
+        "updates": 50,
+        "validation_every": 10,
+        "rayon_threads": 4,
+        "config_path": "experiments/configs/edge_transition_arcs_eta1000_10pct_u50.json",
+        "config_sha256": "5c77843a44ea7203e70e350710fce3be43677541a7a8fe4e7f00499bd39faf2c",
+        "training_command": [
+          "target/release/train",
+          "--config",
+          "experiments/configs/edge_transition_arcs_eta1000_10pct_u50.json",
+          "--output-dir",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50"
+        ],
+        "training_log": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/training.jsonl",
+        "training_wall_seconds": 55.051215362999756,
+        "total_wall_seconds": 60.292939873999785,
+        "peak_rss_kib": 220448,
+        "final_changed_coordinates": 59989,
+        "final_changed_quantized_coordinates": 36635,
+        "checkpoint_selection": {
+          "rule": "minimum validation objective; earliest update breaks exact ties",
+          "candidates": [
+            {
+              "update": 0,
+              "validation_objective": 636965.7496205413,
+              "validation_mean_regret": 636965.7496205413,
+              "validation_relative_regret": 0.09704587340453025,
+              "train_objective": 611273.6967184192,
+              "regularization": 0.0,
+              "changed_coordinates": 0,
+              "max_quantization_error": 0.0,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/checkpoint-0.json"
+            },
+            {
+              "update": 10,
+              "validation_objective": 636788.537143685,
+              "validation_mean_regret": 636788.5348118184,
+              "validation_relative_regret": 0.09702062408513816,
+              "train_objective": 611098.8315274087,
+              "regularization": 0.0023318666489334384,
+              "changed_coordinates": 59964,
+              "max_quantization_error": 0.4993360593507532,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/checkpoint-10.json"
+            },
+            {
+              "update": 20,
+              "validation_objective": 636697.9830550401,
+              "validation_mean_regret": 636697.9777253651,
+              "validation_relative_regret": 0.09700771770235443,
+              "train_objective": 611009.4549966108,
+              "regularization": 0.005329675031229634,
+              "changed_coordinates": 59968,
+              "max_quantization_error": 0.49996189335070085,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/checkpoint-20.json"
+            },
+            {
+              "update": 30,
+              "validation_objective": 636628.1126415079,
+              "validation_mean_regret": 636628.1041609998,
+              "validation_relative_regret": 0.0969977572500566,
+              "train_objective": 610940.489216912,
+              "regularization": 0.008480508116956147,
+              "changed_coordinates": 59978,
+              "max_quantization_error": 0.4995223504520254,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/checkpoint-30.json"
+            },
+            {
+              "update": 40,
+              "validation_objective": 636569.1476738553,
+              "validation_mean_regret": 636569.1359643518,
+              "validation_relative_regret": 0.0969893505143709,
+              "train_objective": 610882.2730206508,
+              "regularization": 0.011709503457916836,
+              "changed_coordinates": 59984,
+              "max_quantization_error": 0.4999943629227346,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/checkpoint-40.json"
+            },
+            {
+              "update": 50,
+              "validation_objective": 636517.2413713011,
+              "validation_mean_regret": 636517.2263839291,
+              "validation_relative_regret": 0.09698194984879789,
+              "train_objective": 610830.9869887392,
+              "regularization": 0.014987371974627356,
+              "changed_coordinates": 59989,
+              "max_quantization_error": 0.4997801149293082,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/checkpoint-50.json"
+            }
+          ],
+          "selected_update": 50,
+          "selected_validation_objective": 636517.2413713011,
+          "selected_changed_coordinates": 59989,
+          "selected_checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/checkpoint-50.json"
+        },
+        "selected_evaluation_command": [
+          "target/release/evaluate",
+          "--checkpoint",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/checkpoint-50.json",
+          "--split",
+          "validation",
+          "--variant",
+          "scale_fixed_seed20260715",
+          "--output",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/evaluation-selected.json"
+        ],
+        "selected_validation_metrics": {
+          "edge_f1": 0.6031338129760584,
+          "edge_jaccard": 0.5327231904324821,
+          "edge_precision": 0.6103438360319822,
+          "edge_recall": 0.6028729471912229,
+          "exact_match": 0.3461295218821149,
+          "mean_regret": 636517.2263840988,
+          "relative_regret": 0.09698194984882104,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.6034666866010547,
+          "edge_jaccard": 0.5331433756323303,
+          "edge_precision": 0.6109613573710202,
+          "edge_recall": 0.6028600843897679,
+          "exact_match": 0.3469516822666329,
+          "mean_regret": 636965.7496205413,
+          "relative_regret": 0.09704587340453025,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": -0.0006175213390380296,
+          "edge_recall": 1.2862801454960326e-05,
+          "edge_f1": -0.00033287362499634376,
+          "exact_match": -0.0008221603845180447,
+          "edge_jaccard": -0.0004201851998482109,
+          "mean_regret": -448.52323644259013,
+          "relative_regret": -6.392355570920827e-05
+        },
+        "health_checks": {
+          "graph_representation": true,
+          "completed_updates": true,
+          "train_objective_finite": true,
+          "validation_objective_finite": true,
+          "weights_changed": true,
+          "shortest_path_queries_ok": true,
+          "checkpoint_restore_verified": true,
+          "test_not_read": true,
+          "checkpoint_exists": true
+        },
+        "test_read": false,
+        "runner_result": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta1000_10pct_u50/runner_result.json"
+      },
+      {
+        "run_id": "edge_transition_arcs_eta3000_10pct_u50",
+        "graph_representation": "edge_transition_arcs",
+        "eta0": 3000.0,
+        "lambda": 0.001,
+        "updates": 50,
+        "validation_every": 10,
+        "rayon_threads": 4,
+        "config_path": "experiments/configs/edge_transition_arcs_eta3000_10pct_u50.json",
+        "config_sha256": "2aa414f3f2772806d31cec2f31e13167dd912a81aadbbd8702a981d37e2c7363",
+        "training_command": [
+          "target/release/train",
+          "--config",
+          "experiments/configs/edge_transition_arcs_eta3000_10pct_u50.json",
+          "--output-dir",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50"
+        ],
+        "training_log": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/training.jsonl",
+        "training_wall_seconds": 55.354784066999855,
+        "total_wall_seconds": 60.52537682399998,
+        "peak_rss_kib": 221468,
+        "final_changed_coordinates": 60041,
+        "final_changed_quantized_coordinates": 59932,
+        "checkpoint_selection": {
+          "rule": "minimum validation objective; earliest update breaks exact ties",
+          "candidates": [
+            {
+              "update": 0,
+              "validation_objective": 636965.7496205413,
+              "validation_mean_regret": 636965.7496205413,
+              "validation_relative_regret": 0.09704587340453025,
+              "train_objective": 611273.6967184192,
+              "regularization": 0.0,
+              "changed_coordinates": 0,
+              "max_quantization_error": 0.0,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/checkpoint-0.json"
+            },
+            {
+              "update": 10,
+              "validation_objective": 636436.6585204905,
+              "validation_mean_regret": 636436.6376315184,
+              "validation_relative_regret": 0.09697046405326425,
+              "train_objective": 610751.3804110779,
+              "regularization": 0.02088897204183296,
+              "changed_coordinates": 59991,
+              "max_quantization_error": 0.4998425642725124,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/checkpoint-10.json"
+            },
+            {
+              "update": 20,
+              "validation_objective": 636168.5862777892,
+              "validation_mean_regret": 636168.5386763017,
+              "validation_relative_regret": 0.09693225811748034,
+              "train_objective": 610486.5049161357,
+              "regularization": 0.0476014875447189,
+              "changed_coordinates": 60002,
+              "max_quantization_error": 0.49945359715638915,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/checkpoint-20.json"
+            },
+            {
+              "update": 30,
+              "validation_objective": 635962.3252914824,
+              "validation_mean_regret": 635962.2496593166,
+              "validation_relative_regret": 0.09690285103799545,
+              "train_objective": 610282.4731258587,
+              "regularization": 0.07563216578412044,
+              "changed_coordinates": 60002,
+              "max_quantization_error": 0.4996433195337886,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/checkpoint-30.json"
+            },
+            {
+              "update": 40,
+              "validation_objective": 635788.6022190105,
+              "validation_mean_regret": 635788.4979171299,
+              "validation_relative_regret": 0.09687808081048116,
+              "train_objective": 610110.5895273875,
+              "regularization": 0.10430188059326088,
+              "changed_coordinates": 60026,
+              "max_quantization_error": 0.49970686819870025,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/checkpoint-40.json"
+            },
+            {
+              "update": 50,
+              "validation_objective": 635635.8970667381,
+              "validation_mean_regret": 635635.7636984602,
+              "validation_relative_regret": 0.09685630248560541,
+              "train_objective": 609959.3416516013,
+              "regularization": 0.13336827792279393,
+              "changed_coordinates": 60041,
+              "max_quantization_error": 0.49980069012963213,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/checkpoint-50.json"
+            }
+          ],
+          "selected_update": 50,
+          "selected_validation_objective": 635635.8970667381,
+          "selected_changed_coordinates": 60041,
+          "selected_checkpoint": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/checkpoint-50.json"
+        },
+        "selected_evaluation_command": [
+          "target/release/evaluate",
+          "--checkpoint",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/checkpoint-50.json",
+          "--split",
+          "validation",
+          "--variant",
+          "scale_fixed_seed20260715",
+          "--output",
+          "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/evaluation-selected.json"
+        ],
+        "selected_validation_metrics": {
+          "edge_f1": 0.6028083008939519,
+          "edge_jaccard": 0.5321715555267668,
+          "edge_precision": 0.6099307470535709,
+          "edge_recall": 0.6027031298556733,
+          "exact_match": 0.34467493043258285,
+          "mean_regret": 635635.7636985796,
+          "relative_regret": 0.09685630248562185,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.6034666866010547,
+          "edge_jaccard": 0.5331433756323303,
+          "edge_precision": 0.6109613573710202,
+          "edge_recall": 0.6028600843897679,
+          "exact_match": 0.3469516822666329,
+          "mean_regret": 636965.7496205413,
+          "relative_regret": 0.09704587340453025,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": -0.001030610317449332,
+          "edge_recall": -0.00015695453409458882,
+          "edge_f1": -0.0006583857071028598,
+          "exact_match": -0.0022767518340500725,
+          "edge_jaccard": -0.0009718201055635145,
+          "mean_regret": -1329.985921961721,
+          "relative_regret": -0.00018957091890839384
+        },
+        "health_checks": {
+          "graph_representation": true,
+          "completed_updates": true,
+          "train_objective_finite": true,
+          "validation_objective_finite": true,
+          "weights_changed": true,
+          "shortest_path_queries_ok": true,
+          "checkpoint_restore_verified": true,
+          "test_not_read": true,
+          "checkpoint_exists": true
+        },
+        "test_read": false,
+        "runner_result": "artifacts/line_graph_10pct_calibration/screening/edge_transition_arcs_eta3000_10pct_u50/runner_result.json"
+      },
+      {
+        "run_id": "original_edges_eta100_10pct_u50",
+        "graph_representation": "original_edges",
+        "eta0": 100.0,
+        "lambda": 0.001,
+        "updates": 50,
+        "validation_every": 10,
+        "rayon_threads": 4,
+        "config_path": "experiments/configs/original_edges_eta100_10pct_u50.json",
+        "config_sha256": "acdfbfd8f7a492c9ca9d041c8287e9acd033f43564f78cf15be64279582b2777",
+        "training_command": [
+          "target/release/train",
+          "--config",
+          "experiments/configs/original_edges_eta100_10pct_u50.json",
+          "--output-dir",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50"
+        ],
+        "training_log": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/training.jsonl",
+        "training_wall_seconds": 23.26278048899985,
+        "total_wall_seconds": 25.47650566700031,
+        "peak_rss_kib": 161948,
+        "final_changed_coordinates": 41019,
+        "final_changed_quantized_coordinates": 10917,
+        "checkpoint_selection": {
+          "rule": "minimum validation objective; earliest update breaks exact ties",
+          "candidates": [
+            {
+              "update": 0,
+              "validation_objective": 650449.9359347331,
+              "validation_mean_regret": 650449.9359347331,
+              "validation_relative_regret": 0.0945596880145798,
+              "train_objective": 624440.6063225765,
+              "regularization": 0.0,
+              "changed_coordinates": 0,
+              "max_quantization_error": 0.0,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/checkpoint-0.json"
+            },
+            {
+              "update": 10,
+              "validation_objective": 650430.1803793978,
+              "validation_mean_regret": 650430.1803117024,
+              "validation_relative_regret": 0.09455699570638224,
+              "train_objective": 624421.1500851854,
+              "regularization": 6.769536670341002e-05,
+              "changed_coordinates": 41017,
+              "max_quantization_error": 0.4992957472568378,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/checkpoint-10.json"
+            },
+            {
+              "update": 20,
+              "validation_objective": 650420.0530351328,
+              "validation_mean_regret": 650420.0528802329,
+              "validation_relative_regret": 0.09455561553381628,
+              "train_objective": 624411.1754312168,
+              "regularization": 0.00015489994628312096,
+              "changed_coordinates": 41017,
+              "max_quantization_error": 0.4994609602726996,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/checkpoint-20.json"
+            },
+            {
+              "update": 30,
+              "validation_objective": 650412.2244454931,
+              "validation_mean_regret": 650412.2241988024,
+              "validation_relative_regret": 0.0945545486307268,
+              "train_objective": 624403.465046491,
+              "regularization": 0.00024669073599474295,
+              "changed_coordinates": 41018,
+              "max_quantization_error": 0.49773239047499374,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/checkpoint-30.json"
+            },
+            {
+              "update": 40,
+              "validation_objective": 650405.6053488672,
+              "validation_mean_regret": 650405.6050079784,
+              "validation_relative_regret": 0.09455364655433375,
+              "train_objective": 624396.9462451875,
+              "regularization": 0.0003408888517943746,
+              "changed_coordinates": 41018,
+              "max_quantization_error": 0.4999803677201271,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/checkpoint-40.json"
+            },
+            {
+              "update": 50,
+              "validation_objective": 650399.7682003076,
+              "validation_mean_regret": 650399.7677636796,
+              "validation_relative_regret": 0.09455285103072306,
+              "train_objective": 624391.1965793454,
+              "regularization": 0.000436627964451808,
+              "changed_coordinates": 41019,
+              "max_quantization_error": 0.49974042861140333,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/checkpoint-50.json"
+            }
+          ],
+          "selected_update": 50,
+          "selected_validation_objective": 650399.7682003076,
+          "selected_changed_coordinates": 41019,
+          "selected_checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/checkpoint-50.json"
+        },
+        "selected_evaluation_command": [
+          "target/release/evaluate",
+          "--checkpoint",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/checkpoint-50.json",
+          "--split",
+          "validation",
+          "--variant",
+          "scale_fixed_seed20260715",
+          "--output",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/evaluation-selected.json"
+        ],
+        "selected_validation_metrics": {
+          "edge_f1": 0.5897850534073419,
+          "edge_jaccard": 0.5196015267885412,
+          "edge_precision": 0.5963457774412938,
+          "edge_recall": 0.5901295732523729,
+          "exact_match": 0.3360738679483936,
+          "mean_regret": 650399.7677636483,
+          "relative_regret": 0.09455285103071893,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.5899016056370742,
+          "edge_jaccard": 0.5197932564931808,
+          "edge_precision": 0.5965286909653134,
+          "edge_recall": 0.5901614633877461,
+          "exact_match": 0.33664305590690613,
+          "mean_regret": 650449.9359347331,
+          "relative_regret": 0.0945596880145798,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": -0.00018291352401955674,
+          "edge_recall": -3.189013537319152e-05,
+          "edge_f1": -0.00011655222973228074,
+          "exact_match": -0.0005691879585125181,
+          "edge_jaccard": -0.00019172970463954275,
+          "mean_regret": -50.168171084835194,
+          "relative_regret": -6.836983860863954e-06
+        },
+        "health_checks": {
+          "graph_representation": true,
+          "completed_updates": true,
+          "train_objective_finite": true,
+          "validation_objective_finite": true,
+          "weights_changed": true,
+          "shortest_path_queries_ok": true,
+          "checkpoint_restore_verified": true,
+          "test_not_read": true,
+          "checkpoint_exists": true
+        },
+        "test_read": false,
+        "runner_result": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta100_10pct_u50/runner_result.json"
+      },
+      {
+        "run_id": "original_edges_eta300_10pct_u50",
+        "graph_representation": "original_edges",
+        "eta0": 300.0,
+        "lambda": 0.001,
+        "updates": 50,
+        "validation_every": 10,
+        "rayon_threads": 4,
+        "config_path": "experiments/configs/original_edges_eta300_10pct_u50.json",
+        "config_sha256": "2a7dd3d9de671a2b18b1890d9bbfe2b0ad47293cd8ca1d6a134853badf4c6e18",
+        "training_command": [
+          "target/release/train",
+          "--config",
+          "experiments/configs/original_edges_eta300_10pct_u50.json",
+          "--output-dir",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50"
+        ],
+        "training_log": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/training.jsonl",
+        "training_wall_seconds": 23.160689869000635,
+        "total_wall_seconds": 25.327883781999844,
+        "peak_rss_kib": 161952,
+        "final_changed_coordinates": 41021,
+        "final_changed_quantized_coordinates": 18694,
+        "checkpoint_selection": {
+          "rule": "minimum validation objective; earliest update breaks exact ties",
+          "candidates": [
+            {
+              "update": 0,
+              "validation_objective": 650449.9359347331,
+              "validation_mean_regret": 650449.9359347331,
+              "validation_relative_regret": 0.0945596880145798,
+              "train_objective": 624440.6063225765,
+              "regularization": 0.0,
+              "changed_coordinates": 0,
+              "max_quantization_error": 0.0,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/checkpoint-0.json"
+            },
+            {
+              "update": 10,
+              "validation_objective": 650390.6799878804,
+              "validation_mean_regret": 650390.679378718,
+              "validation_relative_regret": 0.0945516123645675,
+              "train_objective": 624382.2457940644,
+              "regularization": 0.0006091623983763757,
+              "changed_coordinates": 41019,
+              "max_quantization_error": 0.49983777588931844,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/checkpoint-10.json"
+            },
+            {
+              "update": 20,
+              "validation_objective": 650360.3139291533,
+              "validation_mean_regret": 650360.3125354372,
+              "validation_relative_regret": 0.0945474736520726,
+              "train_objective": 624352.3385783359,
+              "regularization": 0.0013937160414065062,
+              "changed_coordinates": 41019,
+              "max_quantization_error": 0.4985826157499105,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/checkpoint-20.json"
+            },
+            {
+              "update": 30,
+              "validation_objective": 650336.8428932013,
+              "validation_mean_regret": 650336.8406737868,
+              "validation_relative_regret": 0.09454427459043045,
+              "train_objective": 624329.221289063,
+              "regularization": 0.002219414401475677,
+              "changed_coordinates": 41020,
+              "max_quantization_error": 0.4992982133553596,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/checkpoint-30.json"
+            },
+            {
+              "update": 40,
+              "validation_objective": 650317.0035606186,
+              "validation_mean_regret": 650317.0004939855,
+              "validation_relative_regret": 0.09454157038751228,
+              "train_objective": 624309.6808099126,
+              "regularization": 0.0030666331564518914,
+              "changed_coordinates": 41021,
+              "max_quantization_error": 0.4998732020612806,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/checkpoint-40.json"
+            },
+            {
+              "update": 50,
+              "validation_objective": 650299.504366293,
+              "validation_mean_regret": 650299.5004388243,
+              "validation_relative_regret": 0.09453918507838933,
+              "train_objective": 624292.4462020629,
+              "regularization": 0.0039274686600205486,
+              "changed_coordinates": 41021,
+              "max_quantization_error": 0.49948678648797795,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/checkpoint-50.json"
+            }
+          ],
+          "selected_update": 50,
+          "selected_validation_objective": 650299.504366293,
+          "selected_changed_coordinates": 41021,
+          "selected_checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/checkpoint-50.json"
+        },
+        "selected_evaluation_command": [
+          "target/release/evaluate",
+          "--checkpoint",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/checkpoint-50.json",
+          "--split",
+          "validation",
+          "--variant",
+          "scale_fixed_seed20260715",
+          "--output",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/evaluation-selected.json"
+        ],
+        "selected_validation_metrics": {
+          "edge_f1": 0.5898206529967589,
+          "edge_jaccard": 0.5196294311239753,
+          "edge_precision": 0.596377257895748,
+          "edge_recall": 0.5901741695652644,
+          "exact_match": 0.336137111054895,
+          "mean_regret": 650299.5004387023,
+          "relative_regret": 0.09453918507837317,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.5899016056370742,
+          "edge_jaccard": 0.5197932564931808,
+          "edge_precision": 0.5965286909653134,
+          "edge_recall": 0.5901614633877461,
+          "exact_match": 0.33664305590690613,
+          "mean_regret": 650449.9359347331,
+          "relative_regret": 0.0945596880145798,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": -0.0001514330695653321,
+          "edge_recall": 1.2706177518251316e-05,
+          "edge_f1": -8.095264031526828e-05,
+          "exact_match": -0.0005059448520111087,
+          "edge_jaccard": -0.00016382536920545032,
+          "mean_regret": -150.43549603084102,
+          "relative_regret": -2.0502936206631683e-05
+        },
+        "health_checks": {
+          "graph_representation": true,
+          "completed_updates": true,
+          "train_objective_finite": true,
+          "validation_objective_finite": true,
+          "weights_changed": true,
+          "shortest_path_queries_ok": true,
+          "checkpoint_restore_verified": true,
+          "test_not_read": true,
+          "checkpoint_exists": true
+        },
+        "test_read": false,
+        "runner_result": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta300_10pct_u50/runner_result.json"
+      },
+      {
+        "run_id": "original_edges_eta1000_10pct_u50",
+        "graph_representation": "original_edges",
+        "eta0": 1000.0,
+        "lambda": 0.001,
+        "updates": 50,
+        "validation_every": 10,
+        "rayon_threads": 4,
+        "config_path": "experiments/configs/original_edges_eta1000_10pct_u50.json",
+        "config_sha256": "2fc8f74a2ccc838ca6e96c6edb68f44af1adce7e2ce9dc365598d85697cc7569",
+        "training_command": [
+          "target/release/train",
+          "--config",
+          "experiments/configs/original_edges_eta1000_10pct_u50.json",
+          "--output-dir",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50"
+        ],
+        "training_log": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/training.jsonl",
+        "training_wall_seconds": 22.876988408000216,
+        "total_wall_seconds": 24.990893735999634,
+        "peak_rss_kib": 162080,
+        "final_changed_coordinates": 41030,
+        "final_changed_quantized_coordinates": 28463,
+        "checkpoint_selection": {
+          "rule": "minimum validation objective; earliest update breaks exact ties",
+          "candidates": [
+            {
+              "update": 0,
+              "validation_objective": 650449.9359347331,
+              "validation_mean_regret": 650449.9359347331,
+              "validation_relative_regret": 0.0945596880145798,
+              "train_objective": 624440.6063225765,
+              "regularization": 0.0,
+              "changed_coordinates": 0,
+              "max_quantization_error": 0.0,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/checkpoint-0.json"
+            },
+            {
+              "update": 10,
+              "validation_objective": 650252.5521070621,
+              "validation_mean_regret": 650252.5453435539,
+              "validation_relative_regret": 0.09453278535925681,
+              "train_objective": 624246.206806594,
+              "regularization": 0.006763508211459657,
+              "changed_coordinates": 41024,
+              "max_quantization_error": 0.4997931324178353,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/checkpoint-10.json"
+            },
+            {
+              "update": 20,
+              "validation_objective": 650151.6661101816,
+              "validation_mean_regret": 650151.6506514971,
+              "validation_relative_regret": 0.0945190307267576,
+              "train_objective": 624146.8380992125,
+              "regularization": 0.01545868452234467,
+              "changed_coordinates": 41026,
+              "max_quantization_error": 0.49997652281308547,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/checkpoint-20.json"
+            },
+            {
+              "update": 30,
+              "validation_objective": 650073.9025337059,
+              "validation_mean_regret": 650073.8779389198,
+              "validation_relative_regret": 0.0945084252816331,
+              "train_objective": 624070.2113206221,
+              "regularization": 0.024594786060314698,
+              "changed_coordinates": 41027,
+              "max_quantization_error": 0.4998281225998653,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/checkpoint-30.json"
+            },
+            {
+              "update": 40,
+              "validation_objective": 650008.2867330253,
+              "validation_mean_regret": 650008.2527772607,
+              "validation_relative_regret": 0.0944994761193704,
+              "train_objective": 624005.5624570133,
+              "regularization": 0.03395576460248528,
+              "changed_coordinates": 41028,
+              "max_quantization_error": 0.4994836029072758,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/checkpoint-40.json"
+            },
+            {
+              "update": 50,
+              "validation_objective": 649950.54516621,
+              "validation_mean_regret": 649950.5017180198,
+              "validation_relative_regret": 0.09449160026477833,
+              "train_objective": 623948.6754647349,
+              "regularization": 0.04344819020012596,
+              "changed_coordinates": 41030,
+              "max_quantization_error": 0.499982291366905,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/checkpoint-50.json"
+            }
+          ],
+          "selected_update": 50,
+          "selected_validation_objective": 649950.54516621,
+          "selected_changed_coordinates": 41030,
+          "selected_checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/checkpoint-50.json"
+        },
+        "selected_evaluation_command": [
+          "target/release/evaluate",
+          "--checkpoint",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/checkpoint-50.json",
+          "--split",
+          "validation",
+          "--variant",
+          "scale_fixed_seed20260715",
+          "--output",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/evaluation-selected.json"
+        ],
+        "selected_validation_metrics": {
+          "edge_f1": 0.5896459993718317,
+          "edge_jaccard": 0.5193693610153984,
+          "edge_precision": 0.5959326331022031,
+          "edge_recall": 0.5903337849605989,
+          "exact_match": 0.3355046799898811,
+          "mean_regret": 649950.501717988,
+          "relative_regret": 0.09449160026477402,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.5899016056370742,
+          "edge_jaccard": 0.5197932564931808,
+          "edge_precision": 0.5965286909653134,
+          "edge_recall": 0.5901614633877461,
+          "exact_match": 0.33664305590690613,
+          "mean_regret": 650449.9359347331,
+          "relative_regret": 0.0945596880145798,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": -0.0005960578631102331,
+          "edge_recall": 0.00017232157285274052,
+          "edge_f1": -0.00025560626524245844,
+          "exact_match": -0.0011383759170250363,
+          "edge_jaccard": -0.00042389547778232117,
+          "mean_regret": -499.43421674508136,
+          "relative_regret": -6.808774980578136e-05
+        },
+        "health_checks": {
+          "graph_representation": true,
+          "completed_updates": true,
+          "train_objective_finite": true,
+          "validation_objective_finite": true,
+          "weights_changed": true,
+          "shortest_path_queries_ok": true,
+          "checkpoint_restore_verified": true,
+          "test_not_read": true,
+          "checkpoint_exists": true
+        },
+        "test_read": false,
+        "runner_result": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta1000_10pct_u50/runner_result.json"
+      },
+      {
+        "run_id": "original_edges_eta3000_10pct_u50",
+        "graph_representation": "original_edges",
+        "eta0": 3000.0,
+        "lambda": 0.001,
+        "updates": 50,
+        "validation_every": 10,
+        "rayon_threads": 4,
+        "config_path": "experiments/configs/original_edges_eta3000_10pct_u50.json",
+        "config_sha256": "e738ab5b750f2e8d4f83442f7d78a62b109e313b3c48cc0fe339a410908635dd",
+        "training_command": [
+          "target/release/train",
+          "--config",
+          "experiments/configs/original_edges_eta3000_10pct_u50.json",
+          "--output-dir",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50"
+        ],
+        "training_log": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/training.jsonl",
+        "training_wall_seconds": 23.03381312700003,
+        "total_wall_seconds": 25.17005633200006,
+        "peak_rss_kib": 162076,
+        "final_changed_coordinates": 41057,
+        "final_changed_quantized_coordinates": 41002,
+        "checkpoint_selection": {
+          "rule": "minimum validation objective; earliest update breaks exact ties",
+          "candidates": [
+            {
+              "update": 0,
+              "validation_objective": 650449.9359347331,
+              "validation_mean_regret": 650449.9359347331,
+              "validation_relative_regret": 0.0945596880145798,
+              "train_objective": 624440.6063225765,
+              "regularization": 0.0,
+              "changed_coordinates": 0,
+              "max_quantization_error": 0.0,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/checkpoint-0.json"
+            },
+            {
+              "update": 10,
+              "validation_objective": 649860.8358291696,
+              "validation_mean_regret": 649860.7752823225,
+              "validation_relative_regret": 0.09447936984774108,
+              "train_objective": 623860.311354863,
+              "regularization": 0.060546847096640044,
+              "changed_coordinates": 41032,
+              "max_quantization_error": 0.4999875995563343,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/checkpoint-10.json"
+            },
+            {
+              "update": 20,
+              "validation_objective": 649562.543691479,
+              "validation_mean_regret": 649562.4057309715,
+              "validation_relative_regret": 0.0944386962850802,
+              "train_objective": 623566.2263104576,
+              "regularization": 0.1379605075491607,
+              "changed_coordinates": 41037,
+              "max_quantization_error": 0.49972578312372207,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/checkpoint-20.json"
+            },
+            {
+              "update": 30,
+              "validation_objective": 649333.0592396191,
+              "validation_mean_regret": 649332.8401027991,
+              "validation_relative_regret": 0.09440740013331053,
+              "train_objective": 623339.8806579196,
+              "regularization": 0.21913681993848796,
+              "changed_coordinates": 41040,
+              "max_quantization_error": 0.49993878850364126,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/checkpoint-30.json"
+            },
+            {
+              "update": 40,
+              "validation_objective": 649140.1031626959,
+              "validation_mean_regret": 649139.8010258529,
+              "validation_relative_regret": 0.09438107339684633,
+              "train_objective": 623149.2876328984,
+              "regularization": 0.30213684296239174,
+              "changed_coordinates": 41056,
+              "max_quantization_error": 0.49995103862602264,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/checkpoint-40.json"
+            },
+            {
+              "update": 50,
+              "validation_objective": 648970.4756576747,
+              "validation_mean_regret": 648970.0893824418,
+              "validation_relative_regret": 0.09435792313589376,
+              "train_objective": 622981.610370412,
+              "regularization": 0.3862752328651672,
+              "changed_coordinates": 41057,
+              "max_quantization_error": 0.49975016438111197,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/checkpoint-50.json"
+            }
+          ],
+          "selected_update": 50,
+          "selected_validation_objective": 648970.4756576747,
+          "selected_changed_coordinates": 41057,
+          "selected_checkpoint": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/checkpoint-50.json"
+        },
+        "selected_evaluation_command": [
+          "target/release/evaluate",
+          "--checkpoint",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/checkpoint-50.json",
+          "--split",
+          "validation",
+          "--variant",
+          "scale_fixed_seed20260715",
+          "--output",
+          "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/evaluation-selected.json"
+        ],
+        "selected_validation_metrics": {
+          "edge_f1": 0.5893589393965469,
+          "edge_jaccard": 0.5187482444205848,
+          "edge_precision": 0.5955860892271688,
+          "edge_recall": 0.5902031310048392,
+          "exact_match": 0.33379711611434354,
+          "mean_regret": 648970.0893824277,
+          "relative_regret": 0.09435792313589168,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.5899016056370742,
+          "edge_jaccard": 0.5197932564931808,
+          "edge_precision": 0.5965286909653134,
+          "edge_recall": 0.5901614633877461,
+          "exact_match": 0.33664305590690613,
+          "mean_regret": 650449.9359347331,
+          "relative_regret": 0.0945596880145798,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": -0.0009426017381445329,
+          "edge_recall": 4.1667617093121834e-05,
+          "edge_f1": -0.0005426662405272342,
+          "exact_match": -0.0028459397925625907,
+          "edge_jaccard": -0.0010450120725959966,
+          "mean_regret": -1479.8465523053892,
+          "relative_regret": -0.00020176487868811543
+        },
+        "health_checks": {
+          "graph_representation": true,
+          "completed_updates": true,
+          "train_objective_finite": true,
+          "validation_objective_finite": true,
+          "weights_changed": true,
+          "shortest_path_queries_ok": true,
+          "checkpoint_restore_verified": true,
+          "test_not_read": true,
+          "checkpoint_exists": true
+        },
+        "test_read": false,
+        "runner_result": "artifacts/line_graph_10pct_calibration/screening/original_edges_eta3000_10pct_u50/runner_result.json"
+      }
+    ],
+    "selection": {
+      "original_edges": {
+        "initial_best_eta0": 300.0,
+        "boundary_supplement_eta0": 100.0,
+        "selected_eta0": 300.0,
+        "selected_run_id": "original_edges_eta300_10pct_u50",
+        "selection_metrics": {
+          "edge_f1": 0.5898206529967589,
+          "exact_match": 0.336137111054895,
+          "validation_objective": 650299.504366293
+        }
+      },
+      "edge_transition_arcs": {
+        "initial_best_eta0": 300.0,
+        "boundary_supplement_eta0": 100.0,
+        "selected_eta0": 100.0,
+        "selected_run_id": "edge_transition_arcs_eta100_10pct_u50",
+        "selection_metrics": {
+          "edge_f1": 0.6033804414229108,
+          "exact_match": 0.3463824943081204,
+          "validation_objective": 636920.7071334145
+        }
+      }
+    }
+  },
+  "development": {
+    "runs": {
+      "edge_transition_arcs": {
+        "run_id": "edge_transition_arcs_eta100_10pct_u200",
+        "graph_representation": "edge_transition_arcs",
+        "eta0": 100.0,
+        "lambda": 0.001,
+        "updates": 200,
+        "validation_every": 10,
+        "rayon_threads": 4,
+        "config_path": "experiments/configs/edge_transition_arcs_eta100_10pct_u200.json",
+        "config_sha256": "21f4e97228c08692b243fa9075f2278a2d43c68a44bb07bd84818c0d5cc821f0",
+        "training_command": [
+          "target/release/train",
+          "--config",
+          "experiments/configs/edge_transition_arcs_eta100_10pct_u200.json",
+          "--output-dir",
+          "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200"
+        ],
+        "training_log": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/training.jsonl",
+        "training_wall_seconds": 207.69002889500007,
+        "total_wall_seconds": 212.80697784199947,
+        "peak_rss_kib": 220444,
+        "final_changed_coordinates": 59955,
+        "final_changed_quantized_coordinates": 18598,
+        "checkpoint_selection": {
+          "rule": "minimum validation objective; earliest update breaks exact ties",
+          "candidates": [
+            {
+              "update": 0,
+              "validation_objective": 636965.7496205413,
+              "validation_mean_regret": 636965.7496205413,
+              "validation_relative_regret": 0.09704587340453025,
+              "train_objective": 611273.6967184192,
+              "regularization": 0.0,
+              "changed_coordinates": 0,
+              "max_quantization_error": 0.0,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-0.json"
+            },
+            {
+              "update": 10,
+              "validation_objective": 636948.0132587544,
+              "validation_mean_regret": 636948.013235413,
+              "validation_relative_regret": 0.09704334647715608,
+              "train_objective": 611256.1956615221,
+              "regularization": 2.334137084735664e-05,
+              "changed_coordinates": 59947,
+              "max_quantization_error": 0.49929669410630595,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-10.json"
+            },
+            {
+              "update": 20,
+              "validation_objective": 636938.9207244262,
+              "validation_mean_regret": 636938.9206710196,
+              "validation_relative_regret": 0.0970420510611366,
+              "train_objective": 611247.2239659589,
+              "regularization": 5.340654799692931e-05,
+              "changed_coordinates": 59947,
+              "max_quantization_error": 0.49946248007472605,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-20.json"
+            },
+            {
+              "update": 30,
+              "validation_objective": 636931.8924921021,
+              "validation_mean_regret": 636931.8924070484,
+              "validation_relative_regret": 0.09704104975148259,
+              "train_objective": 611240.2887505237,
+              "regularization": 8.50536823407116e-05,
+              "changed_coordinates": 59949,
+              "max_quantization_error": 0.496265723137185,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-30.json"
+            },
+            {
+              "update": 40,
+              "validation_objective": 636925.9499291491,
+              "validation_mean_regret": 636925.9498116175,
+              "validation_relative_regret": 0.0970402031091239,
+              "train_objective": 611234.4250082565,
+              "regularization": 0.00011753162123045501,
+              "changed_coordinates": 59949,
+              "max_quantization_error": 0.4999873467022553,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-40.json"
+            },
+            {
+              "update": 50,
+              "validation_objective": 636920.7071334145,
+              "validation_mean_regret": 636920.7069828729,
+              "validation_relative_regret": 0.09703945612595843,
+              "train_objective": 611229.2511784163,
+              "regularization": 0.0001505415337474414,
+              "changed_coordinates": 59950,
+              "max_quantization_error": 0.49987106960907113,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-50.json"
+            },
+            {
+              "update": 60,
+              "validation_objective": 636915.9619872591,
+              "validation_mean_regret": 636915.9618033282,
+              "validation_relative_regret": 0.0970387800204346,
+              "train_objective": 611224.5688548692,
+              "regularization": 0.0001839308715119524,
+              "changed_coordinates": 59950,
+              "max_quantization_error": 0.49917997665761504,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-60.json"
+            },
+            {
+              "update": 70,
+              "validation_objective": 636911.5950812006,
+              "validation_mean_regret": 636911.5948635935,
+              "validation_relative_regret": 0.09703815776156628,
+              "train_objective": 611220.2596008687,
+              "regularization": 0.00021760715182359946,
+              "changed_coordinates": 59952,
+              "max_quantization_error": 0.49990218732273206,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-70.json"
+            },
+            {
+              "update": 80,
+              "validation_objective": 636907.5311313049,
+              "validation_mean_regret": 636907.530879791,
+              "validation_relative_regret": 0.09703757869864979,
+              "train_objective": 611216.2490368176,
+              "regularization": 0.00025151395522027834,
+              "changed_coordinates": 59952,
+              "max_quantization_error": 0.4992366733495146,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-80.json"
+            },
+            {
+              "update": 90,
+              "validation_objective": 636903.7105152,
+              "validation_mean_regret": 636903.7102295884,
+              "validation_relative_regret": 0.09703703436493505,
+              "train_objective": 611212.4791247098,
+              "regularization": 0.00028561164860807124,
+              "changed_coordinates": 59952,
+              "max_quantization_error": 0.4994537897655391,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-90.json"
+            },
+            {
+              "update": 100,
+              "validation_objective": 636900.0971897646,
+              "validation_mean_regret": 636900.0968698974,
+              "validation_relative_regret": 0.09703651957864287,
+              "train_objective": 611208.9136396733,
+              "regularization": 0.00031986716592819305,
+              "changed_coordinates": 59952,
+              "max_quantization_error": 0.4998298660502769,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-100.json"
+            },
+            {
+              "update": 110,
+              "validation_objective": 636896.6576063513,
+              "validation_mean_regret": 636896.6572520987,
+              "validation_relative_regret": 0.09703602945501451,
+              "train_objective": 611205.5195103774,
+              "regularization": 0.00035425266901684447,
+              "changed_coordinates": 59952,
+              "max_quantization_error": 0.4993052632926265,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-110.json"
+            },
+            {
+              "update": 120,
+              "validation_objective": 636893.3735737507,
+              "validation_mean_regret": 636893.3731849925,
+              "validation_relative_regret": 0.09703556158734876,
+              "train_objective": 611202.2786638994,
+              "regularization": 0.0003887582101818003,
+              "changed_coordinates": 59952,
+              "max_quantization_error": 0.499551402812358,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-120.json"
+            },
+            {
+              "update": 130,
+              "validation_objective": 636890.2175562148,
+              "validation_mean_regret": 636890.2171328482,
+              "validation_relative_regret": 0.09703511190743352,
+              "train_objective": 611199.1646971225,
+              "regularization": 0.00042336658066947875,
+              "changed_coordinates": 59952,
+              "max_quantization_error": 0.4994623659476929,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-130.json"
+            },
+            {
+              "update": 140,
+              "validation_objective": 636887.1827582514,
+              "validation_mean_regret": 636887.1823001874,
+              "validation_relative_regret": 0.09703467949907225,
+              "train_objective": 611196.1701651559,
+              "regularization": 0.0004580640115766088,
+              "changed_coordinates": 59952,
+              "max_quantization_error": 0.4998873015283607,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-140.json"
+            },
+            {
+              "update": 150,
+              "validation_objective": 636884.257113567,
+              "validation_mean_regret": 636884.2566207261,
+              "validation_relative_regret": 0.09703426265607688,
+              "train_objective": 611193.2830113242,
+              "regularization": 0.0004928409436379411,
+              "changed_coordinates": 59955,
+              "max_quantization_error": 0.4999949282300804,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-150.json"
+            },
+            {
+              "update": 160,
+              "validation_objective": 636881.4254618065,
+              "validation_mean_regret": 636881.424934115,
+              "validation_relative_regret": 0.09703385919087651,
+              "train_objective": 611190.488717557,
+              "regularization": 0.0005276915035120131,
+              "changed_coordinates": 59955,
+              "max_quantization_error": 0.49991015750856604,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-160.json"
+            },
+            {
+              "update": 170,
+              "validation_objective": 636878.6810769321,
+              "validation_mean_regret": 636878.6805143214,
+              "validation_relative_regret": 0.09703346819657242,
+              "train_objective": 611187.7807249753,
+              "regularization": 0.0005626106637388135,
+              "changed_coordinates": 59955,
+              "max_quantization_error": 0.4996611436508829,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-170.json"
+            },
+            {
+              "update": 180,
+              "validation_objective": 636876.0136714904,
+              "validation_mean_regret": 636876.0130739065,
+              "validation_relative_regret": 0.0970330881090021,
+              "train_objective": 611185.1485752899,
+              "regularization": 0.0005975837980853126,
+              "changed_coordinates": 59955,
+              "max_quantization_error": 0.4994539222534513,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-180.json"
+            },
+            {
+              "update": 190,
+              "validation_objective": 636873.4235600554,
+              "validation_mean_regret": 636873.4229274434,
+              "validation_relative_regret": 0.09703271906656426,
+              "train_objective": 611182.5921563442,
+              "regularization": 0.000632612025928755,
+              "changed_coordinates": 59955,
+              "max_quantization_error": 0.4994743055140134,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-190.json"
+            },
+            {
+              "update": 200,
+              "validation_objective": 636870.9003894896,
+              "validation_mean_regret": 636870.8997217956,
+              "validation_relative_regret": 0.09703235958358031,
+              "train_objective": 611180.1021822982,
+              "regularization": 0.000667694046782886,
+              "changed_coordinates": 59955,
+              "max_quantization_error": 0.49953529915364925,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-200.json"
+            }
+          ],
+          "selected_update": 200,
+          "selected_validation_objective": 636870.9003894896,
+          "selected_changed_coordinates": 59955,
+          "selected_checkpoint": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-200.json"
+        },
+        "selected_evaluation_command": [
+          "target/release/evaluate",
+          "--checkpoint",
+          "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/checkpoint-200.json",
+          "--split",
+          "validation",
+          "--variant",
+          "scale_fixed_seed20260715",
+          "--output",
+          "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/evaluation-selected.json"
+        ],
+        "selected_validation_metrics": {
+          "edge_f1": 0.6034950122887961,
+          "edge_jaccard": 0.5331382440856497,
+          "edge_precision": 0.6109797504815881,
+          "edge_recall": 0.6029040601736645,
+          "exact_match": 0.34676195294712875,
+          "mean_regret": 636870.8997214858,
+          "relative_regret": 0.09703235958353762,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.6034666866010547,
+          "edge_jaccard": 0.5331433756323303,
+          "edge_precision": 0.6109613573710202,
+          "edge_recall": 0.6028600843897679,
+          "exact_match": 0.3469516822666329,
+          "mean_regret": 636965.7496205413,
+          "relative_regret": 0.09704587340453025,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": 1.8393110567949122e-05,
+          "edge_recall": 4.397578389658818e-05,
+          "edge_f1": 2.8325687741359573e-05,
+          "exact_match": -0.0001897293195041727,
+          "edge_jaccard": -5.131546680581245e-06,
+          "mean_regret": -94.84989905555267,
+          "relative_regret": -1.3513820992627767e-05
+        },
+        "health_checks": {
+          "graph_representation": true,
+          "completed_updates": true,
+          "train_objective_finite": true,
+          "validation_objective_finite": true,
+          "weights_changed": true,
+          "shortest_path_queries_ok": true,
+          "checkpoint_restore_verified": true,
+          "test_not_read": true,
+          "checkpoint_exists": true
+        },
+        "test_read": false,
+        "runner_result": "artifacts/line_graph_10pct_calibration/development/edge_transition_arcs_eta100_10pct_u200/runner_result.json"
+      },
+      "original_edges": {
+        "run_id": "original_edges_eta300_10pct_u200",
+        "graph_representation": "original_edges",
+        "eta0": 300.0,
+        "lambda": 0.001,
+        "updates": 200,
+        "validation_every": 10,
+        "rayon_threads": 4,
+        "config_path": "experiments/configs/original_edges_eta300_10pct_u200.json",
+        "config_sha256": "de5458b7af20406a1b535a363132421dfcc936e63bc659f22cf905b04eea0f43",
+        "training_command": [
+          "target/release/train",
+          "--config",
+          "experiments/configs/original_edges_eta300_10pct_u200.json",
+          "--output-dir",
+          "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200"
+        ],
+        "training_log": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/training.jsonl",
+        "training_wall_seconds": 85.95670023799994,
+        "total_wall_seconds": 88.04696186799993,
+        "peak_rss_kib": 162080,
+        "final_changed_coordinates": 41026,
+        "final_changed_quantized_coordinates": 25682,
+        "checkpoint_selection": {
+          "rule": "minimum validation objective; earliest update breaks exact ties",
+          "candidates": [
+            {
+              "update": 0,
+              "validation_objective": 650449.9359347331,
+              "validation_mean_regret": 650449.9359347331,
+              "validation_relative_regret": 0.0945596880145798,
+              "train_objective": 624440.6063225765,
+              "regularization": 0.0,
+              "changed_coordinates": 0,
+              "max_quantization_error": 0.0,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-0.json"
+            },
+            {
+              "update": 10,
+              "validation_objective": 650390.6799878804,
+              "validation_mean_regret": 650390.679378718,
+              "validation_relative_regret": 0.0945516123645675,
+              "train_objective": 624382.2457940644,
+              "regularization": 0.0006091623983763757,
+              "changed_coordinates": 41019,
+              "max_quantization_error": 0.49983777588931844,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-10.json"
+            },
+            {
+              "update": 20,
+              "validation_objective": 650360.3139291533,
+              "validation_mean_regret": 650360.3125354372,
+              "validation_relative_regret": 0.0945474736520726,
+              "train_objective": 624352.3385783359,
+              "regularization": 0.0013937160414065062,
+              "changed_coordinates": 41019,
+              "max_quantization_error": 0.4985826157499105,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-20.json"
+            },
+            {
+              "update": 30,
+              "validation_objective": 650336.8428932013,
+              "validation_mean_regret": 650336.8406737868,
+              "validation_relative_regret": 0.09454427459043045,
+              "train_objective": 624329.221289063,
+              "regularization": 0.002219414401475677,
+              "changed_coordinates": 41020,
+              "max_quantization_error": 0.4992982133553596,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-30.json"
+            },
+            {
+              "update": 40,
+              "validation_objective": 650317.0035606186,
+              "validation_mean_regret": 650317.0004939855,
+              "validation_relative_regret": 0.09454157038751228,
+              "train_objective": 624309.6808099126,
+              "regularization": 0.0030666331564518914,
+              "changed_coordinates": 41021,
+              "max_quantization_error": 0.4998732020612806,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-40.json"
+            },
+            {
+              "update": 50,
+              "validation_objective": 650299.504366293,
+              "validation_mean_regret": 650299.5004388243,
+              "validation_relative_regret": 0.09453918507838933,
+              "train_objective": 624292.4462020629,
+              "regularization": 0.0039274686600205486,
+              "changed_coordinates": 41021,
+              "max_quantization_error": 0.49948678648797795,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-50.json"
+            },
+            {
+              "update": 60,
+              "validation_objective": 650283.6689203383,
+              "validation_mean_regret": 650283.6641221707,
+              "validation_relative_regret": 0.09453702659198604,
+              "train_objective": 624276.8499716481,
+              "regularization": 0.004798167641563565,
+              "changed_coordinates": 41021,
+              "max_quantization_error": 0.499792329617776,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-60.json"
+            },
+            {
+              "update": 70,
+              "validation_objective": 650269.1013394558,
+              "validation_mean_regret": 650269.0956631406,
+              "validation_relative_regret": 0.09453504099871647,
+              "train_objective": 624262.5045026786,
+              "regularization": 0.005676315156561043,
+              "changed_coordinates": 41024,
+              "max_quantization_error": 0.49986695144434634,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-70.json"
+            },
+            {
+              "update": 80,
+              "validation_objective": 650255.5309226031,
+              "validation_mean_regret": 650255.5243621998,
+              "validation_relative_regret": 0.09453319113470915,
+              "train_objective": 624249.1408845454,
+              "regularization": 0.006560403246072855,
+              "changed_coordinates": 41024,
+              "max_quantization_error": 0.49986934584194387,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-80.json"
+            },
+            {
+              "update": 90,
+              "validation_objective": 650242.7861574554,
+              "validation_mean_regret": 650242.7787084321,
+              "validation_relative_regret": 0.09453145395715531,
+              "train_objective": 624236.5939029884,
+              "regularization": 0.007449023284569656,
+              "changed_coordinates": 41024,
+              "max_quantization_error": 0.499938354594633,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-90.json"
+            },
+            {
+              "update": 100,
+              "validation_objective": 650230.7312119061,
+              "validation_mean_regret": 650230.7228703189,
+              "validation_relative_regret": 0.09452981082130385,
+              "train_objective": 624224.7282636759,
+              "regularization": 0.008341587131505516,
+              "changed_coordinates": 41024,
+              "max_quantization_error": 0.4998739868460689,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-100.json"
+            },
+            {
+              "update": 110,
+              "validation_objective": 650219.2738363444,
+              "validation_mean_regret": 650219.2645987162,
+              "validation_relative_regret": 0.09452824912109471,
+              "train_objective": 624213.4449527513,
+              "regularization": 0.009237628217102493,
+              "changed_coordinates": 41024,
+              "max_quantization_error": 0.49998905960819684,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-110.json"
+            },
+            {
+              "update": 120,
+              "validation_objective": 650208.3312936543,
+              "validation_mean_regret": 650208.3211577358,
+              "validation_relative_regret": 0.0945267571662522,
+              "train_objective": 624202.6657366892,
+              "regularization": 0.010135918544197226,
+              "changed_coordinates": 41024,
+              "max_quantization_error": 0.499894014938036,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-120.json"
+            },
+            {
+              "update": 130,
+              "validation_objective": 650197.8405563172,
+              "validation_mean_regret": 650197.8295195339,
+              "validation_relative_regret": 0.09452532687517193,
+              "train_objective": 624192.3318795143,
+              "regularization": 0.011036783348896777,
+              "changed_coordinates": 41024,
+              "max_quantization_error": 0.4998795407900616,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-130.json"
+            },
+            {
+              "update": 140,
+              "validation_objective": 650187.743488044,
+              "validation_mean_regret": 650187.7315480479,
+              "validation_relative_regret": 0.09452395017579839,
+              "train_objective": 624182.3839615191,
+              "regularization": 0.011939996177469159,
+              "changed_coordinates": 41024,
+              "max_quantization_error": 0.49988132738326385,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-140.json"
+            },
+            {
+              "update": 150,
+              "validation_objective": 650177.9965945125,
+              "validation_mean_regret": 650177.9837493318,
+              "validation_relative_regret": 0.09452262115837123,
+              "train_objective": 624172.7832907353,
+              "regularization": 0.012845180684729993,
+              "changed_coordinates": 41025,
+              "max_quantization_error": 0.4998830514468864,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-150.json"
+            },
+            {
+              "update": 160,
+              "validation_objective": 650168.5832877787,
+              "validation_mean_regret": 650168.5695358719,
+              "validation_relative_regret": 0.09452133758338647,
+              "train_objective": 624163.5081959924,
+              "regularization": 0.013751906761576152,
+              "changed_coordinates": 41025,
+              "max_quantization_error": 0.49988471911456145,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-160.json"
+            },
+            {
+              "update": 170,
+              "validation_objective": 650159.4561917977,
+              "validation_mean_regret": 650159.4415314065,
+              "validation_relative_regret": 0.09452009302270652,
+              "train_objective": 624154.5140179313,
+              "regularization": 0.014660391232833808,
+              "changed_coordinates": 41026,
+              "max_quantization_error": 0.49991988291731104,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-170.json"
+            },
+            {
+              "update": 180,
+              "validation_objective": 650150.5970455329,
+              "validation_mean_regret": 650150.5814752934,
+              "validation_relative_regret": 0.09451888493509081,
+              "train_objective": 624145.7853226152,
+              "regularization": 0.015570239548973108,
+              "changed_coordinates": 41026,
+              "max_quantization_error": 0.4999787154720252,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-180.json"
+            },
+            {
+              "update": 190,
+              "validation_objective": 650141.9796045372,
+              "validation_mean_regret": 650141.9631231141,
+              "validation_relative_regret": 0.09451770969129653,
+              "train_objective": 624137.2902789061,
+              "regularization": 0.016481423206016515,
+              "changed_coordinates": 41026,
+              "max_quantization_error": 0.4998894321070111,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-190.json"
+            },
+            {
+              "update": 200,
+              "validation_objective": 650133.5834687813,
+              "validation_mean_regret": 650133.5660750874,
+              "validation_relative_regret": 0.094516564572902,
+              "train_objective": 624129.0149079758,
+              "regularization": 0.01739369396419885,
+              "changed_coordinates": 41026,
+              "max_quantization_error": 0.49989091932729934,
+              "checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-200.json"
+            }
+          ],
+          "selected_update": 200,
+          "selected_validation_objective": 650133.5834687813,
+          "selected_changed_coordinates": 41026,
+          "selected_checkpoint": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-200.json"
+        },
+        "selected_evaluation_command": [
+          "target/release/evaluate",
+          "--checkpoint",
+          "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/checkpoint-200.json",
+          "--split",
+          "validation",
+          "--variant",
+          "scale_fixed_seed20260715",
+          "--output",
+          "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/evaluation-selected.json"
+        ],
+        "selected_validation_metrics": {
+          "edge_f1": 0.589923385706932,
+          "edge_jaccard": 0.5196826726927616,
+          "edge_precision": 0.5964594734053533,
+          "edge_recall": 0.5903182251875979,
+          "exact_match": 0.33594738173539085,
+          "mean_regret": 650133.5660751847,
+          "relative_regret": 0.0945165645729146,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.5899016056370742,
+          "edge_jaccard": 0.5197932564931808,
+          "edge_precision": 0.5965286909653134,
+          "edge_recall": 0.5901614633877461,
+          "exact_match": 0.33664305590690613,
+          "mean_regret": 650449.9359347331,
+          "relative_regret": 0.0945596880145798,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": -6.921755996003309e-05,
+          "edge_recall": 0.00015676179985180116,
+          "edge_f1": 2.178006985786851e-05,
+          "exact_match": -0.0006956741715152814,
+          "edge_jaccard": -0.00011058380041917282,
+          "mean_regret": -316.369859548402,
+          "relative_regret": -4.312344166519655e-05
+        },
+        "health_checks": {
+          "graph_representation": true,
+          "completed_updates": true,
+          "train_objective_finite": true,
+          "validation_objective_finite": true,
+          "weights_changed": true,
+          "shortest_path_queries_ok": true,
+          "checkpoint_restore_verified": true,
+          "test_not_read": true,
+          "checkpoint_exists": true
+        },
+        "test_read": false,
+        "runner_result": "artifacts/line_graph_10pct_calibration/development/original_edges_eta300_10pct_u200/runner_result.json"
+      }
+    },
+    "comparison": {
+      "route_metric_difference_edge_transition_minus_original": {
+        "edge_precision": 0.014520277076234822,
+        "edge_recall": 0.01258583498606658,
+        "edge_f1": 0.01357162658186406,
+        "exact_match": 0.0108145712117379,
+        "edge_jaccard": 0.01345557139288811
+      },
+      "training_wall_seconds": {
+        "original_edges": 85.95670023799994,
+        "edge_transition_arcs": 207.69002889500007,
+        "edge_transition_over_original_ratio": 2.4162168663983215
+      },
+      "peak_rss_kib": {
+        "original_edges": 162080,
+        "edge_transition_arcs": 220444,
+        "edge_transition_over_original_ratio": 1.3600937808489635
+      },
+      "raw_objective_compared_across_representations": false
+    },
+    "unconfirmed_convergence": {
+      "original_edges": true,
+      "edge_transition_arcs": true
+    }
+  },
+  "recommendation": {
+    "representation_for_neuromlr_comparison": "edge_transition_arcs",
+    "basis": "decoded common-route Edge F1 and Exact Match; raw objectives were not compared across representations"
+  },
+  "risks": {
+    "single_edge_zero_cost": true,
+    "single_edge_exposure_is_small": true,
+    "integer_cch_quantization": true,
+    "best_checkpoint_at_update_200": true,
+    "single_seed_and_fixed_validation": true
+  },
+  "provenance": {
+    "audit": "artifacts/line_graph_10pct_calibration/single_edge_audit.json",
+    "screening_root": "artifacts/line_graph_10pct_calibration/screening",
+    "development_root": "artifacts/line_graph_10pct_calibration/development",
+    "all_raw_logs_and_checkpoints_retained_locally": true
+  }
+}
