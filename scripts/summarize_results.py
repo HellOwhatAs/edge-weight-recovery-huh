@@ -100,7 +100,7 @@ def summarize(path: Path) -> dict[str, Any]:
 
     return {
         "run_id": configuration.get("run_id"),
-        "graph_order": configuration.get("graph_order"),
+        "graph_representation": configuration.get("graph_representation"),
         "training_log": str(path),
         "completed_updates": finished["completed_updates"],
         "train_objective": finished.get("train_objective"),
@@ -123,7 +123,7 @@ def main() -> int:
     atomic_json(
         args.output,
         {
-            "schema_version": 2,
+            "schema_version": 3,
             "training": "unified_direct_weight",
             "runs": [summarize(path) for path in args.logs],
         },

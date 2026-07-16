@@ -2,16 +2,16 @@ use crate::config::atomic_write;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
-pub const CHECKPOINT_SCHEMA_VERSION: u64 = 1;
+pub const CHECKPOINT_SCHEMA_VERSION: u64 = 2;
 
-/// The sole checkpoint shape for both graph orders.
+/// The sole checkpoint shape for both graph representations.
 ///
 /// Only the current direct learned vector and the optimizer clock are stateful.
 /// Initial weights, bounds, and CCH arc weights are reconstructed by the graph
 /// problem and are intentionally not serialized as additional model blocks.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrainingCheckpoint {
-    pub graph_order: String,
+    pub graph_representation: String,
     pub completed_updates: u64,
     pub weights: Vec<f64>,
     pub configuration: Value,
@@ -30,7 +30,7 @@ impl TrainingCheckpoint {
         self.validate()?;
         let value = json!({
             "schema_version": CHECKPOINT_SCHEMA_VERSION,
-            "graph_order": self.graph_order,
+            "graph_representation": self.graph_representation,
             "completed_updates": self.completed_updates,
             "weights": self.weights,
             "configuration": self.configuration,
@@ -55,7 +55,7 @@ impl TrainingCheckpoint {
                 path.display()
             ));
         }
-        let graph_order = required_str(&value, "/graph_order")?.to_string();
+        let graph_representation = required_str(&value, "/graph_representation")?.to_string();
         let completed_updates = value
             .pointer("/completed_updates")
             .and_then(Value::as_u64)
@@ -73,7 +73,7 @@ impl TrainingCheckpoint {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let checkpoint = Self {
-            graph_order,
+            graph_representation,
             completed_updates,
             weights,
             configuration: value
@@ -91,10 +91,12 @@ impl TrainingCheckpoint {
     }
 
     fn validate(&self) -> Result<(), String> {
-        if self.graph_order != "first" && self.graph_order != "second" {
+        if self.graph_representation != "original_edges"
+            && self.graph_representation != "edge_transition_arcs"
+        {
             return Err(format!(
-                "checkpoint has invalid graph order {:?}",
-                self.graph_order
+                "checkpoint has invalid graph representation {:?}",
+                self.graph_representation
             ));
         }
         if self.weights.is_empty() {
@@ -137,7 +139,7 @@ mod tests {
             .as_nanos();
         let path = std::env::temp_dir().join(format!("direct-checkpoint-{nonce}.json"));
         let checkpoint = TrainingCheckpoint {
-            graph_order: "second".to_string(),
+            graph_representation: "edge_transition_arcs".to_string(),
             completed_updates: 7,
             weights: vec![0.1, f64::from_bits(0x3fd5_5555_5555_5555), 9_999.25],
             configuration: json!({"run_id": "fixture"}),
@@ -147,6 +149,29 @@ mod tests {
         checkpoint.save_to(&path).unwrap();
         let restored = TrainingCheckpoint::load(&path).unwrap();
         assert_eq!(restored, checkpoint);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn legacy_transition_topology_checkpoint_schema_is_rejected() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("legacy-direct-checkpoint-{nonce}.json"));
+        let mut value = json!({
+            "schema_version": 1,
+            "completed_updates": 3,
+            "weights": [1.0],
+            "configuration": {},
+            "runtime_identity": {},
+            "topology_identity": "legacy"
+        });
+        value[["graph", "_order"].concat()] = json!("second");
+        std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+
+        let error = TrainingCheckpoint::load(&path).unwrap_err();
+        assert!(error.contains("schema-2"));
         std::fs::remove_file(path).unwrap();
     }
 }

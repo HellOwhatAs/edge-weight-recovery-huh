@@ -18,6 +18,7 @@ pub struct GraphData {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PathValidationError {
     Empty,
+    TooShort,
     OutOfBounds,
     Discontinuous,
     Cyclic,
@@ -29,6 +30,7 @@ pub struct PathValidationReport {
     pub inspected_samples: usize,
     pub accepted_samples: usize,
     pub empty: usize,
+    pub too_short: usize,
     pub out_of_bounds: usize,
     pub discontinuous: usize,
     pub cyclic: usize,
@@ -37,6 +39,16 @@ pub struct PathValidationReport {
 impl PathValidationReport {
     pub fn dropped_samples(&self) -> usize {
         self.inspected_samples - self.accepted_samples
+    }
+
+    fn record_rejection(&mut self, error: PathValidationError) {
+        match error {
+            PathValidationError::Empty => self.empty += 1,
+            PathValidationError::TooShort => self.too_short += 1,
+            PathValidationError::OutOfBounds => self.out_of_bounds += 1,
+            PathValidationError::Discontinuous => self.discontinuous += 1,
+            PathValidationError::Cyclic => self.cyclic += 1,
+        }
     }
 }
 
@@ -89,7 +101,9 @@ pub fn load_graph(city: &str) -> Result<GraphData, String> {
 /// The pickle schema is
 /// `(trip_key, Vec<original_edge_id>, (start_time, end_time))`. The edge vector
 /// is already the complete path: no first or last edge is removed. Structurally
-/// invalid paths and cyclic observations are dropped.
+/// invalid paths, paths with fewer than two edges, and cyclic observations are
+/// dropped. `available_samples` remains the raw split size, independently of
+/// the inspection limit and validation outcome.
 pub fn load_trips(
     city: &str,
     split: &str,
@@ -118,17 +132,15 @@ pub fn load_trips(
                 paths.push((od, edge_path));
                 report.accepted_samples += 1;
             }
-            Err(PathValidationError::Empty) => report.empty += 1,
-            Err(PathValidationError::OutOfBounds) => report.out_of_bounds += 1,
-            Err(PathValidationError::Discontinuous) => report.discontinuous += 1,
-            Err(PathValidationError::Cyclic) => report.cyclic += 1,
+            Err(error) => report.record_rejection(error),
         }
     }
 
     Ok(LoadedTrips { paths, report })
 }
 
-/// Validate a complete original-edge path and return its OD pair.
+/// Validate a complete original-edge path with at least one transition and
+/// return its OD pair.
 pub fn validate_edge_path(
     path: &[usize],
     tail: &[u32],
@@ -137,6 +149,9 @@ pub fn validate_edge_path(
     let Some(&first_edge) = path.first() else {
         return Err(PathValidationError::Empty);
     };
+    if path.len() < 2 {
+        return Err(PathValidationError::TooShort);
+    }
     if tail.len() != head.len()
         || path
             .iter()
@@ -220,7 +235,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn validates_complete_paths_and_rejects_cycles() {
+    fn validates_transition_paths_and_rejects_invalid_inputs() {
         let tail = [0, 1, 0, 2, 1];
         let head = [1, 3, 2, 3, 0];
         assert_eq!(
@@ -228,7 +243,11 @@ mod tests {
             Err(PathValidationError::Empty)
         );
         assert_eq!(
-            validate_edge_path(&[99], &tail, &head),
+            validate_edge_path(&[0], &tail, &head),
+            Err(PathValidationError::TooShort)
+        );
+        assert_eq!(
+            validate_edge_path(&[99, 1], &tail, &head),
             Err(PathValidationError::OutOfBounds)
         );
         assert_eq!(
@@ -243,13 +262,30 @@ mod tests {
     }
 
     #[test]
+    fn validation_report_counts_too_short_paths_separately() {
+        let mut report = PathValidationReport {
+            available_samples: 5,
+            inspected_samples: 3,
+            accepted_samples: 1,
+            ..PathValidationReport::default()
+        };
+        report.record_rejection(PathValidationError::Empty);
+        report.record_rejection(PathValidationError::TooShort);
+
+        assert_eq!(report.empty, 1);
+        assert_eq!(report.too_short, 1);
+        assert_eq!(report.dropped_samples(), 2);
+        assert_eq!(report.available_samples, 5);
+    }
+
+    #[test]
     fn counts_edges_and_groups_od_deterministically() {
         let paths = vec![
             ((4, 8), vec![0, 1]),
-            ((1, 3), vec![2]),
+            ((1, 3), vec![2, 1]),
             ((4, 8), vec![0, 1]),
         ];
-        assert_eq!(compute_observed_edge_counts(&paths, 3, 16), vec![2, 2, 1]);
+        assert_eq!(compute_observed_edge_counts(&paths, 3, 16), vec![2, 3, 1]);
         assert_eq!(
             group_paths_by_od(&paths),
             vec![

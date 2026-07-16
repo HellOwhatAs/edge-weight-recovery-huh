@@ -1,12 +1,12 @@
 {
-  "schema_version": 2,
-  "run_id": "first_order_smoke_1pct",
-  "description": "Three-update Beijing 1% technical smoke for the first-order graph.",
+  "schema_version": 3,
+  "run_id": "edge_transition_arcs_smoke_1pct",
+  "description": "Three-update Beijing 1% technical smoke for directed line-graph transition arcs.",
   "data": {
     "city": "beijing",
     "train_variant": "scale_1pct_seed42",
     "validation_variant": "scale_fixed_seed20260715",
-    "path_contract": "complete_original_edge_id_sequence",
+    "path_contract": "complete_original_edge_id_sequence_min_2_edges",
     "cycle_policy": "drop",
     "train_identity": {
       "path": "data/beijing_data/preprocessed_train_trips_scale_1pct_seed42.pkl",
@@ -26,7 +26,7 @@
     }
   },
   "graph": {
-    "order": "first",
+    "representation": "edge_transition_arcs",
     "weight_lower_factor": 0.1,
     "weight_upper_factor": 10.0
   },

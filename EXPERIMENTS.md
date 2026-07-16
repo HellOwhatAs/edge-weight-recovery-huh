@@ -5,18 +5,45 @@
 The current work validates an architectural invariant:
 
 ```text
-graph order affects only graph construction and trajectory mapping;
-inverse optimization learns one direct-weight vector on the supplied graph.
+graph representation affects only topology construction, trajectory mapping,
+and route decoding; inverse optimization learns one direct-weight vector on
+the supplied graph.
 ```
 
 No comparative performance conclusion is carried forward. Historical
 large-run configurations and generated summaries are intentionally absent
 from the active tree; Git history remains the recovery authority.
 
+## Representation contract
+
+`original_edges` uses the original directed road graph and learns one weight
+per original edge.
+
+`edge_transition_arcs` uses the directed line graph (line digraph / edge-based
+graph): routing nodes are original directed edges, routing arcs are legal
+consecutive transitions `e -> f`, and each such arc is one directly learned
+coordinate `w[e,f]`. A trajectory `(e1,...,eN)` is the routing-node path
+`e1 -> ... -> eN`; its coordinate path is `windows(2)` and has `N - 1` arcs.
+Its cost is
+
+```text
+sum_i w[e_i,e_{i+1}].
+```
+
+Line-graph queries use all original edges leaving the requested source as
+source states and all original edges entering the requested target as target
+states. Every endpoint offset is zero. Decoding a returned routing-node path
+means interpreting those node IDs directly as original-edge IDs.
+
+The topology contains only the original-edge routing nodes and directly
+learned transition arcs described above. All active experiments filter
+observations with `N < 2` for both representations; no start node, start cost,
+or first-edge parameter is added.
+
 ## Mathematical contract
 
 For mapped trajectories `P_i`, initial weights `w0`, and `m` graph
-coordinates, both graph orders use
+coordinates, both representations use
 
 ```text
 J(w) = (1/N) sum_i [cost_w(P_i) - dist_w(s_i,t_i)]
@@ -30,9 +57,8 @@ w <- project(w - eta_k * g).
 ```
 
 The graph representation supplies the topology, mapped observations, initial
-weights, bounds, coordinate counts, topology identity, route decoder, and the
-metric conversion used by its oracle. The trainer receives only this graph
-problem contract.
+weights, bounds, coordinate counts, topology identity, and route decoder. The
+trainer receives only this graph-problem contract.
 
 The active RoutingKit binding accepts integer CCH weights. Production queries
 therefore select routes after rounding the direct `f64` vector, while reported
@@ -44,9 +70,9 @@ the CCH actually receives.
 
 The correctness suite must establish:
 
-1. identity mapping for first-order road trajectories;
-2. overlapping-pair mapping and decoding for second-order trajectories;
-3. use of the same direct-weight optimizer by both graph orders;
+1. identity mapping for `original_edges` road trajectories;
+2. directed-line-graph node mapping, `windows(2)` arc mapping, and decoding;
+3. use of the same direct-weight optimizer by both representations;
 4. the update formula, regularization, projection, and global clock;
 5. shortest-path cost agreement between CCH and reference Dijkstra on small
    graphs; and
@@ -56,15 +82,13 @@ The correctness suite must establish:
 
 Only these active experiment configurations belong to this revision:
 
-| Configuration | Graph order | Updates | Validation cadence | Threads |
+| Configuration | Representation | Updates | Validation cadence | Threads |
 |---|---:|---:|---:|---:|
-| `experiments/configs/first_order_smoke_1pct.json` | first | 3 | 3 | 4 |
-| `experiments/configs/second_order_smoke_1pct.json` | second | 3 | 3 | 4 |
+| `experiments/configs/original_edges_smoke_1pct.json` | `original_edges` | 3 | 3 | 4 |
+| `experiments/configs/edge_transition_arcs_smoke_1pct.json` | `edge_transition_arcs` | 3 | 3 | 4 |
 
-Both use the deterministic Beijing `scale_1pct_seed42` training subset and
-the fixed `scale_fixed_seed20260715` validation subset. Both set
-`eta0=1000.0`, `lambda=0.001`, and coordinate bounds to `[0.1*w0, 10*w0]`.
-Validation runs at the initial and final states only. The test split is never
+Both use the deterministic Beijing `scale_1pct_seed42` training subset and the
+fixed `scale_fixed_seed20260715` validation subset. The test split is never
 read.
 
 A smoke is healthy only if all of the following hold:
@@ -74,23 +98,22 @@ A smoke is healthy only if all of the following hold:
 - shortest-path customization and queries complete normally; and
 - a saved checkpoint restores and can continue on the original update clock.
 
-Both release smokes completed successfully on 2026-07-16:
+The corrected smokes completed on 2026-07-16:
 
-| Graph order | Routing topology | Train objective, state 0 -> 3 | Changed direct coordinates | Wall time |
-|---|---:|---:|---:|---:|
-| first | 31,199 nodes / 72,156 arcs | 595,722.8061 -> 595,624.2362 | 25,825 / 72,156 | 1.57 s |
-| second | 188,249 nodes / 511,079 arcs | 586,169.2582 -> 586,078.5724 | 33,020 / 188,249 | 11.26 s |
+| Representation | Routing nodes | Routing arcs / coordinates | Final train objective | Final validation objective | Changed coordinates | Wall time |
+|---|---:|---:|---:|---:|---:|---:|
+| `original_edges` | 31,199 | 72,156 | 595,624.236207 | 650,361.204608 | 25,825 | 1.61 s |
+| `edge_transition_arcs` | 72,156 | 188,249 | 586,188.223920 | 636,885.624068 | 33,018 | 4.04 s |
 
-Final validation objectives were finite (`650361.2046` and `636831.1501`,
-respectively), all 6,132 train and 15,730 validation unique-OD queries
-completed, and both final checkpoints passed the trainer's strict reload.
-Fresh runs from each `checkpoint-0.json` reproduced the corresponding final
-checkpoint exactly, including all direct-weight values and
-`completed_updates=3`. These are independent health checks, not comparable
-endpoint-quality measurements. No test data was read.
+Every health check passed: objectives were finite, weights changed,
+shortest-path queries completed, and `test_read` remained false. Independently
+resuming each run from `checkpoint-0.json` produced a byte-identical final
+checkpoint after update 3. The two rows remain independent technical health
+checks and must not be interpreted as comparable endpoint-quality
+measurements.
 
 ## Explicitly out of scope
 
 This revision does not authorize larger-subset or full-data training,
-learning-rate searches, formal first-versus-second-order comparison, or test
-split evaluation. Smoke values must not be interpreted as endpoint quality.
+learning-rate searches, formal representation comparison, or test-split
+evaluation. Smoke values must not be interpreted as endpoint quality.

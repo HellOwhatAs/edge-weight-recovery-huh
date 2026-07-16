@@ -2,7 +2,7 @@ use edge_weight_recovery::checkpoint::TrainingCheckpoint;
 use edge_weight_recovery::config::{TrainingConfig, atomic_write};
 use edge_weight_recovery::data::{load_graph, load_trips};
 use edge_weight_recovery::evaluation::{PathMetrics, evaluate_paths};
-use edge_weight_recovery::graph_problem::{GraphOrder, GraphProblem};
+use edge_weight_recovery::graph_problem::{GraphProblem, GraphRepresentation};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
@@ -30,13 +30,13 @@ fn run() -> Result<(), String> {
     validate_component(&variant, "variant")?;
 
     let graph = load_graph(&config.city)?;
-    let order = GraphOrder::parse(&checkpoint.graph_order)?;
-    if order.as_str() != config.graph_order {
-        return Err("checkpoint graph order differs from its configuration".to_string());
+    let representation = GraphRepresentation::parse(&checkpoint.graph_representation)?;
+    if representation.as_str() != config.graph_representation {
+        return Err("checkpoint graph representation differs from its configuration".to_string());
     }
     let problem = GraphProblem::build(
         &graph,
-        order,
+        representation,
         config.weight_lower_factor,
         config.weight_upper_factor,
     )?;
@@ -52,10 +52,10 @@ fn run() -> Result<(), String> {
     let metrics = evaluate_paths(&metric, &mapped, rayon::current_num_threads().max(1))?;
 
     let output = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "checkpoint": arguments.checkpoint,
         "checkpoint_completed_updates": checkpoint.completed_updates,
-        "graph_order": order.as_str(),
+        "graph_representation": representation.as_str(),
         "topology_identity": problem.topology_identity(),
         "split": arguments.split,
         "variant": variant,
@@ -63,6 +63,7 @@ fn run() -> Result<(), String> {
             "available": trips.report.available_samples,
             "accepted": trips.report.accepted_samples,
             "dropped": trips.report.dropped_samples(),
+            "too_short": trips.report.too_short,
         },
         "metrics": metrics_json(&metrics),
     });

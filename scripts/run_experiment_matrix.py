@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run bounded first- and second-order configurations through one training CLI."""
+"""Run bounded original-edge and transition-arc configurations through one CLI."""
 
 from __future__ import annotations
 
@@ -32,13 +32,19 @@ def arguments() -> argparse.Namespace:
 
 def load_config(path: Path) -> dict[str, Any]:
     config = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(config, dict) or config.get("schema_version") != 2:
-        raise ValueError(f"{path}: expected a schema_version 2 object")
+    if not isinstance(config, dict) or config.get("schema_version") != 3:
+        raise ValueError(f"{path}: expected a schema_version 3 object")
     run_id = config.get("run_id")
     if not isinstance(run_id, str) or not SAFE_RUN_ID.fullmatch(run_id):
         raise ValueError(f"{path}: unsafe run_id {run_id!r}")
     if config.get("test_policy") != "never_read":
         raise ValueError(f"{path}: test_policy must be 'never_read'")
+    graph = config.get("graph")
+    if not isinstance(graph, dict) or graph.get("representation") not in {
+        "original_edges",
+        "edge_transition_arcs",
+    }:
+        raise ValueError(f"{path}: invalid graph.representation")
     return config
 
 
@@ -84,6 +90,8 @@ def validate_training_log(
     finished = finished_events[0]
     required_updates = config.get("training", {}).get("updates")
     checks = {
+        "graph_representation": finished.get("graph_representation")
+        == config["graph"]["representation"],
         "completed_updates": finished.get("completed_updates") == required_updates,
         "train_objective_finite": finite_number(finished.get("train_objective")),
         "validation_objective_finite": finite_number(
@@ -163,8 +171,9 @@ def run_one(
             status = "unhealthy_output"
             health_error = str(error)
     result = {
-        "schema_version": 2,
+        "schema_version": 3,
         "run_id": run_id,
+        "graph_representation": config["graph"]["representation"],
         "status": status,
         "returncode": returncode,
         "wall_seconds": time.monotonic() - started,

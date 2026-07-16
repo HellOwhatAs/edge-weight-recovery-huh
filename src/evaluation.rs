@@ -16,7 +16,7 @@ pub struct PathMetrics {
     pub relative_regret: f64,
 }
 
-/// Evaluate decoded original-road paths for either graph order.
+/// Evaluate decoded original-road paths for either graph representation.
 ///
 /// Graph-specific routing coordinates never enter the overlap metrics. The
 /// bound metric decodes every prediction before this common evaluator sees it.
@@ -140,7 +140,7 @@ fn chunk_size(len: usize, num_chunks: usize) -> usize {
 mod tests {
     use super::*;
     use crate::data::GraphData;
-    use crate::graph_problem::{GraphOrder, GraphProblem};
+    use crate::graph_problem::{GraphProblem, GraphRepresentation};
 
     fn graph() -> GraphData {
         GraphData {
@@ -153,11 +153,14 @@ mod tests {
     }
 
     #[test]
-    fn both_orders_use_the_same_decoded_path_metrics() {
+    fn both_representations_use_the_same_decoded_path_metrics() {
         let graph = graph();
         let raw_paths = vec![((0, 3), vec![0, 1]), ((0, 3), vec![2, 3])];
-        for order in [GraphOrder::First, GraphOrder::Second] {
-            let problem = GraphProblem::build(&graph, order, 0.1, 10.0).unwrap();
+        for representation in [
+            GraphRepresentation::OriginalEdges,
+            GraphRepresentation::EdgeTransitionArcs,
+        ] {
+            let problem = GraphProblem::build(&graph, representation, 0.1, 10.0).unwrap();
             let mapped = problem.map_paths(&raw_paths).unwrap();
             let metric = problem.customize(problem.initial_weights()).unwrap();
             let metrics = evaluate_paths(&metric, &mapped, 4).unwrap();
@@ -170,7 +173,8 @@ mod tests {
     #[test]
     fn empty_evaluation_is_well_defined() {
         let graph = graph();
-        let problem = GraphProblem::build(&graph, GraphOrder::First, 0.1, 10.0).unwrap();
+        let problem =
+            GraphProblem::build(&graph, GraphRepresentation::OriginalEdges, 0.1, 10.0).unwrap();
         let metric = problem.customize(problem.initial_weights()).unwrap();
         assert_eq!(
             evaluate_paths(&metric, &[], 4).unwrap(),

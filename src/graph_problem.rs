@@ -1,10 +1,10 @@
 //! Graph representation for inverse shortest-path learning.
 //!
-//! The optimizer-facing coordinate system is deliberately independent of the
-//! CCH arc system. First-order coordinates are original directed roads.
-//! Second-order coordinates are legal adjacent-road pairs `(e, f)`; overlap
-//! arcs connect `(e, f)` to `(f, g)`. The CCH-specific conversion of a learned
-//! node weight to overlap-arc weights and source offsets stays in this module.
+//! `OriginalEdges` routes on the original graph and learns one weight per
+//! original directed edge. `EdgeTransitionArcs` routes on the directed line
+//! graph: original edges are routing nodes and legal adjacent-edge transitions
+//! are routing arcs and optimizer coordinates. In both representations, learned
+//! coordinates are therefore the CCH arc weights directly.
 
 use crate::data::{GraphData, TripPath};
 use crate::oracle::cch::{CCH_INFINITY, CchMetric, CchReusableQuery, CchTopology};
@@ -12,27 +12,26 @@ use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
-const MAX_SECOND_ORDER_NODES: usize = 12_000_000;
-const MAX_SECOND_ORDER_ARCS: usize = 12_000_000;
+const MAX_EDGE_TRANSITION_ARCS: usize = 12_000_000;
 
 type QueryEndpointsU32 = (Vec<(u32, u32)>, Vec<(u32, u32)>);
 #[cfg(test)]
 type QueryEndpointsF64 = (Vec<(u32, f64)>, Vec<(u32, f64)>);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum GraphOrder {
-    First,
-    Second,
+pub enum GraphRepresentation {
+    OriginalEdges,
+    EdgeTransitionArcs,
 }
 
-impl GraphOrder {
-    /// Parse the stable configuration/checkpoint spelling of a graph order.
+impl GraphRepresentation {
+    /// Parse the stable configuration/checkpoint spelling of a representation.
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
-            "first" => Ok(Self::First),
-            "second" => Ok(Self::Second),
+            "original_edges" => Ok(Self::OriginalEdges),
+            "edge_transition_arcs" => Ok(Self::EdgeTransitionArcs),
             _ => Err(format!(
-                "unsupported graph order {value:?}; expected \"first\" or \"second\""
+                "unsupported graph representation {value:?}; expected \"original_edges\" or \"edge_transition_arcs\""
             )),
         }
     }
@@ -40,8 +39,8 @@ impl GraphOrder {
     /// Stable spelling used by configuration, logs, identities, and checkpoints.
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::First => "first",
-            Self::Second => "second",
+            Self::OriginalEdges => "original_edges",
+            Self::EdgeTransitionArcs => "edge_transition_arcs",
         }
     }
 }
@@ -82,10 +81,10 @@ pub struct OracleStats {
 }
 
 pub struct GraphProblem {
-    order: GraphOrder,
+    representation: GraphRepresentation,
     original: OriginalTopology,
     routing: RoutingTopology,
-    representation: Representation,
+    mapping: RepresentationMapping,
     cch: CchTopology,
     initial_weights: Vec<f64>,
     lower_bounds: Vec<f64>,
@@ -126,20 +125,20 @@ struct RoutingTopology {
     y: Vec<f32>,
 }
 
-enum Representation {
-    First,
-    Second(SecondOrderGraph),
+enum RepresentationMapping {
+    OriginalEdges,
+    EdgeTransitionArcs(EdgeTransitionGraph),
 }
 
 #[derive(Debug)]
-struct SecondOrderGraph {
-    /// Stable lexicographic coordinate IDs: previous edge, then next edge.
-    pairs: Vec<(usize, usize)>,
-    pair_offsets: Vec<usize>,
-    source_state_offsets: Vec<usize>,
-    source_states: Vec<u32>,
-    target_state_offsets: Vec<usize>,
-    target_states: Vec<u32>,
+struct EdgeTransitionGraph {
+    /// Stable routing-arc/coordinate IDs: previous edge, then next edge.
+    transitions: Vec<(usize, usize)>,
+    transition_offsets: Vec<usize>,
+    outgoing_offsets: Vec<usize>,
+    outgoing_edges: Vec<u32>,
+    incoming_offsets: Vec<usize>,
+    incoming_edges: Vec<u32>,
 }
 
 impl GraphProblem {
@@ -147,7 +146,7 @@ impl GraphProblem {
     /// factors around its deterministic initial direct weights.
     pub fn build(
         graph: &GraphData,
-        order: GraphOrder,
+        representation: GraphRepresentation,
         lower_factor: f64,
         upper_factor: f64,
     ) -> Result<Self, String> {
@@ -159,8 +158,8 @@ impl GraphProblem {
             tail: graph.tail.clone(),
             head: graph.head.clone(),
         };
-        let (routing, representation, initial_weights) = match order {
-            GraphOrder::First => (
+        let (routing, mapping, initial_weights) = match representation {
+            GraphRepresentation::OriginalEdges => (
                 RoutingTopology {
                     node_count: graph.x.len(),
                     tail: graph.tail.clone(),
@@ -168,14 +167,14 @@ impl GraphProblem {
                     x: graph.x.clone(),
                     y: graph.y.clone(),
                 },
-                Representation::First,
+                RepresentationMapping::OriginalEdges,
                 graph
                     .baseline_weights
                     .iter()
                     .map(|&weight| weight as f64)
                     .collect(),
             ),
-            GraphOrder::Second => build_second_order(graph)?,
+            GraphRepresentation::EdgeTransitionArcs => build_edge_transition_graph(graph)?,
         };
 
         let cch = CchTopology::build(
@@ -192,14 +191,13 @@ impl GraphProblem {
                 format!("invalid upper bound for coordinate {coordinate}: {error}")
             })?;
         }
-        let topology_identity =
-            topology_identity(order, &original, &routing, &representation, cch.order());
+        let topology_identity = topology_identity(representation, &original, &routing, cch.order());
 
         Ok(Self {
-            order,
+            representation,
             original,
             routing,
-            representation,
+            mapping,
             cch,
             initial_weights,
             lower_bounds,
@@ -208,8 +206,8 @@ impl GraphProblem {
         })
     }
 
-    pub const fn order(&self) -> GraphOrder {
-        self.order
+    pub const fn representation(&self) -> GraphRepresentation {
+        self.representation
     }
 
     pub fn coordinate_count(&self) -> usize {
@@ -240,40 +238,42 @@ impl GraphProblem {
         self.routing.tail.len()
     }
 
-    /// Stable second-order coordinate lookup. First-order problems return
-    /// `None` because their coordinates are already original edge IDs.
-    pub fn second_order_pair(&self, coordinate: usize) -> Option<(usize, usize)> {
-        match &self.representation {
-            Representation::First => None,
-            Representation::Second(second) => second.pairs.get(coordinate).copied(),
+    /// Stable transition lookup. Original-edge problems return `None` because
+    /// their coordinates are original edge IDs rather than transition arcs.
+    pub fn transition_arc(&self, coordinate: usize) -> Option<(usize, usize)> {
+        match &self.mapping {
+            RepresentationMapping::OriginalEdges => None,
+            RepresentationMapping::EdgeTransitionArcs(line_graph) => {
+                line_graph.transitions.get(coordinate).copied()
+            }
         }
     }
 
-    pub fn second_order_pair_id(&self, previous: usize, next: usize) -> Option<usize> {
-        let Representation::Second(second) = &self.representation else {
+    pub fn transition_arc_id(&self, previous: usize, next: usize) -> Option<usize> {
+        let RepresentationMapping::EdgeTransitionArcs(line_graph) = &self.mapping else {
             return None;
         };
-        second.pair_id(previous, next)
+        line_graph.transition_id(previous, next)
     }
 
     /// Validate and map one complete original-edge trajectory.
     pub fn map_path(&self, original_edges: &[usize]) -> Result<MappedPath, String> {
         let (source, target) = self.validate_original_path(original_edges)?;
-        let coordinates = match &self.representation {
-            Representation::First => original_edges.to_vec(),
-            Representation::Second(second) => {
+        let coordinates = match &self.mapping {
+            RepresentationMapping::OriginalEdges => original_edges.to_vec(),
+            RepresentationMapping::EdgeTransitionArcs(line_graph) => {
                 if original_edges.len() < 2 {
                     return Err(
-                        "a second-order trajectory requires at least two original edges"
+                        "an edge-transition trajectory requires at least two original edges"
                             .to_string(),
                     );
                 }
                 original_edges
                     .windows(2)
                     .map(|pair| {
-                        second.pair_id(pair[0], pair[1]).ok_or_else(|| {
+                        line_graph.transition_id(pair[0], pair[1]).ok_or_else(|| {
                             format!(
-                                "missing second-order coordinate for legal transition {} -> {}",
+                                "missing edge-transition arc for legal transition {} -> {}",
                                 pair[0], pair[1]
                             )
                         })
@@ -306,16 +306,16 @@ impl GraphProblem {
 
     /// Decode optimizer coordinates back to a complete original-edge path.
     pub fn decode_path(&self, coordinates: &[usize]) -> Result<Vec<usize>, String> {
-        match &self.representation {
-            Representation::First => {
+        match &self.mapping {
+            RepresentationMapping::OriginalEdges => {
                 if coordinates.is_empty() {
-                    return Err("a first-order coordinate path cannot be empty".to_string());
+                    return Err("an original-edge coordinate path cannot be empty".to_string());
                 }
                 let decoded = coordinates.to_vec();
                 self.validate_original_path(&decoded)?;
                 Ok(decoded)
             }
-            Representation::Second(second) => second.decode(coordinates),
+            RepresentationMapping::EdgeTransitionArcs(line_graph) => line_graph.decode(coordinates),
         }
     }
 
@@ -364,8 +364,8 @@ impl GraphProblem {
                     .map_err(|error| format!("invalid coordinate {coordinate}: {error}"))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let arc_weights = self.coordinate_to_arc_weights(&quantized_weights)?;
-        let cch = self.cch.customize(&arc_weights)?;
+        debug_assert_eq!(quantized_weights.len(), self.routing.tail.len());
+        let cch = self.cch.customize(&quantized_weights)?;
         Ok(GraphMetric {
             problem: self,
             cch,
@@ -409,6 +409,49 @@ impl GraphProblem {
         Ok(())
     }
 
+    fn validate_line_graph_path(
+        &self,
+        node_path: &[usize],
+        arc_path: &[usize],
+    ) -> Result<(), String> {
+        if node_path.is_empty() {
+            return Err("CCH returned an empty line-graph node path".to_string());
+        }
+        if node_path.len() != arc_path.len() + 1 {
+            return Err(format!(
+                "CCH line-graph path has {} nodes but {} arcs",
+                node_path.len(),
+                arc_path.len()
+            ));
+        }
+        if let Some(&edge) = node_path
+            .iter()
+            .find(|&&edge| edge >= self.original.tail.len())
+        {
+            return Err(format!(
+                "CCH line-graph node {edge} is not an original edge"
+            ));
+        }
+        for (step, (&arc, nodes)) in arc_path.iter().zip(node_path.windows(2)).enumerate() {
+            let (&tail, &head) = self
+                .routing
+                .tail
+                .get(arc)
+                .zip(self.routing.head.get(arc))
+                .ok_or_else(|| format!("CCH returned invalid transition arc {arc}"))?;
+            if (tail as usize, head as usize) != (nodes[0], nodes[1]) {
+                return Err(format!(
+                    "CCH transition arc {arc} at step {step} is {tail}->{head}, not {}->{}",
+                    nodes[0], nodes[1]
+                ));
+            }
+        }
+        if !arc_path.is_empty() && self.decode_path(arc_path)? != node_path {
+            return Err("CCH line-graph node and transition-arc paths disagree".to_string());
+        }
+        Ok(())
+    }
+
     fn validate_direct_weights(&self, weights: &[f64]) -> Result<(), String> {
         if weights.len() != self.coordinate_count() {
             return Err(format!(
@@ -432,32 +475,7 @@ impl GraphProblem {
         Ok(())
     }
 
-    fn coordinate_to_arc_weights(&self, weights: &[u32]) -> Result<Vec<u32>, String> {
-        if weights.len() != self.coordinate_count() {
-            return Err("coordinate-to-arc conversion received the wrong weight count".into());
-        }
-        match &self.representation {
-            Representation::First => Ok(weights.to_vec()),
-            Representation::Second(_) => self
-                .routing
-                .head
-                .iter()
-                .enumerate()
-                .map(|(arc, &head)| {
-                    weights.get(head as usize).copied().ok_or_else(|| {
-                        format!("second-order arc {arc} has invalid head state {head}")
-                    })
-                })
-                .collect(),
-        }
-    }
-
-    fn query_endpoints_u32(
-        &self,
-        source: u32,
-        target: u32,
-        weights: &[u32],
-    ) -> Result<QueryEndpointsU32, String> {
+    fn query_endpoints_u32(&self, source: u32, target: u32) -> Result<QueryEndpointsU32, String> {
         if source as usize >= self.original.node_count
             || target as usize >= self.original.node_count
         {
@@ -466,22 +484,22 @@ impl GraphProblem {
                 self.original.node_count
             ));
         }
-        match &self.representation {
-            Representation::First => Ok((vec![(source, 0)], vec![(target, 0)])),
-            Representation::Second(second) => {
-                let sources = second
-                    .source_states(source)
+        match &self.mapping {
+            RepresentationMapping::OriginalEdges => Ok((vec![(source, 0)], vec![(target, 0)])),
+            RepresentationMapping::EdgeTransitionArcs(line_graph) => {
+                let sources = line_graph
+                    .source_edges(source)
                     .iter()
-                    .map(|&state| (state, weights[state as usize]))
+                    .map(|&edge| (edge, 0))
                     .collect::<Vec<_>>();
-                let targets = second
-                    .target_states(target)
+                let targets = line_graph
+                    .target_edges(target)
                     .iter()
-                    .map(|&state| (state, 0))
+                    .map(|&edge| (edge, 0))
                     .collect::<Vec<_>>();
                 if sources.is_empty() || targets.is_empty() {
                     return Err(format!(
-                        "second-order OD ({source}, {target}) has {} source states and {} target states",
+                        "edge-transition OD ({source}, {target}) has {} source edge states and {} target edge states",
                         sources.len(),
                         targets.len()
                     ));
@@ -492,33 +510,24 @@ impl GraphProblem {
     }
 
     #[cfg(test)]
-    fn query_endpoints_f64(
-        &self,
-        source: u32,
-        target: u32,
-        weights: &[f64],
-    ) -> Result<QueryEndpointsF64, String> {
-        let quantized = weights
-            .iter()
-            .map(|&weight| quantize_weight(weight).map(|value| value as f64))
-            .collect::<Result<Vec<_>, _>>()?;
+    fn query_endpoints_f64(&self, source: u32, target: u32) -> Result<QueryEndpointsF64, String> {
         if source as usize >= self.original.node_count
             || target as usize >= self.original.node_count
         {
             return Err(format!("query OD ({source}, {target}) is out of bounds"));
         }
-        match &self.representation {
-            Representation::First => Ok((vec![(source, 0.0)], vec![(target, 0.0)])),
-            Representation::Second(second) => Ok((
-                second
-                    .source_states(source)
+        match &self.mapping {
+            RepresentationMapping::OriginalEdges => Ok((vec![(source, 0.0)], vec![(target, 0.0)])),
+            RepresentationMapping::EdgeTransitionArcs(line_graph) => Ok((
+                line_graph
+                    .source_edges(source)
                     .iter()
-                    .map(|&state| (state, quantized[state as usize]))
+                    .map(|&edge| (edge, 0.0))
                     .collect(),
-                second
-                    .target_states(target)
+                line_graph
+                    .target_edges(target)
                     .iter()
-                    .map(|&state| (state, 0.0))
+                    .map(|&edge| (edge, 0.0))
                     .collect(),
             )),
         }
@@ -530,11 +539,7 @@ impl GraphProblem {
             .iter()
             .map(|&weight| quantize_weight(weight))
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(self
-            .coordinate_to_arc_weights(&quantized)?
-            .into_iter()
-            .map(|weight| weight as f64)
-            .collect())
+        Ok(quantized.into_iter().map(|weight| weight as f64).collect())
     }
 }
 
@@ -665,15 +670,19 @@ impl<'problem> GraphMetric<'problem> {
 
 impl GraphQuery<'_, '_> {
     pub fn shortest_path(&mut self, source: u32, target: u32) -> Result<ShortestPath, String> {
-        let (sources, targets) =
-            self.problem
-                .query_endpoints_u32(source, target, self.quantized_weights)?;
+        let (sources, targets) = self.problem.query_endpoints_u32(source, target)?;
         let raw = self.cch.shortest_path(&sources, &targets)?;
-        let coordinates = match &self.problem.representation {
-            Representation::First => raw.arc_path,
-            Representation::Second(_) => raw.node_path,
+        let (coordinates, original_edges) = match &self.problem.mapping {
+            RepresentationMapping::OriginalEdges => {
+                let original_edges = self.problem.decode_path(&raw.arc_path)?;
+                (raw.arc_path, original_edges)
+            }
+            RepresentationMapping::EdgeTransitionArcs(_) => {
+                self.problem
+                    .validate_line_graph_path(&raw.node_path, &raw.arc_path)?;
+                (raw.arc_path, raw.node_path)
+            }
         };
-        let original_edges = self.problem.decode_path(&coordinates)?;
         self.problem
             .validate_decoded_od(&original_edges, source, target)?;
 
@@ -712,11 +721,11 @@ impl GraphQuery<'_, '_> {
     }
 }
 
-impl SecondOrderGraph {
-    fn pair_id(&self, previous: usize, next: usize) -> Option<usize> {
-        let start = *self.pair_offsets.get(previous)?;
-        let end = *self.pair_offsets.get(previous + 1)?;
-        let relative = self.pairs[start..end]
+impl EdgeTransitionGraph {
+    fn transition_id(&self, previous: usize, next: usize) -> Option<usize> {
+        let start = *self.transition_offsets.get(previous)?;
+        let end = *self.transition_offsets.get(previous + 1)?;
+        let relative = self.transitions[start..end]
             .binary_search_by_key(&next, |&(_, candidate)| candidate)
             .ok()?;
         Some(start + relative)
@@ -724,21 +733,20 @@ impl SecondOrderGraph {
 
     fn decode(&self, coordinates: &[usize]) -> Result<Vec<usize>, String> {
         let Some((&first_coordinate, remaining)) = coordinates.split_first() else {
-            return Err("a second-order coordinate path cannot be empty".to_string());
+            return Err("an edge-transition coordinate path cannot be empty".to_string());
         };
-        let &(first, second) = self.pairs.get(first_coordinate).ok_or_else(|| {
-            format!("second-order coordinate {first_coordinate} is out of bounds")
+        let &(first, second) = self.transitions.get(first_coordinate).ok_or_else(|| {
+            format!("edge-transition coordinate {first_coordinate} is out of bounds")
         })?;
         let mut decoded = vec![first, second];
         let mut previous_second = second;
         for &coordinate in remaining {
-            let &(next_first, next_second) = self
-                .pairs
-                .get(coordinate)
-                .ok_or_else(|| format!("second-order coordinate {coordinate} is out of bounds"))?;
+            let &(next_first, next_second) = self.transitions.get(coordinate).ok_or_else(|| {
+                format!("edge-transition coordinate {coordinate} is out of bounds")
+            })?;
             if next_first != previous_second {
                 return Err(format!(
-                    "second-order coordinate path does not overlap: expected first edge {previous_second}, got {next_first}"
+                    "edge-transition coordinate path does not connect: expected first edge {previous_second}, got {next_first}"
                 ));
             }
             decoded.push(next_second);
@@ -747,121 +755,112 @@ impl SecondOrderGraph {
         Ok(decoded)
     }
 
-    fn source_states(&self, source: u32) -> &[u32] {
+    fn source_edges(&self, source: u32) -> &[u32] {
         incidence_slice(
-            &self.source_state_offsets,
-            &self.source_states,
+            &self.outgoing_offsets,
+            &self.outgoing_edges,
             source as usize,
         )
     }
 
-    fn target_states(&self, target: u32) -> &[u32] {
+    fn target_edges(&self, target: u32) -> &[u32] {
         incidence_slice(
-            &self.target_state_offsets,
-            &self.target_states,
+            &self.incoming_offsets,
+            &self.incoming_edges,
             target as usize,
         )
     }
 }
 
-fn build_second_order(
+fn build_edge_transition_graph(
     graph: &GraphData,
-) -> Result<(RoutingTopology, Representation, Vec<f64>), String> {
+) -> Result<(RoutingTopology, RepresentationMapping, Vec<f64>), String> {
     let node_count = graph.x.len();
     let edge_count = graph.tail.len();
+    if edge_count > u32::MAX as usize {
+        return Err(format!(
+            "line-graph node count {edge_count} does not fit u32"
+        ));
+    }
     let (outgoing_offsets, outgoing_edges) = build_incidence(node_count, &graph.tail)?;
 
-    let mut pair_count = 0usize;
+    let mut transition_count = 0usize;
     for previous in 0..edge_count {
         let junction = graph.head[previous] as usize;
-        pair_count = pair_count
+        transition_count = transition_count
             .checked_add(incidence_slice(&outgoing_offsets, &outgoing_edges, junction).len())
-            .ok_or_else(|| "second-order node count overflow".to_string())?;
+            .ok_or_else(|| "edge-transition arc count overflow".to_string())?;
     }
-    if pair_count == 0 || pair_count > MAX_SECOND_ORDER_NODES {
+    if transition_count == 0 || transition_count > MAX_EDGE_TRANSITION_ARCS {
         return Err(format!(
-            "second-order node count {pair_count} must be in 1..={MAX_SECOND_ORDER_NODES}"
-        ));
-    }
-    if pair_count > u32::MAX as usize {
-        return Err(format!(
-            "second-order node count {pair_count} does not fit u32"
+            "line graph would contain {transition_count} transition arcs; expected 1..={MAX_EDGE_TRANSITION_ARCS}"
         ));
     }
 
-    let mut pairs = Vec::with_capacity(pair_count);
-    let mut pair_offsets = Vec::with_capacity(edge_count + 1);
-    let mut initial_weights = Vec::with_capacity(pair_count);
-    let mut state_x = Vec::with_capacity(pair_count);
-    let mut state_y = Vec::with_capacity(pair_count);
-    let mut source_keys = Vec::with_capacity(pair_count);
-    let mut target_keys = Vec::with_capacity(pair_count);
-    pair_offsets.push(0);
+    let mut transitions = Vec::with_capacity(transition_count);
+    let mut transition_offsets = Vec::with_capacity(edge_count + 1);
+    let mut routing_tail = Vec::with_capacity(transition_count);
+    let mut routing_head = Vec::with_capacity(transition_count);
+    let mut initial_weights = Vec::with_capacity(transition_count);
+    transition_offsets.push(0);
     for previous in 0..edge_count {
         let junction = graph.head[previous] as usize;
         for &next in incidence_slice(&outgoing_offsets, &outgoing_edges, junction) {
             let next = next as usize;
-            pairs.push((previous, next));
-            // A second-order coordinate is the direct weight of the transition
-            // itself. Its deterministic anchor is the baseline of the second
-            // original edge; no separate first-edge cost is introduced.
+            transitions.push((previous, next));
+            routing_tail.push(u32::try_from(previous).map_err(|_| {
+                format!("line-graph node for original edge {previous} does not fit u32")
+            })?);
+            routing_head.push(u32::try_from(next).map_err(|_| {
+                format!("line-graph node for original edge {next} does not fit u32")
+            })?);
+            // The learned transition-arc weight is anchored at the baseline of
+            // the entered original edge. There is no first-edge or start cost.
             initial_weights.push(graph.baseline_weights[next] as f64);
-            state_x.push(graph.x[junction]);
-            state_y.push(graph.y[junction]);
-            source_keys.push(graph.tail[previous]);
-            target_keys.push(graph.head[next]);
         }
-        pair_offsets.push(pairs.len());
+        transition_offsets.push(transitions.len());
     }
-    debug_assert_eq!(pairs.len(), pair_count);
+    debug_assert_eq!(transitions.len(), transition_count);
+    debug_assert_eq!(routing_tail.len(), initial_weights.len());
     debug_assert!(
-        pair_offsets
+        transition_offsets
             .windows(2)
-            .all(|range| pairs[range[0]..range[1]].is_sorted_by_key(|&(_, next)| next))
+            .all(|range| transitions[range[0]..range[1]].is_sorted_by_key(|&(_, next)| next))
     );
 
-    let mut arc_count = 0usize;
-    for &(_, next) in &pairs {
-        arc_count = arc_count
-            .checked_add(pair_offsets[next + 1] - pair_offsets[next])
-            .ok_or_else(|| "second-order overlap-arc count overflow".to_string())?;
-    }
-    if arc_count > MAX_SECOND_ORDER_ARCS {
-        return Err(format!(
-            "second-order graph would contain {arc_count} overlap arcs, exceeding {MAX_SECOND_ORDER_ARCS}"
-        ));
-    }
-    let mut routing_tail = Vec::with_capacity(arc_count);
-    let mut routing_head = Vec::with_capacity(arc_count);
-    for (state, &(_, next)) in pairs.iter().enumerate() {
-        let tail = u32::try_from(state)
-            .map_err(|_| format!("second-order state {state} does not fit u32"))?;
-        for successor in pair_offsets[next]..pair_offsets[next + 1] {
-            routing_tail.push(tail);
-            routing_head.push(u32::try_from(successor).map_err(|_| {
-                format!("second-order successor state {successor} does not fit u32")
-            })?);
-        }
-    }
-
-    let (source_state_offsets, source_states) = build_state_incidence(node_count, &source_keys)?;
-    let (target_state_offsets, target_states) = build_state_incidence(node_count, &target_keys)?;
-    let second = SecondOrderGraph {
-        pairs,
-        pair_offsets,
-        source_state_offsets,
-        source_states,
-        target_state_offsets,
-        target_states,
+    let (incoming_offsets, incoming_edges) = build_incidence(node_count, &graph.head)?;
+    let line_graph = EdgeTransitionGraph {
+        transitions,
+        transition_offsets,
+        outgoing_offsets,
+        outgoing_edges,
+        incoming_offsets,
+        incoming_edges,
     };
+    let routing_x = graph
+        .tail
+        .iter()
+        .zip(&graph.head)
+        .map(|(&tail, &head)| 0.5 * graph.x[tail as usize] + 0.5 * graph.x[head as usize])
+        .collect();
+    let routing_y = graph
+        .tail
+        .iter()
+        .zip(&graph.head)
+        .map(|(&tail, &head)| 0.5 * graph.y[tail as usize] + 0.5 * graph.y[head as usize])
+        .collect();
     let routing = RoutingTopology {
-        node_count: pair_count,
+        node_count: edge_count,
         tail: routing_tail,
         head: routing_head,
-        x: state_x,
-        y: state_y,
+        x: routing_x,
+        y: routing_y,
     };
-    Ok((routing, Representation::Second(second), initial_weights))
+    Ok((
+        routing,
+        RepresentationMapping::EdgeTransitionArcs(line_graph),
+        initial_weights,
+    ))
 }
 
 fn build_incidence(node_count: usize, endpoints: &[u32]) -> Result<(Vec<usize>, Vec<u32>), String> {
@@ -885,13 +884,6 @@ fn build_incidence(node_count: usize, endpoints: &[u32]) -> Result<(Vec<usize>, 
         *position += 1;
     }
     Ok((offsets, values))
-}
-
-fn build_state_incidence(
-    node_count: usize,
-    state_keys: &[u32],
-) -> Result<(Vec<usize>, Vec<u32>), String> {
-    build_incidence(node_count, state_keys)
 }
 
 fn incidence_slice<'a>(offsets: &[usize], values: &'a [u32], node: usize) -> &'a [u32] {
@@ -990,14 +982,13 @@ fn quantize_weight(weight: f64) -> Result<u32, String> {
 }
 
 fn topology_identity(
-    order: GraphOrder,
+    representation: GraphRepresentation,
     original: &OriginalTopology,
     routing: &RoutingTopology,
-    representation: &Representation,
     cch_order: &[u32],
 ) -> String {
     let mut hash = 0xcbf29ce484222325u64;
-    hash_bytes(&mut hash, order.as_str().as_bytes());
+    hash_bytes(&mut hash, representation.as_str().as_bytes());
     hash_u64(&mut hash, original.node_count as u64);
     hash_u32_slice(&mut hash, &original.tail);
     hash_u32_slice(&mut hash, &original.head);
@@ -1006,13 +997,6 @@ fn topology_identity(
     hash_u32_slice(&mut hash, &routing.head);
     hash_f32_slice(&mut hash, &routing.x);
     hash_f32_slice(&mut hash, &routing.y);
-    if let Representation::Second(second) = representation {
-        hash_u64(&mut hash, second.pairs.len() as u64);
-        for &(previous, next) in &second.pairs {
-            hash_u64(&mut hash, previous as u64);
-            hash_u64(&mut hash, next as u64);
-        }
-    }
     hash_u32_slice(&mut hash, cch_order);
     format!("fnv1a64:{hash:016x}")
 }
@@ -1064,17 +1048,30 @@ mod tests {
     }
 
     #[test]
-    fn graph_order_has_stable_strings() {
-        assert_eq!(GraphOrder::First.as_str(), "first");
-        assert_eq!(GraphOrder::Second.as_str(), "second");
-        assert_eq!(GraphOrder::parse("first").unwrap(), GraphOrder::First);
-        assert_eq!(GraphOrder::parse("second").unwrap(), GraphOrder::Second);
-        assert!(GraphOrder::parse("third").is_err());
+    fn graph_representation_has_stable_strings() {
+        assert_eq!(
+            GraphRepresentation::OriginalEdges.as_str(),
+            "original_edges"
+        );
+        assert_eq!(
+            GraphRepresentation::EdgeTransitionArcs.as_str(),
+            "edge_transition_arcs"
+        );
+        assert_eq!(
+            GraphRepresentation::parse("original_edges").unwrap(),
+            GraphRepresentation::OriginalEdges
+        );
+        assert_eq!(
+            GraphRepresentation::parse("edge_transition_arcs").unwrap(),
+            GraphRepresentation::EdgeTransitionArcs
+        );
+        assert!(GraphRepresentation::parse("second").is_err());
     }
 
     #[test]
-    fn first_order_mapping_is_the_original_edge_sequence() {
-        let problem = GraphProblem::build(&graph(), GraphOrder::First, 0.5, 2.0).unwrap();
+    fn original_edge_mapping_is_the_original_edge_sequence() {
+        let problem =
+            GraphProblem::build(&graph(), GraphRepresentation::OriginalEdges, 0.5, 2.0).unwrap();
         let mapped = problem.map_path(&[0, 1, 2]).unwrap();
         assert_eq!(mapped.source, 0);
         assert_eq!(mapped.target, 3);
@@ -1089,17 +1086,29 @@ mod tests {
     }
 
     #[test]
-    fn second_order_mapping_uses_stable_pairs_and_overlap_decode() {
-        let problem = GraphProblem::build(&graph(), GraphOrder::Second, 0.5, 2.0).unwrap();
-        let expected_pairs = vec![(0, 1), (0, 3), (1, 2), (3, 4)];
-        assert_eq!(problem.coordinate_count(), expected_pairs.len());
+    fn edge_transition_mapping_uses_line_graph_arcs_and_decodes() {
+        let graph = graph();
+        let problem =
+            GraphProblem::build(&graph, GraphRepresentation::EdgeTransitionArcs, 0.5, 2.0).unwrap();
+        let expected_transitions = vec![(0, 1), (0, 3), (1, 2), (3, 4)];
+        assert_eq!(problem.routing_node_count(), graph.tail.len());
+        assert_eq!(problem.routing_arc_count(), expected_transitions.len());
+        assert_eq!(problem.coordinate_count(), expected_transitions.len());
         assert_eq!(
             (0..problem.coordinate_count())
-                .map(|coordinate| problem.second_order_pair(coordinate).unwrap())
+                .map(|coordinate| problem.transition_arc(coordinate).unwrap())
                 .collect::<Vec<_>>(),
-            expected_pairs
+            expected_transitions
         );
-        assert_eq!(problem.initial_weights(), &[3.0, 1.0, 5.0, 1.0]);
+        assert_eq!(problem.routing.tail, vec![0, 0, 1, 3]);
+        assert_eq!(problem.routing.head, vec![1, 3, 2, 4]);
+        let expected_initial_weights = expected_transitions
+            .iter()
+            .map(|&(_, next)| graph.baseline_weights[next] as f64)
+            .collect::<Vec<_>>();
+        assert_eq!(problem.initial_weights(), expected_initial_weights);
+        assert_eq!(problem.lower_bounds(), &[1.5, 0.5, 2.5, 0.5]);
+        assert_eq!(problem.upper_bounds(), &[6.0, 2.0, 10.0, 2.0]);
 
         let mapped = problem.map_path(&[0, 1, 2]).unwrap();
         assert_eq!(mapped.coordinates, vec![0, 2]);
@@ -1118,17 +1127,35 @@ mod tests {
     }
 
     #[test]
-    fn both_orders_match_reference_dijkstra_costs() {
-        for order in [GraphOrder::First, GraphOrder::Second] {
-            let problem = GraphProblem::build(&graph(), order, 0.5, 2.0).unwrap();
+    fn edge_transition_observed_counts_have_one_coordinate_per_edge_window() {
+        let problem =
+            GraphProblem::build(&graph(), GraphRepresentation::EdgeTransitionArcs, 0.5, 2.0)
+                .unwrap();
+        let mapped = problem.map_path(&[0, 1, 2]).unwrap();
+        let expected_coordinate_count = mapped.original_edges.len() - 1;
+        assert_eq!(mapped.coordinates.len(), expected_coordinate_count);
+
+        let observed = problem.observed_counts(&[mapped]).unwrap();
+        assert_eq!(observed, vec![1, 0, 1, 0]);
+        assert_eq!(
+            observed.iter().sum::<u64>(),
+            expected_coordinate_count as u64
+        );
+    }
+
+    #[test]
+    fn both_representations_match_reference_dijkstra_costs() {
+        for representation in [
+            GraphRepresentation::OriginalEdges,
+            GraphRepresentation::EdgeTransitionArcs,
+        ] {
+            let problem = GraphProblem::build(&graph(), representation, 0.5, 2.0).unwrap();
             let metric = problem.customize(problem.initial_weights()).unwrap();
             let cch = metric.shortest_path(0, 3).unwrap();
             let arc_weights = problem
                 .routing_arc_weights_f64(problem.initial_weights())
                 .unwrap();
-            let (sources, targets) = problem
-                .query_endpoints_f64(0, 3, problem.initial_weights())
-                .unwrap();
+            let (sources, targets) = problem.query_endpoints_f64(0, 3).unwrap();
             let reference = shortest_path_multi_source_f64(
                 problem.routing.node_count,
                 &problem.routing.tail,
@@ -1139,13 +1166,22 @@ mod tests {
             )
             .unwrap()
             .unwrap();
-            assert_eq!(cch.distance as f64, reference.distance, "order={order:?}");
+            assert_eq!(
+                cch.distance as f64, reference.distance,
+                "representation={representation:?}"
+            );
         }
     }
 
     #[test]
-    fn second_order_source_offset_pays_the_first_coordinate_once() {
-        let problem = GraphProblem::build(&graph(), GraphOrder::Second, 0.5, 2.0).unwrap();
+    fn edge_transition_endpoints_are_zero_cost_edge_states() {
+        let problem =
+            GraphProblem::build(&graph(), GraphRepresentation::EdgeTransitionArcs, 0.5, 2.0)
+                .unwrap();
+        assert_eq!(
+            problem.query_endpoints_u32(0, 3).unwrap(),
+            (vec![(0, 0)], vec![(2, 0), (4, 0)])
+        );
         let metric = problem.customize(problem.initial_weights()).unwrap();
         let shortest = metric.shortest_path(0, 3).unwrap();
         assert_eq!(shortest.coordinates, vec![1, 3]);
@@ -1167,8 +1203,27 @@ mod tests {
     }
 
     #[test]
-    fn a_two_edge_path_is_one_paid_second_order_state() {
-        let problem = GraphProblem::build(&graph(), GraphOrder::Second, 0.5, 2.0).unwrap();
+    fn learned_transition_coordinates_are_cch_arc_weights_directly() {
+        let problem =
+            GraphProblem::build(&graph(), GraphRepresentation::EdgeTransitionArcs, 0.1, 10.0)
+                .unwrap();
+        let learned = vec![1.0, 9.0, 1.0, 9.0];
+        let shortest = problem
+            .customize(&learned)
+            .unwrap()
+            .shortest_path(0, 3)
+            .unwrap();
+        assert_eq!(shortest.coordinates, vec![0, 2]);
+        assert_eq!(shortest.original_edges, vec![0, 1, 2]);
+        assert_eq!(shortest.distance, 2);
+        assert_eq!(shortest.direct_cost, 2.0);
+    }
+
+    #[test]
+    fn a_two_edge_path_is_one_paid_transition_arc() {
+        let problem =
+            GraphProblem::build(&graph(), GraphRepresentation::EdgeTransitionArcs, 0.5, 2.0)
+                .unwrap();
         let mapped = problem.map_path(&[0, 1]).unwrap();
         assert_eq!(mapped.coordinates, vec![0]);
         assert_eq!(
@@ -1184,11 +1239,39 @@ mod tests {
     }
 
     #[test]
-    fn topology_identity_distinguishes_orders_and_is_stable() {
-        let first_a = GraphProblem::build(&graph(), GraphOrder::First, 0.5, 2.0).unwrap();
-        let first_b = GraphProblem::build(&graph(), GraphOrder::First, 0.5, 2.0).unwrap();
-        let second = GraphProblem::build(&graph(), GraphOrder::Second, 0.5, 2.0).unwrap();
-        assert_eq!(first_a.topology_identity(), first_b.topology_identity());
-        assert_ne!(first_a.topology_identity(), second.topology_identity());
+    fn a_single_edge_route_has_no_transition_cost_or_start_cost() {
+        let problem =
+            GraphProblem::build(&graph(), GraphRepresentation::EdgeTransitionArcs, 0.5, 2.0)
+                .unwrap();
+        assert!(problem.map_path(&[0]).is_err());
+
+        let shortest = problem
+            .customize(problem.initial_weights())
+            .unwrap()
+            .shortest_path(0, 1)
+            .unwrap();
+        assert_eq!(shortest.coordinates, Vec::<usize>::new());
+        assert_eq!(shortest.original_edges, vec![0]);
+        assert_eq!(shortest.distance, 0);
+        assert_eq!(shortest.direct_cost, 0.0);
+    }
+
+    #[test]
+    fn topology_identity_distinguishes_representations_and_is_stable() {
+        let original_a =
+            GraphProblem::build(&graph(), GraphRepresentation::OriginalEdges, 0.5, 2.0).unwrap();
+        let original_b =
+            GraphProblem::build(&graph(), GraphRepresentation::OriginalEdges, 0.5, 2.0).unwrap();
+        let line_graph =
+            GraphProblem::build(&graph(), GraphRepresentation::EdgeTransitionArcs, 0.5, 2.0)
+                .unwrap();
+        assert_eq!(
+            original_a.topology_identity(),
+            original_b.topology_identity()
+        );
+        assert_ne!(
+            original_a.topology_identity(),
+            line_graph.topology_identity()
+        );
     }
 }

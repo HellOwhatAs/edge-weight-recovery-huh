@@ -2,7 +2,7 @@ use crate::checkpoint::TrainingCheckpoint;
 use crate::config::TrainingConfig;
 use crate::data::{GraphData, PathValidationReport};
 use crate::evaluation::{PathMetrics, evaluate_paths};
-use crate::graph_problem::{GraphOrder, GraphProblem};
+use crate::graph_problem::{GraphProblem, GraphRepresentation};
 use crate::objective::{compute_regret, count_difference_l1, regularization};
 use crate::optimizer::ProjectedSubgradientOptimizer;
 use serde_json::{Value, json};
@@ -16,7 +16,7 @@ use std::time::Instant;
 pub struct TrainingOutcome {
     pub checkpoint_path: PathBuf,
     pub log_path: PathBuf,
-    pub graph_order: String,
+    pub graph_representation: String,
     pub completed_updates: u64,
     pub train_objective: f64,
     pub validation_objective: f64,
@@ -36,12 +36,12 @@ pub fn run_training(
             config.rayon_threads
         ));
     }
-    let graph_order = GraphOrder::parse(&config.graph_order)?;
+    let graph_representation = GraphRepresentation::parse(&config.graph_representation)?;
     let mut logger = JsonlLogger::new(output_dir)?;
     logger.log(json!({
         "event": "configuration",
         "run_id": config.run_id,
-        "graph_order": graph_order.as_str(),
+        "graph_representation": graph_representation.as_str(),
         "configuration": config.as_json(),
         "resume_path": resume_path,
         "test_read": false,
@@ -76,7 +76,7 @@ pub fn run_training(
     let build_started = Instant::now();
     let problem = GraphProblem::build(
         &graph,
-        graph_order,
+        graph_representation,
         config.weight_lower_factor,
         config.weight_upper_factor,
     )?;
@@ -97,7 +97,7 @@ pub fn run_training(
     );
     logger.log(json!({
         "event": "graph_problem",
-        "graph_order": graph_order.as_str(),
+        "graph_representation": graph_representation.as_str(),
         "original_nodes": graph.x.len(),
         "original_edges": graph.tail.len(),
         "routing_nodes": problem.routing_node_count(),
@@ -250,7 +250,7 @@ pub fn run_training(
 
         logger.log(json!({
             "event": "state",
-            "graph_order": graph_order.as_str(),
+            "graph_representation": graph_representation.as_str(),
             "completed_updates": completed_updates,
             "train_mean_regret": train_regret.mean_data_loss,
             "train_relative_regret": train_regret.relative_data_loss,
@@ -301,7 +301,7 @@ pub fn run_training(
         .count();
     logger.log(json!({
         "event": "finished",
-        "graph_order": graph_order.as_str(),
+        "graph_representation": graph_representation.as_str(),
         "completed_updates": restored.completed_updates,
         "train_objective": last_train_objective,
         "validation_objective": last_validation_objective,
@@ -319,7 +319,7 @@ pub fn run_training(
     Ok(TrainingOutcome {
         checkpoint_path,
         log_path: logger.path,
-        graph_order: graph_order.as_str().to_string(),
+        graph_representation: graph_representation.as_str().to_string(),
         completed_updates: restored.completed_updates,
         train_objective: last_train_objective,
         validation_objective: last_validation_objective,
@@ -335,7 +335,7 @@ fn make_checkpoint(
     weights: &[f64],
 ) -> TrainingCheckpoint {
     TrainingCheckpoint {
-        graph_order: problem.order().as_str().to_string(),
+        graph_representation: problem.representation().as_str().to_string(),
         completed_updates,
         weights: weights.to_vec(),
         configuration: config.as_json().clone(),
@@ -350,8 +350,10 @@ fn validate_resume_checkpoint(
     runtime_identity: &Value,
     problem: &GraphProblem,
 ) -> Result<(), String> {
-    if checkpoint.graph_order != problem.order().as_str() {
-        return Err("checkpoint graph order does not match the configured graph".to_string());
+    if checkpoint.graph_representation != problem.representation().as_str() {
+        return Err(
+            "checkpoint graph representation does not match the configured graph".to_string(),
+        );
     }
     if checkpoint.configuration != *config.as_json() {
         return Err("checkpoint configuration does not match the requested run".to_string());
@@ -383,7 +385,7 @@ fn runtime_identity(
             "fingerprint": baseline_fingerprint(graph),
         },
         "graph_problem": {
-            "order": problem.order().as_str(),
+            "representation": problem.representation().as_str(),
             "coordinates": problem.coordinate_count(),
             "routing_nodes": problem.routing_node_count(),
             "routing_arcs": problem.routing_arc_count(),
@@ -394,6 +396,7 @@ fn runtime_identity(
             "declared": config.as_json().pointer("/data/train_identity").cloned().unwrap_or(Value::Null),
             "available": train.available_samples,
             "accepted": train.accepted_samples,
+            "too_short": train.too_short,
             "mapped": mapped_train,
         },
         "validation": {
@@ -401,6 +404,7 @@ fn runtime_identity(
             "declared": config.as_json().pointer("/data/validation_identity").cloned().unwrap_or(Value::Null),
             "available": validation.available_samples,
             "accepted": validation.accepted_samples,
+            "too_short": validation.too_short,
             "mapped": mapped_validation,
         },
     })
@@ -500,9 +504,10 @@ fn log_data_report(
         "dropped": report.dropped_samples(),
         "cyclic": report.cyclic,
         "empty": report.empty,
+        "too_short": report.too_short,
         "out_of_bounds": report.out_of_bounds,
         "discontinuous": report.discontinuous,
-        "policy": "complete_paths_drop_cycles",
+        "policy": "complete_paths_min_2_edges_drop_cycles",
     }))
 }
 
@@ -652,11 +657,14 @@ mod tests {
     }
 
     #[test]
-    fn both_graph_orders_use_the_same_direct_weight_optimizer() {
+    fn both_graph_representations_use_the_same_direct_weight_optimizer() {
         let graph = graph();
         let paths = vec![((0, 3), vec![0, 1]), ((0, 3), vec![0, 1])];
-        for order in [GraphOrder::First, GraphOrder::Second] {
-            let problem = GraphProblem::build(&graph, order, 0.1, 10.0).unwrap();
+        for representation in [
+            GraphRepresentation::OriginalEdges,
+            GraphRepresentation::EdgeTransitionArcs,
+        ] {
+            let problem = GraphProblem::build(&graph, representation, 0.1, 10.0).unwrap();
             let initial = problem.initial_weights().to_vec();
             let mut weights = initial.clone();
             let mut optimizer = ProjectedSubgradientOptimizer::new(0.5, 0.1).unwrap();
@@ -667,11 +675,14 @@ mod tests {
     }
 
     #[test]
-    fn checkpoint_resume_matches_uninterrupted_training_for_both_orders() {
+    fn checkpoint_resume_matches_uninterrupted_training_for_both_representations() {
         let graph = graph();
         let paths = vec![((0, 3), vec![0, 1]), ((0, 3), vec![0, 1])];
-        for order in [GraphOrder::First, GraphOrder::Second] {
-            let problem = GraphProblem::build(&graph, order, 0.1, 10.0).unwrap();
+        for representation in [
+            GraphRepresentation::OriginalEdges,
+            GraphRepresentation::EdgeTransitionArcs,
+        ] {
+            let problem = GraphProblem::build(&graph, representation, 0.1, 10.0).unwrap();
             let mut uninterrupted_weights = problem.initial_weights().to_vec();
             let mut uninterrupted = ProjectedSubgradientOptimizer::new(0.5, 0.1).unwrap();
             advance(
@@ -686,7 +697,7 @@ mod tests {
             let mut first_half = ProjectedSubgradientOptimizer::new(0.5, 0.1).unwrap();
             advance(&problem, &paths, &mut resumed_weights, &mut first_half, 2);
             let checkpoint = TrainingCheckpoint {
-                graph_order: order.as_str().to_string(),
+                graph_representation: representation.as_str().to_string(),
                 completed_updates: first_half.completed_updates(),
                 weights: resumed_weights,
                 configuration: json!({"fixture": true}),
@@ -697,8 +708,10 @@ mod tests {
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos();
-            let path =
-                std::env::temp_dir().join(format!("direct-resume-{}-{nonce}.json", order.as_str()));
+            let path = std::env::temp_dir().join(format!(
+                "direct-resume-{}-{nonce}.json",
+                representation.as_str()
+            ));
             checkpoint.save_to(&path).unwrap();
             let restored = TrainingCheckpoint::load(&path).unwrap();
             std::fs::remove_file(path).unwrap();

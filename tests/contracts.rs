@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const FIRST_ORDER_SMOKE: &str = "experiments/configs/first_order_smoke_1pct.json";
-const SECOND_ORDER_SMOKE: &str = "experiments/configs/second_order_smoke_1pct.json";
+const ORIGINAL_EDGES_SMOKE: &str = "experiments/configs/original_edges_smoke_1pct.json";
+const EDGE_TRANSITION_ARCS_SMOKE: &str = "experiments/configs/edge_transition_arcs_smoke_1pct.json";
 
 #[test]
 fn train_help_exposes_only_the_unified_inputs() {
@@ -52,10 +52,10 @@ fn train_help_exposes_only_the_unified_inputs() {
 
 #[test]
 fn common_direct_weight_checkpoint_is_saved_and_loaded_atomically() {
-    let config = TrainingConfig::load(Path::new(SECOND_ORDER_SMOKE))
-        .expect("load second-order smoke config through the common schema");
+    let config = TrainingConfig::load(Path::new(EDGE_TRANSITION_ARCS_SMOKE))
+        .expect("load transition-arc smoke config through the common schema");
     let checkpoint = TrainingCheckpoint {
-        graph_order: config.graph_order.clone(),
+        graph_representation: config.graph_representation.clone(),
         completed_updates: 3,
         weights: vec![12.5, f64::from_bits(0x4034_5555_5555_5555), 91.25],
         configuration: config.as_json().clone(),
@@ -79,7 +79,7 @@ fn common_direct_weight_checkpoint_is_saved_and_loaded_atomically() {
 
     let restored = TrainingCheckpoint::load(&checkpoint_path).expect("load common checkpoint");
     assert_eq!(restored, checkpoint);
-    assert_eq!(restored.graph_order, "second");
+    assert_eq!(restored.graph_representation, "edge_transition_arcs");
     assert_eq!(restored.completed_updates, 3);
     assert_eq!(
         restored
@@ -107,7 +107,7 @@ fn common_direct_weight_checkpoint_is_saved_and_loaded_atomically() {
         [
             "completed_updates",
             "configuration",
-            "graph_order",
+            "graph_representation",
             "runtime_identity",
             "schema_version",
             "topology_identity",
@@ -121,29 +121,47 @@ fn common_direct_weight_checkpoint_is_saved_and_loaded_atomically() {
 }
 
 #[test]
-fn active_smokes_share_one_schema_and_differ_only_by_graph_order() {
-    let first =
-        TrainingConfig::load(Path::new(FIRST_ORDER_SMOKE)).expect("load first-order smoke config");
-    let second = TrainingConfig::load(Path::new(SECOND_ORDER_SMOKE))
-        .expect("load second-order smoke config");
+fn active_smokes_share_one_schema_and_differ_only_by_representation() {
+    let original = TrainingConfig::load(Path::new(ORIGINAL_EDGES_SMOKE))
+        .expect("load original-edge smoke config");
+    let transitions = TrainingConfig::load(Path::new(EDGE_TRANSITION_ARCS_SMOKE))
+        .expect("load transition-arc smoke config");
 
-    assert_eq!(first.graph_order, "first");
-    assert_eq!(second.graph_order, "second");
-    assert_eq!(first.city, second.city);
-    assert_eq!(first.train_variant, second.train_variant);
-    assert_eq!(first.validation_variant, second.validation_variant);
-    assert_eq!(first.weight_lower_factor, second.weight_lower_factor);
-    assert_eq!(first.weight_upper_factor, second.weight_upper_factor);
-    assert_eq!(first.eta0, second.eta0);
-    assert_eq!(first.lambda, second.lambda);
-    assert_eq!(first.updates, second.updates);
-    assert_eq!(first.validation_every, second.validation_every);
-    assert_eq!(first.rayon_threads, second.rayon_threads);
+    assert_eq!(original.graph_representation, "original_edges");
+    assert_eq!(transitions.graph_representation, "edge_transition_arcs");
+    assert_eq!(original.city, transitions.city);
+    assert_eq!(original.train_variant, transitions.train_variant);
+    assert_eq!(original.validation_variant, transitions.validation_variant);
+    assert_eq!(
+        original.weight_lower_factor,
+        transitions.weight_lower_factor
+    );
+    assert_eq!(
+        original.weight_upper_factor,
+        transitions.weight_upper_factor
+    );
+    assert_eq!(original.eta0, transitions.eta0);
+    assert_eq!(original.lambda, transitions.lambda);
+    assert_eq!(original.updates, transitions.updates);
+    assert_eq!(original.validation_every, transitions.validation_every);
+    assert_eq!(original.rayon_threads, transitions.rayon_threads);
+    assert_eq!(original.updates, 3);
+    assert_eq!(original.validation_every, 3);
+    assert_eq!(original.rayon_threads, 4);
 
     assert_eq!(
-        normalized_smoke_configuration(&first),
-        normalized_smoke_configuration(&second),
-        "apart from run metadata, graph order must be the only configuration difference"
+        directory_file_names(Path::new("experiments/configs")),
+        vec![
+            "edge_transition_arcs_smoke_1pct.json".to_string(),
+            "original_edges_smoke_1pct.json".to_string(),
+        ],
+        "only the two bounded technical smoke configurations remain active"
+    );
+
+    assert_eq!(
+        normalized_smoke_configuration(&original),
+        normalized_smoke_configuration(&transitions),
+        "apart from run metadata, representation must be the only configuration difference"
     );
 }
 
@@ -158,6 +176,17 @@ fn active_tree_contains_no_retired_qr_terms() {
         ["ExpandedRoad", "Model"].concat(),
         ["ExpandedTraining", "Config"].concat(),
         ["expanded", "_training"].concat(),
+        ["pair", "_state"].concat(),
+        ["pair", "-state"].concat(),
+        ["overlap", "_arcs"].concat(),
+        ["overlap", "-arc"].concat(),
+        ["node", "_weight"].concat(),
+        ["node", "-weight"].concat(),
+        ["coordinate", "_to_arc_weights"].concat(),
+        ["Graph", "Order"].concat(),
+        ["graph", "_order"].concat(),
+        ["first", "_order"].concat(),
+        ["second", "_order"].concat(),
     ];
     let mut active_files = Vec::new();
     for root in ["src", "tests", "tools"] {
@@ -202,7 +231,7 @@ fn normalized_smoke_configuration(config: &TrainingConfig) -> Value {
         .pointer_mut("/graph")
         .and_then(Value::as_object_mut)
         .expect("validated graph configuration is an object")
-        .remove("order");
+        .remove("representation");
     normalized
 }
 

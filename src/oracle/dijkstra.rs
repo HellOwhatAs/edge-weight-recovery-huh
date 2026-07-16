@@ -9,8 +9,8 @@ pub struct DijkstraPath {
 ///
 /// This intentionally uses an O(|V||E|) implementation. Production routing
 /// belongs to CCH; this routine stays simple enough to audit and is used as a
-/// correctness reference for both ordinary arc-weight graphs and transformed
-/// node-weight graphs.
+/// correctness reference for any representation whose learned coordinates are
+/// routed as ordinary arc weights.
 pub fn shortest_path_multi_source_f64(
     node_count: usize,
     tail: &[u32],

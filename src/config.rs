@@ -9,7 +9,7 @@ pub struct TrainingConfig {
     pub city: String,
     pub train_variant: String,
     pub validation_variant: String,
-    pub graph_order: String,
+    pub graph_representation: String,
     pub weight_lower_factor: f64,
     pub weight_upper_factor: f64,
     pub eta0: f64,
@@ -75,7 +75,11 @@ impl TrainingConfig {
         reject_unknown_keys(
             &raw,
             "/graph",
-            &["order", "weight_lower_factor", "weight_upper_factor"],
+            &[
+                "representation",
+                "weight_lower_factor",
+                "weight_upper_factor",
+            ],
         )?;
         reject_unknown_keys(&raw, "/optimizer", &["kind", "eta0", "lambda"])?;
         reject_unknown_keys(
@@ -86,11 +90,14 @@ impl TrainingConfig {
         reject_unknown_keys(&raw, "/training", &["updates", "validation_every"])?;
         reject_unknown_keys(&raw, "/runtime", &["rayon_threads"])?;
 
-        if require_u64(&raw, "/schema_version")? != 2 {
-            return Err("schema_version must be 2".to_string());
+        if require_u64(&raw, "/schema_version")? != 3 {
+            return Err("schema_version must be 3".to_string());
         }
         for (pointer, expected) in [
-            ("/data/path_contract", "complete_original_edge_id_sequence"),
+            (
+                "/data/path_contract",
+                "complete_original_edge_id_sequence_min_2_edges",
+            ),
             ("/data/cycle_policy", "drop"),
             ("/optimizer/kind", "projected_subgradient"),
             ("/oracle/kind", "cch"),
@@ -115,10 +122,12 @@ impl TrainingConfig {
         let train_variant = require_safe_component(&raw, "/data/train_variant", "train_variant")?;
         let validation_variant =
             require_safe_component(&raw, "/data/validation_variant", "validation_variant")?;
-        let graph_order = require_str(&raw, "/graph/order")?.to_string();
-        if graph_order != "first" && graph_order != "second" {
+        let graph_representation = require_str(&raw, "/graph/representation")?.to_string();
+        if graph_representation != "original_edges"
+            && graph_representation != "edge_transition_arcs"
+        {
             return Err(format!(
-                "/graph/order must be \"first\" or \"second\", got {graph_order:?}"
+                "/graph/representation must be \"original_edges\" or \"edge_transition_arcs\", got {graph_representation:?}"
             ));
         }
 
@@ -164,7 +173,7 @@ impl TrainingConfig {
             city,
             train_variant,
             validation_variant,
-            graph_order,
+            graph_representation,
             weight_lower_factor,
             weight_upper_factor,
             eta0,
@@ -236,7 +245,7 @@ impl RunOptions {
 fn print_help() {
     println!(
         "edge-weight-recovery train\n\
-         Train direct weights on a first- or second-order graph with one optimizer.\n\
+         Train direct weights on the original graph or its directed line graph with one optimizer.\n\
          Training uses full CCH customization, validation diagnostics, and never reads test.\n\n\
          Usage:\n\
            train --config PATH --output-dir PATH [--resume CHECKPOINT]\n\n\
@@ -319,21 +328,21 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn config_value(order: &str) -> Value {
+    fn config_value(representation: &str) -> Value {
         json!({
-            "schema_version": 2,
+            "schema_version": 3,
             "run_id": "smoke",
             "data": {
                 "city": "beijing",
                 "train_variant": "train",
                 "validation_variant": "validation",
-                "path_contract": "complete_original_edge_id_sequence",
+                "path_contract": "complete_original_edge_id_sequence_min_2_edges",
                 "cycle_policy": "drop",
                 "train_identity": {},
                 "validation_identity": {}
             },
             "graph": {
-                "order": order,
+                "representation": representation,
                 "weight_lower_factor": 0.1,
                 "weight_upper_factor": 10.0
             },
@@ -354,18 +363,28 @@ mod tests {
     }
 
     #[test]
-    fn both_orders_share_one_strict_schema() {
-        let first = TrainingConfig::from_value(config_value("first")).unwrap();
-        let second = TrainingConfig::from_value(config_value("second")).unwrap();
-        assert_eq!(first.eta0, second.eta0);
-        assert_eq!(first.lambda, second.lambda);
-        assert_eq!(first.updates, second.updates);
+    fn both_representations_share_one_strict_schema() {
+        let original = TrainingConfig::from_value(config_value("original_edges")).unwrap();
+        let transitions = TrainingConfig::from_value(config_value("edge_transition_arcs")).unwrap();
+        assert_eq!(original.eta0, transitions.eta0);
+        assert_eq!(original.lambda, transitions.lambda);
+        assert_eq!(original.updates, transitions.updates);
     }
 
     #[test]
     fn retired_or_unknown_model_fields_are_rejected() {
-        let mut raw = config_value("first");
-        raw["optimizer"]["second_lambda"] = json!(1.0);
+        let mut raw = config_value("original_edges");
+        raw["optimizer"]["extra_lambda"] = json!(1.0);
+        assert!(TrainingConfig::from_value(raw).is_err());
+    }
+
+    #[test]
+    fn legacy_transition_topology_configuration_is_rejected() {
+        let mut raw = config_value("edge_transition_arcs");
+        raw["schema_version"] = json!(2);
+        let graph = raw["graph"].as_object_mut().unwrap();
+        graph.remove("representation");
+        graph.insert("order".to_string(), json!("second"));
         assert!(TrainingConfig::from_value(raw).is_err());
     }
 

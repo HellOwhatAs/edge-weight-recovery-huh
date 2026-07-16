@@ -2,36 +2,50 @@
 
 ## Current claim
 
-The project now treats graph representation and inverse shortest-path
-optimization as separate concerns. First-order and second-order problems
-share the same objective, optimizer, update clock, projection logic, training
-loop, and checkpoint state. Their only intended differences are topology,
-trajectory mapping, metric conversion inside the oracle, and route decoding.
+The project treats graph representation and inverse shortest-path optimization
+as separate concerns. `original_edges` and `edge_transition_arcs` share the
+same objective, optimizer, update clock, projection logic, training loop, and
+checkpoint state. Their intended differences are topology, trajectory
+mapping, coordinate interpretation, and route decoding.
 
-This is an architectural claim. No new empirical superiority claim has been
+This is an architectural claim. No empirical superiority claim has been
 established in this revision.
 
 ## Representation definitions
 
-In the first-order graph, each learned coordinate is an original directed
-road, and an observed road sequence maps to itself.
+In `original_edges`, the original directed road graph is routed directly.
+Every original road edge is one learned coordinate, and an observed road
+sequence maps to itself.
 
-In the second-order graph, each learned coordinate is a legal adjacent road
-pair `(e_i,e_{i+1})`. Nodes `(e1,e2)` and `(e2,e3)` are adjacent by overlap,
-and a road sequence of length `N >= 2` maps to `N-1` such nodes. Decoding the
-overlapping nodes reconstructs the original road sequence. A single-road
-observation has no pair coordinate and is rejected instead of adding an
-artificial start state.
+`edge_transition_arcs` is the original graph's directed line graph (line
+digraph / edge-based graph):
 
-Source and target construction, graph-weight conversion for CCH, topology
-identity, observed-path validation, and decoded route construction are owned
-by the representation/oracle layer. These details do not enter the objective
-or create learned coordinates.
+- one routing node represents one original directed edge `e`;
+- one routing arc `e -> f` represents each legal transition satisfying
+  `head(e) = tail(f)`; and
+- that routing arc carries the directly learned weight `w[e,f]`.
+
+Thus `(e1,...,eN)` is a line-graph node path with the `N - 1` coordinate arcs
+returned by `windows(2)`. Its cost is
+
+```text
+w[e1,e2] + w[e2,e3] + ... + w[e{N-1},eN].
+```
+
+Source states are the original directed edges leaving the source vertex;
+target states are the original directed edges entering the target vertex.
+Both endpoint offsets are zero, and a returned routing-node sequence decodes
+directly to the corresponding original-road sequence.
+
+The representation contains only the original-edge routing nodes and directly
+learned transition arcs described above. All experiments filter trajectories
+with `N < 2` for both representations rather than introducing a start node,
+first-edge cost, or other special parameter.
 
 ## Optimization invariant
 
-For either representation the trainer owns a direct vector `w` initialized at
-`w0` and applies
+For either representation the trainer owns one direct vector `w` initialized
+at `w0` and applies
 
 ```text
 J(w) = average[observed path cost - predicted shortest-path cost]
@@ -45,7 +59,7 @@ w <- project(w - eta_k * g).
 ```
 
 A single global `completed_updates` value controls the schedule and is stored
-with the direct weights in the graph-order-independent checkpoint.
+with the direct weights in the representation-independent checkpoint.
 
 ## Known oracle boundary
 
@@ -63,24 +77,25 @@ The required evidence for this pass is deliberately narrow:
 
 - synthetic mapping, decoding, optimizer, projection, clock, CCH/reference,
   and checkpoint-resume tests; and
-- one three-update Beijing 1% technical smoke per graph order.
+- one short Beijing 1% technical smoke per representation.
 
 The active smoke configurations are
-[`first_order_smoke_1pct.json`](../experiments/configs/first_order_smoke_1pct.json)
+[`original_edges_smoke_1pct.json`](../experiments/configs/original_edges_smoke_1pct.json)
 and
-[`second_order_smoke_1pct.json`](../experiments/configs/second_order_smoke_1pct.json).
-They share the same data identities and optimizer settings. Both three-update
-release runs passed on 2026-07-16: objectives were finite, 25,825 first-order
-and 33,020 second-order direct coordinates changed, every grouped shortest-path
-query completed, and strict checkpoint reload succeeded. Independent resumes
-from each state-0 checkpoint reproduced the complete final checkpoint exactly.
-No test split was read, and these technical checks establish no graph-order
-quality ranking.
+[`edge_transition_arcs_smoke_1pct.json`](../experiments/configs/edge_transition_arcs_smoke_1pct.json).
+They share the same data identities and optimizer settings. On 2026-07-16 both
+completed three updates with finite objectives, changed direct weights, and
+healthy shortest-path queries. The corrected topologies were 31,199 nodes /
+72,156 arcs for `original_edges` and 72,156 nodes / 188,249 arcs for
+`edge_transition_arcs`; in each case the arc count is also the learned
+coordinate count. Resuming from update 0 reproduced the uninterrupted final
+checkpoint byte for byte. No test split was read, and these technical checks
+establish no representation-quality ranking.
 
 ## Claim boundary and next step
 
 The immediate completion gate is finite objectives, changed weights, healthy
 shortest-path queries, and successful checkpoint continuation in both smokes,
 together with the full synthetic correctness suite. Larger training,
-hyperparameter calibration, formal graph-order comparison, and all test-split
-evaluation remain out of scope until this architecture is verified.
+hyperparameter calibration, formal representation comparison, and all
+test-split evaluation remain out of scope until this architecture is verified.
