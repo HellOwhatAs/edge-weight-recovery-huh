@@ -14,6 +14,10 @@ pub struct PathMetrics {
     pub edge_jaccard: f64,
     pub mean_regret: f64,
     pub relative_regret: f64,
+    /// Additive totals retained so disjoint time-bucket evaluations can be
+    /// combined exactly under the same per-path metric implementation.
+    pub regret_sum: f64,
+    pub observed_cost_sum: f64,
 }
 
 /// Evaluate decoded original-road paths for either graph representation.
@@ -115,7 +119,44 @@ pub fn evaluate_paths(
         } else {
             total.6 / total.7
         },
+        regret_sum: total.6,
+        observed_cost_sum: total.7,
     })
+}
+
+/// Combine metrics from disjoint path partitions, such as departure-time
+/// buckets. All reported quantities remain sample-macro averages, and regret
+/// uses its additive numerator and denominator rather than averaging ratios.
+pub fn combine_path_metrics(parts: &[PathMetrics]) -> PathMetrics {
+    let sample_count = parts.iter().map(|part| part.sample_count).sum::<usize>();
+    if sample_count == 0 {
+        return PathMetrics::default();
+    }
+    let weighted = |field: fn(&PathMetrics) -> f64| {
+        parts
+            .iter()
+            .map(|part| field(part) * part.sample_count as f64)
+            .sum::<f64>()
+            / sample_count as f64
+    };
+    let regret_sum = parts.iter().map(|part| part.regret_sum).sum::<f64>();
+    let observed_cost_sum = parts.iter().map(|part| part.observed_cost_sum).sum::<f64>();
+    PathMetrics {
+        sample_count,
+        exact_match: weighted(|part| part.exact_match),
+        edge_precision: weighted(|part| part.edge_precision),
+        edge_recall: weighted(|part| part.edge_recall),
+        edge_f1: weighted(|part| part.edge_f1),
+        edge_jaccard: weighted(|part| part.edge_jaccard),
+        mean_regret: regret_sum / sample_count as f64,
+        relative_regret: if observed_cost_sum == 0.0 {
+            0.0
+        } else {
+            regret_sum / observed_cost_sum
+        },
+        regret_sum,
+        observed_cost_sum,
+    }
 }
 
 fn path_cost(weights: &[f64], path: &[usize]) -> Result<f64, String> {
@@ -180,5 +221,39 @@ mod tests {
             evaluate_paths(&metric, &[], 4).unwrap(),
             PathMetrics::default()
         );
+    }
+
+    #[test]
+    fn disjoint_time_bucket_metrics_combine_with_additive_regret() {
+        let first = PathMetrics {
+            sample_count: 1,
+            exact_match: 1.0,
+            edge_precision: 1.0,
+            edge_recall: 1.0,
+            edge_f1: 1.0,
+            edge_jaccard: 1.0,
+            mean_regret: 2.0,
+            relative_regret: 0.2,
+            regret_sum: 2.0,
+            observed_cost_sum: 10.0,
+        };
+        let second = PathMetrics {
+            sample_count: 3,
+            exact_match: 0.0,
+            edge_precision: 0.5,
+            edge_recall: 0.25,
+            edge_f1: 1.0 / 3.0,
+            edge_jaccard: 0.2,
+            mean_regret: 4.0,
+            relative_regret: 0.4,
+            regret_sum: 12.0,
+            observed_cost_sum: 30.0,
+        };
+        let combined = combine_path_metrics(&[first, second]);
+        assert_eq!(combined.sample_count, 4);
+        assert_eq!(combined.exact_match, 0.25);
+        assert_eq!(combined.edge_precision, 0.625);
+        assert_eq!(combined.mean_regret, 3.5);
+        assert_eq!(combined.relative_regret, 0.35);
     }
 }

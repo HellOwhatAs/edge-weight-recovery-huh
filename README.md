@@ -116,14 +116,66 @@ the direct vector. Exact continuous-weight CCH routing remains a deliberately
 deferred oracle limitation; it does not introduce another learned vector or a
 representation-specific optimizer.
 
+## Coarse departure-time conditioning
+
+The temporal extension retains the pickle's whole-trip `start_time` and
+`end_time` alongside every path. Beijing timestamps are interpreted as Unix
+seconds in `Asia/Shanghai` only after checking the full-train `MMDD` keys:
+all 785,709 match UTC+8 civil dates, whereas 695,129 match UTC dates. Inference
+selects one of five train-derived departure-hour buckets (`00-06`, `06-10`,
+`10-16`, `16-20`, `20-24`). Validation timestamps are used only to select the
+already-defined bucket and report metrics.
+
+For bucket `b`, the relative coordinate is
+
+```text
+q_b = q_global + r_b
+w_b = w0_b * q_b.
+```
+
+`q_global` is shared by every bucket and each `r_b` is a bounded residual
+regularized toward zero. The full-batch objective is
+
+```text
+(1/N) sum_b sum_(trip in b)[observed_cost(w_b) - shortest_path_cost(w_b)]
++ lambda_global / (2m)  * ||q_global - 1||^2
++ lambda_residual / (2mB) * sum_b ||r_b||^2.
+```
+
+It is convex in the global and residual coordinates. Independent boxes on
+`q_global` and `r_b` guarantee every effective multiplier remains in the
+configured `[0.1, 10]` range. The graph problem still supplies only topology,
+trajectory mapping, coordinate counts, CCH customization, and route decoding;
+it does not inspect temporal optimizer state. Line-graph source states,
+zero endpoint offsets, transition meanings, and the absence of a first-edge
+cost are unchanged.
+
+The optional travel-time baseline uses only accepted training trajectories.
+For a complete trip `t`, it first computes the proxy
+
+```text
+v_t = full_path_length_t / (end_time_t - start_time_t).
+```
+
+This is explicitly a whole-trip average, not an observed per-edge speed. After
+clipping implausible extremes, road-global speeds shrink to the train-wide
+mean and road-bucket speeds shrink to their road-global values. The two prior
+counts are train-support quantiles. An edge baseline is proportional to
+`length / smoothed_speed`; one train-derived positive global fixed-point scale
+reduces CCH `u32` rounding without changing route order. For line-graph
+coordinates, the baseline remains the entered edge's value, so no new first
+edge term is introduced.
+
 ## Checkpoints
 
-A checkpoint records the representation and topology identity, configuration
-and runtime data identity, current direct weights, and `completed_updates`.
-Restoring it rebuilds `w0`, bounds, and the representation-specific oracle from
-the verified configuration and topology, restores the configured optimizer
-geometry, then resumes the same square-root learning-rate clock. Both
-representations use the same checkpoint structure.
+A static checkpoint records the representation and topology identity,
+configuration and runtime data identity, current direct weights, and
+`completed_updates`. A temporal checkpoint records the global relative vector,
+all bucket residuals, the complete bucket definition, train-derived baseline
+vectors and diagnostics, configuration, runtime identity, topology identity,
+and update clock. Restore verifies those identities and resumes the same
+square-root learning-rate clock; inference selects the stored metric using the
+departure timestamp.
 
 ## Current evidence boundary
 
@@ -133,23 +185,27 @@ mapping, optimization, CCH, and checkpoint contracts:
 - [`original_edges_smoke_1pct.json`](experiments/configs/original_edges_smoke_1pct.json)
 - [`edge_transition_arcs_smoke_1pct.json`](experiments/configs/edge_transition_arcs_smoke_1pct.json)
 
-The first deterministic Beijing 10% calibration exposed an optimizer
-regression: direct-weight Euclidean updates improved Edge F1 by only about
-`2e-5`. A generic relative-coordinate recovery then reproduced the historical
-`original_edges` result and established meaningful learning for both graph
-representations. At their minimum-objective checkpoints, decoded Edge F1 is
-0.685404 for `original_edges` and 0.694125 for
-`edge_transition_arcs`; Exact Match is 0.373640 and 0.377245. The line graph
-therefore remains the recommended representation for a later NeuroMLR
-comparison, now with learning gain rather than initialization alone as
-evidence. Its best checkpoint is the registered update-299 boundary, so
-convergence remains unconfirmed.
+The relative-coordinate recovery first established a 10% Beijing line-graph
+baseline at F1 0.694125 and Exact Match 0.377245. Full training data moves the
+same static model to F1 0.700554 and Exact Match 0.388186 at interior update
+400; all five departure buckets improve over the 10% model.
 
-See the [optimizer-recovery report](experiments/optimizer_recovery/report.md)
-and [machine-readable summary](experiments/optimizer_recovery/summary.json).
-The earlier [direct-weight calibration](experiments/line_graph_10pct_calibration/report.md)
-is retained as the diagnostic baseline. No test split was read, so this remains
-development evidence rather than a test-set claim.
+The shared departure-time model with a length baseline reaches F1 0.702280
+and Exact Match 0.388629 at update 400. Replacing its anchor with the
+train-only smoothed whole-trip-speed proxy reaches F1 0.703176 and Exact Match
+0.389704 at update 425. The best temporal model is only `+0.002623` F1 and
+`+0.001518` Exact over the full static model, with F1 losses in two of five
+buckets. This is a small, mixed development gain rather than evidence of a
+significant and stable improvement. Decoded metrics peak inside the bounded
+budget, although regularized objectives are still falling at update 500, so
+numerical objective convergence is not confirmed.
+
+See the [full-data time-conditioning report](experiments/full_data_time_conditioning/report.md)
+and its [machine-readable summary](experiments/full_data_time_conditioning/summary.json).
+The [optimizer-recovery report](experiments/optimizer_recovery/report.md) and
+earlier [direct-weight calibration](experiments/line_graph_10pct_calibration/report.md)
+remain as historical evidence. No test split was read, so all results are
+development evidence rather than test-set claims.
 
 ## Development checks
 

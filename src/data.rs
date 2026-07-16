@@ -6,6 +6,38 @@ use std::fs::File;
 /// One complete observed path expressed in original directed edge IDs.
 pub type TripPath = ((u32, u32), Vec<usize>);
 
+/// Whole-trajectory timestamps retained from the source pickle.
+///
+/// The source only supplies one start and end timestamp for the complete path;
+/// these values must never be interpreted as per-edge observations.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TripTime {
+    pub start_time: u64,
+    pub end_time: u64,
+}
+
+impl TripTime {
+    pub fn duration_seconds(self) -> Option<u64> {
+        self.end_time
+            .checked_sub(self.start_time)
+            .filter(|&value| value > 0)
+    }
+}
+
+/// Raw timestamp evidence collected while decoding a split. The two date-key
+/// match counts provide an explicit UTC versus UTC+8 check without making the
+/// route loader depend on a timezone database.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct TimestampEvidence {
+    pub timestamp_samples: usize,
+    pub invalid_intervals: usize,
+    pub minimum_start_time: Option<u64>,
+    pub maximum_end_time: Option<u64>,
+    pub mmdd_keys: usize,
+    pub mmdd_matches_utc: usize,
+    pub mmdd_matches_utc_plus_8: usize,
+}
+
 #[derive(Debug)]
 pub struct GraphData {
     pub tail: Vec<u32>,
@@ -55,7 +87,10 @@ impl PathValidationReport {
 #[derive(Debug)]
 pub struct LoadedTrips {
     pub paths: Vec<TripPath>,
+    /// Aligned one-to-one with `paths` after applying the common route filter.
+    pub times: Vec<TripTime>,
     pub report: PathValidationReport,
+    pub timestamp_evidence: TimestampEvidence,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -112,7 +147,7 @@ pub fn load_trips(
     max_samples: Option<usize>,
 ) -> Result<LoadedTrips, String> {
     let path = format!("data/{city}_data/preprocessed_{split}_trips_{variant}.pkl");
-    let raw: Vec<(serde_pickle::Value, Vec<usize>, (usize, usize))> = serde_pickle::from_reader(
+    let raw: Vec<(serde_pickle::Value, Vec<usize>, (u64, u64))> = serde_pickle::from_reader(
         File::open(&path).map_err(|error| format!("failed to open {path}: {error}"))?,
         Default::default(),
     )
@@ -124,19 +159,108 @@ pub fn load_trips(
     };
     let inspect_count = max_samples.unwrap_or(raw.len()).min(raw.len());
     let mut paths = Vec::with_capacity(inspect_count);
+    let mut times = Vec::with_capacity(inspect_count);
+    let mut timestamp_evidence = TimestampEvidence::default();
 
-    for (_, edge_path, _) in raw.into_iter().take(inspect_count) {
+    for (trip_key, edge_path, (start_time, end_time)) in raw.into_iter().take(inspect_count) {
         report.inspected_samples += 1;
+        record_timestamp_evidence(
+            &mut timestamp_evidence,
+            &trip_key,
+            TripTime {
+                start_time,
+                end_time,
+            },
+        );
         match validate_edge_path(&edge_path, &graph.tail, &graph.head) {
             Ok(od) => {
                 paths.push((od, edge_path));
+                times.push(TripTime {
+                    start_time,
+                    end_time,
+                });
                 report.accepted_samples += 1;
             }
             Err(error) => report.record_rejection(error),
         }
     }
 
-    Ok(LoadedTrips { paths, report })
+    debug_assert_eq!(paths.len(), times.len());
+    Ok(LoadedTrips {
+        paths,
+        times,
+        report,
+        timestamp_evidence,
+    })
+}
+
+fn record_timestamp_evidence(
+    evidence: &mut TimestampEvidence,
+    trip_key: &serde_pickle::Value,
+    time: TripTime,
+) {
+    evidence.timestamp_samples += 1;
+    evidence.minimum_start_time = Some(
+        evidence
+            .minimum_start_time
+            .map_or(time.start_time, |current| current.min(time.start_time)),
+    );
+    evidence.maximum_end_time = Some(
+        evidence
+            .maximum_end_time
+            .map_or(time.end_time, |current| current.max(time.end_time)),
+    );
+    if time.duration_seconds().is_none() {
+        evidence.invalid_intervals += 1;
+    }
+
+    let Some(key) = mmdd_key(trip_key) else {
+        return;
+    };
+    evidence.mmdd_keys += 1;
+    evidence.mmdd_matches_utc += usize::from(epoch_mmdd(time.start_time, 0) == key);
+    evidence.mmdd_matches_utc_plus_8 +=
+        usize::from(epoch_mmdd(time.start_time, 8 * 60 * 60) == key);
+}
+
+fn mmdd_key(value: &serde_pickle::Value) -> Option<String> {
+    let values = match value {
+        serde_pickle::Value::Tuple(values) | serde_pickle::Value::List(values) => values,
+        _ => return None,
+    };
+    let candidate = match values.first()? {
+        serde_pickle::Value::String(candidate) => candidate.clone(),
+        serde_pickle::Value::Bytes(candidate) => String::from_utf8(candidate.clone()).ok()?,
+        _ => return None,
+    };
+    if candidate.len() == 4 && candidate.bytes().all(|byte| byte.is_ascii_digit()) {
+        Some(candidate)
+    } else {
+        None
+    }
+}
+
+fn epoch_mmdd(timestamp: u64, utc_offset_seconds: u64) -> String {
+    let local_days = timestamp.saturating_add(utc_offset_seconds) / 86_400;
+    let (_, month, day) = civil_from_unix_days(local_days as i64);
+    format!("{month:02}{day:02}")
+}
+
+/// Convert days since 1970-01-01 to a proleptic-Gregorian civil date.
+/// Adapted from Howard Hinnant's public-domain civil-calendar algorithm.
+fn civil_from_unix_days(days: i64) -> (i64, u32, u32) {
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let day_of_era = z - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let mut year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    year += i64::from(month <= 2);
+    (year, month as u32, day as u32)
 }
 
 /// Validate a complete original-edge path with at least one transition and
@@ -306,5 +430,26 @@ mod tests {
     #[test]
     fn empty_edge_count_workload_is_well_defined() {
         assert_eq!(compute_observed_edge_counts(&[], 3, 64), vec![0; 3]);
+    }
+
+    #[test]
+    fn timestamp_evidence_distinguishes_utc_from_beijing_date_keys() {
+        let mut evidence = TimestampEvidence::default();
+        record_timestamp_evidence(
+            &mut evidence,
+            &serde_pickle::Value::Tuple(vec![
+                serde_pickle::Value::Bytes(b"0504".to_vec()),
+                serde_pickle::Value::I64(1),
+            ]),
+            TripTime {
+                // 2009-05-03 23:52 UTC / 2009-05-04 07:52 UTC+8.
+                start_time: 1_241_394_720,
+                end_time: 1_241_394_985,
+            },
+        );
+        assert_eq!(evidence.mmdd_keys, 1);
+        assert_eq!(evidence.mmdd_matches_utc, 0);
+        assert_eq!(evidence.mmdd_matches_utc_plus_8, 1);
+        assert_eq!(evidence.invalid_intervals, 0);
     }
 }

@@ -1,8 +1,9 @@
 use edge_weight_recovery::checkpoint::TrainingCheckpoint;
 use edge_weight_recovery::config::{TrainingConfig, atomic_write};
 use edge_weight_recovery::data::{load_graph, load_trips};
-use edge_weight_recovery::evaluation::{PathMetrics, evaluate_paths};
+use edge_weight_recovery::evaluation::{PathMetrics, combine_path_metrics, evaluate_paths};
 use edge_weight_recovery::graph_problem::{GraphProblem, GraphRepresentation};
+use edge_weight_recovery::temporal::TimeBucketSpec;
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
@@ -49,8 +50,43 @@ fn run() -> Result<(), String> {
     }
     let mapped = problem.map_paths(&trips.paths)?;
     let metric = problem.customize(&checkpoint.weights)?;
-    let metrics = evaluate_paths(&metric, &mapped, rayon::current_num_threads().max(1))?;
+    let initial_metric = problem.customize(problem.initial_weights())?;
+    let threads = rayon::current_num_threads().max(1);
+    let (metrics, time_bucket_output) = if let Some(path) = &arguments.time_buckets {
+        let spec = TimeBucketSpec::load(path)?;
+        if mapped.len() != trips.times.len() {
+            return Err("evaluation paths and timestamps are not aligned".to_string());
+        }
+        let mut bucket_paths = vec![Vec::new(); spec.buckets.len()];
+        for (path, time) in mapped.into_iter().zip(&trips.times) {
+            bucket_paths[spec.bucket_index(time.start_time)].push(path);
+        }
+        let mut bucket_metrics = Vec::with_capacity(spec.buckets.len());
+        let mut rows = Vec::with_capacity(spec.buckets.len());
+        for (bucket, paths) in spec.buckets.iter().zip(&bucket_paths) {
+            let part = evaluate_paths(&metric, paths, threads)?;
+            rows.push(json!({
+                "id": bucket.id,
+                "start_hour": bucket.start_hour,
+                "end_hour": bucket.end_hour,
+                "metrics": metrics_json(&part),
+            }));
+            bucket_metrics.push(part);
+        }
+        (
+            combine_path_metrics(&bucket_metrics),
+            json!({
+                "spec_path": path,
+                "specification": spec.as_json(),
+                "selection_timestamp": "departure_time",
+                "buckets": rows,
+            }),
+        )
+    } else {
+        (evaluate_paths(&metric, &mapped, threads)?, Value::Null)
+    };
 
+    let test_read = arguments.split == "test";
     let output = json!({
         "schema_version": 2,
         "checkpoint": arguments.checkpoint,
@@ -66,6 +102,14 @@ fn run() -> Result<(), String> {
             "too_short": trips.report.too_short,
         },
         "metrics": metrics_json(&metrics),
+        "time_bucket_evaluation": time_bucket_output,
+        "quantization": {
+            "max_abs_error": checkpoint.weights.iter().zip(metric.quantized_weights()).map(|(&weight, &integer)| (weight - integer as f64).abs()).fold(0.0, f64::max),
+            "maximum_relative_error": checkpoint.weights.iter().zip(metric.quantized_weights()).map(|(&weight, &integer)| (weight - integer as f64).abs() / weight).fold(0.0, f64::max),
+            "changed_from_baseline": metric.quantized_weights().iter().zip(initial_metric.quantized_weights()).filter(|(left, right)| left != right).count(),
+            "zero_quantized_weights": metric.quantized_weights().iter().filter(|&&weight| weight == 0).count(),
+        },
+        "test_read": test_read,
     });
     let encoded = serde_json::to_vec_pretty(&output)
         .map_err(|error| format!("failed to encode evaluation output: {error}"))?;
@@ -99,6 +143,7 @@ struct Arguments {
     split: String,
     variant: Option<String>,
     output: Option<PathBuf>,
+    time_buckets: Option<PathBuf>,
 }
 
 impl Arguments {
@@ -109,9 +154,9 @@ impl Arguments {
             .any(|argument| argument == "--help" || argument == "-h")
         {
             println!(
-                "Usage: evaluate --checkpoint PATH [--split validation|test] [--variant NAME] [--output PATH]\n\n\
+                "Usage: evaluate --checkpoint PATH [--split validation|test] [--variant NAME] [--time-buckets PATH] [--output PATH]\n\n\
                  Validation defaults to the checkpoint configuration's fixed validation variant.\n\
-                 Test requires an explicit --split test and --variant NAME."
+                 Test requires an explicit --split test and --variant NAME. Time buckets select by retained departure time."
             );
             return Ok(None);
         }
@@ -119,6 +164,7 @@ impl Arguments {
         let mut split = "validation".to_string();
         let mut variant = None;
         let mut output = None;
+        let mut time_buckets = None;
         let mut index = 0;
         while index < arguments.len() {
             let flag = &arguments[index];
@@ -130,6 +176,7 @@ impl Arguments {
                 "--split" => split = value.clone(),
                 "--variant" => variant = Some(value.clone()),
                 "--output" => output = Some(PathBuf::from(value)),
+                "--time-buckets" => time_buckets = Some(PathBuf::from(value)),
                 _ => return Err(format!("unknown argument {flag:?}")),
             }
             index += 2;
@@ -142,6 +189,7 @@ impl Arguments {
             split,
             variant,
             output,
+            time_buckets,
         }))
     }
 }

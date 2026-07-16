@@ -6,4 +6,6 @@ pub mod graph_problem;
 pub mod objective;
 pub mod optimizer;
 pub mod oracle;
+pub mod temporal;
+pub mod temporal_training;
 pub mod training;

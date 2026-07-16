@@ -170,3 +170,123 @@ Tracked evidence:
 - [recovery report](experiments/optimizer_recovery/report.md)
 - [machine-readable recovery summary](experiments/optimizer_recovery/summary.json)
 - [two exact recovery configurations](experiments/optimizer_recovery/configs)
+
+## Full-data and departure-time study
+
+The next registered study keeps `edge_transition_arcs` and
+`relative_projected_subgradient` fixed. It compares the existing 10% result,
+one full-train static model, one full-train coarse departure-time model with
+the length anchor, and the same temporal model with a train-only travel-time
+anchor. The fixed validation variant is unchanged, and no test file is read.
+
+### Timestamp and bucket audit
+
+The pickle timestamps are Unix seconds. Full-train keys contain an `MMDD`
+field: all `785,709 / 785,709` agree with the start timestamp's UTC+8 date,
+while `695,129 / 785,709` agree with UTC. The study therefore records
+`Asia/Shanghai`, fixed UTC+8 for these 2009 dates, and assigns metrics by trip
+departure time.
+
+Five coarse buckets were frozen from the train hourly profile before model
+training:
+
+| Local departure bucket | Filtered train | Fixed validation |
+|---|---:|---:|
+| 00:00-06:00 | 35,201 | 1,009 |
+| 06:00-10:00 | 106,282 | 2,399 |
+| 10:00-16:00 | 220,543 | 5,456 |
+| 16:00-20:00 | 151,360 | 4,066 |
+| 20:00-24:00 | 109,889 | 2,882 |
+| **Total** | **623,275** | **15,812** |
+
+The common path filter drops 162,434 cyclic full-train trajectories and 4,188
+cyclic validation trajectories. There are no empty, short, discontinuous, or
+out-of-bounds paths. The exact audit and bucket file are
+[`time_audit.json`](experiments/full_data_time_conditioning/time_audit.json)
+and
+[`time_buckets.json`](experiments/full_data_time_conditioning/time_buckets.json).
+
+### Shared temporal model
+
+For bucket `b`, the effective relative vector is
+
+```text
+q_b = q_global + residual_b
+w_b = w0_b * q_b.
+```
+
+The global vector is shared by every bucket. Residuals have a common bounded
+box and an `L2` penalty toward zero; their configured box combined with the
+global box guarantees effective multipliers remain in `[0.1,10]`. The data
+term is the sample-weighted sum of bucket regrets, so this remains a convex
+projected-subgradient problem. The graph representation still owns topology,
+path mapping, CCH, and decoding only. Departure-time state does not add a
+start cost, first-edge parameter, or higher-order graph state.
+
+The full static learning-rate screen used only `0.0002`, `0.0004`, and
+`0.0008`. The `0.0008` arm was stopped after its registered update-10
+validation objective rose from 636,965.750 to 1,135,726.472. At update 60,
+`0.0002` produced F1 0.694756 and Exact Match 0.383569; `0.0004` produced F1
+0.689208 and Exact Match 0.371174. Thus `0.0002` was frozen for all formal
+runs. Residual step multipliers 1 and 2 were effectively tied at update 40
+(F1 0.692307 versus 0.692333), but multiplier 1 had higher Exact Match
+(0.383569 versus 0.381229) and a more stable early trajectory. Multiplier 5
+was rejected after a bounded update-25 instability check (F1 0.675727).
+
+### Train-only travel-time anchor
+
+For every accepted training trip, the estimator computes full-path length
+divided by whole-trip duration. It clips the proxy speed to `[1, 33.333...]`
+m/s, affecting 401 low and 307 high observations. The clipped train-wide mean
+is 8.768182 m/s. A road-global mean shrinks to that network mean with 42
+pseudo-observations, and each road-bucket mean shrinks to its road-global mean
+with 74 pseudo-observations; both counts are derived from train support
+quantiles. Validation contributes to none of these values.
+
+The resulting baseline is proportional to `length / smoothed_speed`. A common
+train-derived scale of 8.768182 is applied before `u32` CCH customization and
+recorded with the checkpoint; dividing by it recovers milliseconds. This
+positive global scale cannot change a route ordering, but reduces initial
+maximum relative fixed-point error to about `8.8e-4`, with no coordinate
+quantized to zero. Whole-trip proxy speeds are not claimed to be true per-edge
+travel times.
+
+### Formal development result
+
+Each of the three new formal runs used 500 updates with checkpoint cadence 25;
+selection used
+maximum decoded validation Edge F1, with Exact Match and earlier update only
+as exact tie-breaks. All selected checkpoints are inside the budget:
+
+| Stage | Selected update | Precision | Recall | F1 | Exact | Jaccard | Mean regret |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Existing 10% static line graph | 299 | 0.707199 | 0.688856 | 0.694125 | 0.377245 | 0.620388 | 321,414.6 mm |
+| Full static line graph | 400 | 0.713366 | 0.695423 | 0.700554 | 0.388186 | 0.627908 | 303,899.5 mm |
+| Full temporal, length baseline | 400 | 0.715654 | 0.696363 | 0.702280 | 0.388629 | 0.629917 | 295,214.9 mm |
+| Full temporal, travel-time baseline | 425 | 0.716090 | 0.697769 | 0.703176 | 0.389704 | 0.631127 | 290,476.5 scaled-ms |
+
+Full data contributes the clear gain: `+0.006429` F1 and `+0.010941` Exact
+over the 10% model, with positive F1 changes in all five departure buckets.
+Length-based time conditioning adds only `+0.001726` F1 and `+0.000443`
+Exact over the full static model, with F1 losses in three buckets. The
+travel-time anchor adds another `+0.000896` F1 and `+0.001075` Exact over the
+length temporal model, but improves F1 in only two of five buckets. Its
+positive global fixed-point scale means its regret units cannot be compared
+with the length rows; dividing by 8.7681816625 gives 33,128.5 ms overall.
+
+The selected checkpoints are not budget-boundary artifacts, and decoded route
+metrics plateau before update 500. Regularized validation objectives continue
+to decrease through update 500, however, so numerical objective convergence
+is not confirmed. On this single fixed development split, the temporal
+changes are a small mixed-bucket improvement, not evidence of a significant
+and stable gain over the full static line graph. No test data was read.
+
+Tracked evidence:
+
+- [full report](experiments/full_data_time_conditioning/report.md)
+- [machine-readable summary](experiments/full_data_time_conditioning/summary.json)
+- [time and baseline audit](experiments/full_data_time_conditioning/time_audit.json)
+- [formal and screening configurations](experiments/full_data_time_conditioning/configs)
+
+Ignored local logs, checkpoints, and per-checkpoint evaluations remain under
+`artifacts/full_data_time_conditioning/`.

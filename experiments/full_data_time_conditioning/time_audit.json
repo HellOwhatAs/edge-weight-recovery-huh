@@ -1,0 +1,407 @@
+{
+  "configuration": "experiments/full_data_time_conditioning/configs/travel_time_baseline_audit_full.json",
+  "configuration_sha256": "6a35c2d89abf6e5fb5c51bbafa417e986c079ca738a8948c48d69cce4ba1ab9e",
+  "data_identity": {
+    "city": "beijing",
+    "train": {
+      "bytes": 120236049,
+      "path": "data/beijing_data/preprocessed_train_trips_all.pkl",
+      "sample_count": 785709,
+      "sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
+      "source_sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce"
+    },
+    "validation": {
+      "bytes": 4160448,
+      "path": "data/beijing_data/preprocessed_validation_trips_scale_fixed_seed20260715.pkl",
+      "sample_count": 20000,
+      "seed": 20260715,
+      "sha256": "c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade",
+      "source_sha256": "97d9e9231fc6599084e6af9eaa081e08c09f6108f27f304a26264fff1ee0ec6d"
+    }
+  },
+  "interpretation_limits": [
+    "timestamps cover only whole trips",
+    "trip-average speed is a proxy assigned to traversed roads, not a per-edge speed observation",
+    "the line graph still omits the first-edge cost by design"
+  ],
+  "purpose": "train_only_departure_time_and_trip_average_speed_audit",
+  "schema_version": 1,
+  "splits": {
+    "train": {
+      "accepted_timestamp_samples": 623275,
+      "duration_seconds": {
+        "maximum": 55472,
+        "mean": 811.7557354297862,
+        "minimum": 3,
+        "p01": 74,
+        "p10": 226,
+        "p50": 633,
+        "p90": 1597,
+        "p99": 3012
+      },
+      "filtering": {
+        "accepted": 623275,
+        "available": 785709,
+        "cyclic": 162434,
+        "discontinuous": 0,
+        "dropped": 162434,
+        "empty": 0,
+        "inspected": 785709,
+        "out_of_bounds": 0,
+        "too_short": 0
+      },
+      "local_dates": [
+        "2009-05-01",
+        "2009-05-02",
+        "2009-05-04",
+        "2009-05-08",
+        "2009-05-09"
+      ],
+      "local_hour_counts": [
+        12123,
+        6119,
+        4746,
+        3178,
+        3094,
+        5941,
+        11319,
+        23919,
+        34212,
+        36832,
+        34963,
+        33474,
+        34729,
+        38688,
+        39434,
+        39255,
+        38646,
+        39669,
+        38126,
+        34919,
+        32486,
+        31090,
+        27853,
+        18460
+      ],
+      "raw_timestamp_evidence": {
+        "invalid_intervals": 0,
+        "maximum_end_time": 1241884800,
+        "minimum_start_time": 1241107200,
+        "mmdd_keys": 785709,
+        "mmdd_matches_utc": 695129,
+        "mmdd_matches_utc_plus_8": 785709,
+        "samples": 785709
+      },
+      "time_buckets": [
+        {
+          "end_hour": 6,
+          "id": "night_00_06",
+          "samples": 35201,
+          "start_hour": 0
+        },
+        {
+          "end_hour": 10,
+          "id": "morning_06_10",
+          "samples": 106282,
+          "start_hour": 6
+        },
+        {
+          "end_hour": 16,
+          "id": "day_10_16",
+          "samples": 220543,
+          "start_hour": 10
+        },
+        {
+          "end_hour": 20,
+          "id": "evening_16_20",
+          "samples": 151360,
+          "start_hour": 16
+        },
+        {
+          "end_hour": 24,
+          "id": "late_20_24",
+          "samples": 109889,
+          "start_hour": 20
+        }
+      ]
+    },
+    "validation": {
+      "accepted_timestamp_samples": 15812,
+      "duration_seconds": {
+        "maximum": 30359,
+        "mean": 829.5568555527448,
+        "minimum": 7,
+        "p01": 71,
+        "p10": 229,
+        "p50": 643,
+        "p90": 1626,
+        "p99": 3111
+      },
+      "filtering": {
+        "accepted": 15812,
+        "available": 20000,
+        "cyclic": 4188,
+        "discontinuous": 0,
+        "dropped": 4188,
+        "empty": 0,
+        "inspected": 20000,
+        "out_of_bounds": 0,
+        "too_short": 0
+      },
+      "local_dates": [
+        "2009-05-13",
+        "2009-05-16"
+      ],
+      "local_hour_counts": [
+        380,
+        200,
+        123,
+        81,
+        81,
+        144,
+        336,
+        717,
+        767,
+        579,
+        820,
+        937,
+        611,
+        1016,
+        1091,
+        981,
+        1060,
+        1016,
+        1060,
+        930,
+        873,
+        830,
+        671,
+        508
+      ],
+      "raw_timestamp_evidence": {
+        "invalid_intervals": 0,
+        "maximum_end_time": 1242489599,
+        "minimum_start_time": 1242144001,
+        "mmdd_keys": 0,
+        "mmdd_matches_utc": 0,
+        "mmdd_matches_utc_plus_8": 0,
+        "samples": 20000
+      },
+      "time_buckets": [
+        {
+          "end_hour": 6,
+          "id": "night_00_06",
+          "samples": 1009,
+          "start_hour": 0
+        },
+        {
+          "end_hour": 10,
+          "id": "morning_06_10",
+          "samples": 2399,
+          "start_hour": 6
+        },
+        {
+          "end_hour": 16,
+          "id": "day_10_16",
+          "samples": 5456,
+          "start_hour": 10
+        },
+        {
+          "end_hour": 20,
+          "id": "evening_16_20",
+          "samples": 4066,
+          "start_hour": 16
+        },
+        {
+          "end_hour": 24,
+          "id": "late_20_24",
+          "samples": 2882,
+          "start_hour": 20
+        }
+      ]
+    }
+  },
+  "test_read": false,
+  "time_bucket_specification": {
+    "buckets": [
+      {
+        "end_hour": 6,
+        "id": "night_00_06",
+        "label": "00:00-06:00",
+        "start_hour": 0
+      },
+      {
+        "end_hour": 10,
+        "id": "morning_06_10",
+        "label": "06:00-10:00",
+        "start_hour": 6
+      },
+      {
+        "end_hour": 16,
+        "id": "day_10_16",
+        "label": "10:00-16:00",
+        "start_hour": 10
+      },
+      {
+        "end_hour": 20,
+        "id": "evening_16_20",
+        "label": "16:00-20:00",
+        "start_hour": 16
+      },
+      {
+        "end_hour": 24,
+        "id": "late_20_24",
+        "label": "20:00-24:00",
+        "start_hour": 20
+      }
+    ],
+    "derived_from": "beijing_full_train_timestamp_audit",
+    "schema_version": 1,
+    "timestamp_unit": "unix_seconds",
+    "timezone": "Asia/Shanghai",
+    "utc_offset_seconds": 28800
+  },
+  "timestamp_interpretation": {
+    "evidence": "full-train MMDD keys are compared against UTC and UTC+8 civil dates",
+    "time_bucket_selection_field": "start_time",
+    "timezone": "Asia/Shanghai",
+    "unit": "unix_seconds",
+    "utc_offset_seconds": 28800
+  },
+  "travel_time_baseline": {
+    "diagnostics": {
+      "bucket_prior_count": 74.0,
+      "bucket_quantile_count": 74.0,
+      "bucket_support": [
+        {
+          "id": "night_00_06",
+          "nonzero_road_cells": 38052,
+          "support_quantiles": {
+            "maximum_positive": 898,
+            "minimum_positive": 1,
+            "p25_positive": 2,
+            "p50_positive": 8,
+            "p75_positive": 31,
+            "p90_positive": 92,
+            "positive": 38052,
+            "zero": 34104
+          },
+          "zero_road_cells": 34104
+        },
+        {
+          "id": "morning_06_10",
+          "nonzero_road_cells": 45965,
+          "support_quantiles": {
+            "maximum_positive": 1784,
+            "minimum_positive": 1,
+            "p25_positive": 3,
+            "p50_positive": 16,
+            "p75_positive": 74,
+            "p90_positive": 224,
+            "positive": 45965,
+            "zero": 26191
+          },
+          "zero_road_cells": 26191
+        },
+        {
+          "id": "day_10_16",
+          "nonzero_road_cells": 50048,
+          "support_quantiles": {
+            "maximum_positive": 3015,
+            "minimum_positive": 1,
+            "p25_positive": 4,
+            "p50_positive": 22,
+            "p75_positive": 123,
+            "p90_positive": 419,
+            "positive": 50048,
+            "zero": 22108
+          },
+          "zero_road_cells": 22108
+        },
+        {
+          "id": "evening_16_20",
+          "nonzero_road_cells": 47482,
+          "support_quantiles": {
+            "maximum_positive": 2063,
+            "minimum_positive": 1,
+            "p25_positive": 3,
+            "p50_positive": 18,
+            "p75_positive": 95,
+            "p90_positive": 296,
+            "positive": 47482,
+            "zero": 24674
+          },
+          "zero_road_cells": 24674
+        },
+        {
+          "id": "late_20_24",
+          "nonzero_road_cells": 45481,
+          "support_quantiles": {
+            "maximum_positive": 1887,
+            "minimum_positive": 1,
+            "p25_positive": 3,
+            "p50_positive": 15,
+            "p75_positive": 71,
+            "p90_positive": 233,
+            "positive": 45481,
+            "zero": 26675
+          },
+          "zero_road_cells": 26675
+        }
+      ],
+      "bucket_support_quantile": 0.75,
+      "clipped_high": 307,
+      "clipped_low": 401,
+      "clipped_trip_average_speed_mps": {
+        "maximum": 33.333333333333336,
+        "mean": 8.76818166252318,
+        "minimum": 1.0,
+        "p01": 2.5612645803698433,
+        "p10": 4.718451056729698,
+        "p50": 8.117678431372548,
+        "p90": 13.681099019607847,
+        "p99": 20.05051190476191
+      },
+      "direct_weight_units": "train_network_mean_speed_scaled_milliseconds",
+      "estimated_from_split": "train",
+      "fixed_point_scale": 8.76818166252318,
+      "fixed_point_scale_effect": "positive global scaling only; route ordering and physical travel-time ratios are unchanged",
+      "global_prior_count": 42.0,
+      "global_support_quantile": 0.5,
+      "interpretation_warning": "whole-trip average speeds are proxies, not observed per-edge speeds",
+      "kind": "trip_average_travel_time",
+      "maximum_trip_speed_mps": 33.333333333333336,
+      "millisecond_recovery_divisor": 8.76818166252318,
+      "minimum_trip_speed_mps": 1.0,
+      "network_mean_clipped_speed_mps": 8.76818166252318,
+      "raw_trip_average_speed_mps": {
+        "maximum": 185.51948275862074,
+        "mean": 8.774972409610774,
+        "minimum": 0.03432834613829357,
+        "p01": 2.5612645803698433,
+        "p10": 4.718451056729698,
+        "p50": 8.117678431372548,
+        "p90": 13.681099019607847,
+        "p99": 20.05051190476191
+      },
+      "road_global_support": {
+        "maximum_positive": 8895,
+        "minimum_positive": 1,
+        "p25_positive": 6,
+        "p50_positive": 42,
+        "p75_positive": 291,
+        "p90_positive": 1078,
+        "positive": 55912,
+        "zero": 16244
+      },
+      "smoothing": "road-bucket speed -> road-global speed -> network trip-average speed",
+      "source": "complete training road sequence plus whole-trip start/end timestamps",
+      "test_used": false,
+      "trip_count": 623275,
+      "validation_used": false
+    },
+    "estimated_from_split": "train",
+    "test_used": false,
+    "validation_used": false
+  }
+}

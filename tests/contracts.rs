@@ -1,5 +1,6 @@
 use edge_weight_recovery::checkpoint::TrainingCheckpoint;
 use edge_weight_recovery::config::TrainingConfig;
+use edge_weight_recovery::temporal::{TemporalTrainingConfig, TimeBucketSpec};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -12,6 +13,37 @@ const ORIGINAL_RELATIVE_RECOVERY: &str =
     "experiments/optimizer_recovery/configs/original_edges_relative_10pct_u299.json";
 const TRANSITION_RELATIVE_RECOVERY: &str =
     "experiments/optimizer_recovery/configs/edge_transition_arcs_relative_10pct_u299.json";
+const FULL_TIME_BUCKETS: &str = "experiments/full_data_time_conditioning/time_buckets.json";
+const FULL_TEMPORAL_LENGTH: &str =
+    "experiments/full_data_time_conditioning/configs/temporal_length_full_eta0002_u500.json";
+const FULL_TEMPORAL_TRAVEL_TIME: &str =
+    "experiments/full_data_time_conditioning/configs/temporal_travel_time_full_eta0002_u500.json";
+
+#[test]
+fn full_temporal_configs_share_coarse_train_derived_buckets_and_never_read_test() {
+    let buckets = TimeBucketSpec::load(Path::new(FULL_TIME_BUCKETS)).unwrap();
+    assert_eq!(buckets.buckets.len(), 5);
+    assert_eq!(buckets.buckets.first().unwrap().start_hour, 0);
+    assert_eq!(buckets.buckets.last().unwrap().end_hour, 24);
+
+    let length = TemporalTrainingConfig::load(Path::new(FULL_TEMPORAL_LENGTH)).unwrap();
+    let travel = TemporalTrainingConfig::load(Path::new(FULL_TEMPORAL_TRAVEL_TIME)).unwrap();
+    for config in [&length, &travel] {
+        assert_eq!(config.train_variant, "all");
+        assert_eq!(config.validation_variant, "scale_fixed_seed20260715");
+        assert_eq!(config.graph_representation, "edge_transition_arcs");
+        assert_eq!(
+            config
+                .as_json()
+                .pointer("/test_policy")
+                .and_then(Value::as_str),
+            Some("never_read")
+        );
+        assert_eq!(config.load_bucket_spec().unwrap(), buckets);
+    }
+    assert_eq!(length.baseline_kind.as_str(), "length");
+    assert_eq!(travel.baseline_kind.as_str(), "trip_average_travel_time");
+}
 
 #[test]
 fn train_help_exposes_only_the_unified_inputs() {
