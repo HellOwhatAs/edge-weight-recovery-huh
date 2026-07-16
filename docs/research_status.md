@@ -4,14 +4,18 @@
 
 The project treats graph representation and inverse shortest-path optimization
 as separate concerns. `original_edges` and `edge_transition_arcs` share the
-same objective, optimizer, update clock, projection logic, training loop, and
-checkpoint state. Their intended differences are topology, trajectory
-mapping, coordinate interpretation, and route decoding.
+same relative-coordinate objective, optimizer, update clock, projection logic,
+training loop, and direct-weight checkpoint state. Their intended differences
+are topology, trajectory mapping, coordinate interpretation, and route
+decoding.
 
-The architecture is now held fixed while representation quality is evaluated.
-On the registered Beijing 10% development protocol, `edge_transition_arcs`
-has higher decoded Edge F1 and Exact Match than `original_edges`; this is a
-development result, not a test-set or general superiority claim.
+The direct-weight Euclidean calibration exposed an optimization regression and
+is no longer the active training geometry. A generic `q=w/w0` recovery has now
+reproduced the historical edge-only result and produced substantial learning
+gain for both representations. On that Beijing 10% development protocol,
+`edge_transition_arcs` has higher decoded Edge F1 and Exact Match than
+`original_edges`; this is a development result, not a test-set or general
+superiority claim.
 
 ## Representation definitions
 
@@ -46,22 +50,31 @@ first-edge cost, or other special parameter.
 
 ## Optimization invariant
 
-For either representation the trainer owns one direct vector `w` initialized
-at `w0` and applies
+For either representation the trainer owns one stored direct vector `w`
+initialized at `w0`, optimizes `q=w/w0`, and applies
 
 ```text
-J(w) = average[observed path cost - predicted shortest-path cost]
-       + lambda / (2m) * ||w - w0||^2,
+J(q) = average[observed path cost under w0*q
+               - predicted shortest-path cost under w0*q]
+       + lambda / (2m) * ||q - 1||^2,
 
-g = (observed_counts - predicted_counts) / N
-    + lambda / m * (w - w0),
+g_q = w0 * (observed_counts - predicted_counts) / N
+      + lambda / m * (q - 1),
 
 eta_k = eta0 / sqrt(k + 1),
-w <- project(w - eta_k * g).
+q <- project(q - eta_k * g_q),
+w <- w0 * q.
 ```
 
 A single global `completed_updates` value controls the schedule and is stored
-with the direct weights in the representation-independent checkpoint.
+with the direct weights in the representation-independent checkpoint. This is
+equivalent to `diag(w0^2)` preconditioning in direct-weight space and introduces
+no representation-specific optimizer state.
+
+The prior direct geometry is retained behind the explicit
+`projected_subgradient` configuration value for reproducibility; the active
+geometry is `relative_projected_subgradient`. Configurations are never silently
+reinterpreted.
 
 ## Known oracle boundary
 
@@ -79,17 +92,26 @@ Synthetic mapping, decoding, optimizer, projection, clock, CCH/reference, and
 checkpoint-resume tests remain the correctness gate. The prior Beijing 1%
 technical smokes established healthy execution for both representations.
 
-The subsequent bounded Beijing 10% calibration used the same 62,348 filtered
-train trajectories and 15,812 fixed validation trajectories for both
-representations. It selected eta 300 for `original_edges` and eta 100 for
-`edge_transition_arcs`. At the minimum-objective 200-update checkpoints,
-decoded Edge F1 was 0.589923 versus 0.603495 and Exact Match was 0.335947
-versus 0.346762. Both checkpoints landed at the final registered update, so
-convergence is not confirmed. The line graph required 2.42x training wall time
-and 1.36x peak RSS.
+The first bounded Beijing 10% calibration used the same 62,348 filtered train
+trajectories and 15,812 fixed validation trajectories for both representations.
+Its direct-weight geometry improved F1 by only about `2e-5`, exposing the scale
+regression described in its [diagnostic report](../experiments/line_graph_10pct_calibration/report.md).
 
-The complete audit and result tables are in the
-[calibration report](../experiments/line_graph_10pct_calibration/report.md).
-The test split was never read. The next authorized comparison should carry
-`edge_transition_arcs` into NeuroMLR while preserving the reported single-edge
-zero-cost, integer-quantization, and convergence risks.
+The recovery then used the same data and one common configuration:
+`eta0=0.0002`, `lambda=100000`, relative bounds `[0.1,10]`, 299 updates,
+validation cadence 10, and four threads. `original_edges` recovered historical
+edge-only performance: Edge F1 0.685404 and Exact Match 0.373640 at update 290,
+versus the old 0.682145 and 0.368454. The same optimizer brought
+`edge_transition_arcs` to F1 0.694125 and Exact Match 0.377245 at update 299.
+These are gains of 0.095503 and 0.090658 F1 from their respective update-0
+states, so meaningful learning is now established.
+
+Under the matched recovery protocol, line graph exceeds original edges by
+0.008720 F1 and 0.003605 Exact Match, at 2.42x training wall time and 1.36x
+peak RSS. Its best checkpoint is the final registered update, so convergence is
+still not confirmed. The complete evidence is in the
+[optimizer-recovery report](../experiments/optimizer_recovery/report.md). The
+test split was never read. A later NeuroMLR comparison should carry
+`edge_transition_arcs` with `relative_projected_subgradient`, while preserving
+the single-edge zero-cost, integer-quantization, single-seed, and convergence
+risks.

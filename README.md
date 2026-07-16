@@ -1,13 +1,13 @@
 # Edge-weight recovery
 
-This project learns one direct nonnegative weight vector from observed road
+This project learns one nonnegative graph-weight vector from observed road
 trajectories. Its architecture separates two concerns:
 
 1. a graph-representation layer chooses `original_edges` or
    `edge_transition_arcs`, maps road trajectories into that topology, and owns
    route decoding; and
-2. one inverse-shortest-path trainer learns the direct coordinates supplied by
-   the representation.
+2. one inverse-shortest-path trainer learns the coordinates supplied by the
+   representation with a common relative-weight optimizer.
 
 The trainer does not inspect whether a coordinate is an original road edge or
 a legal road-to-road transition. Optimization is identical in both cases.
@@ -70,36 +70,45 @@ boundary without introducing a special start structure or first-edge cost.
 ## One inverse-shortest-path optimizer
 
 For either representation, let `m` be its number of learned coordinates, `w0`
-the initial direct-weight vector, and `N` the number of observations. Training
-minimizes
+the initial direct-weight vector, `q = w / w0`, and `N` the number of
+observations. The active optimizer minimizes
 
 ```text
-J(w) = average[
-         observed_path_cost(w)
-         - predicted_shortest_path_cost(w)
+J(q) = average[
+         observed_path_cost(w0 * q)
+         - predicted_shortest_path_cost(w0 * q)
        ]
-       + lambda / (2m) * ||w - w0||^2.
+       + lambda / (2m) * ||q - 1||^2.
 ```
 
 With coordinate counts from the mapped observed and predicted paths, one
 subgradient is
 
 ```text
-g = (observed_counts - predicted_counts) / N
-    + lambda / m * (w - w0).
+g_q = w0 * (observed_counts - predicted_counts) / N
+      + lambda / m * (q - 1).
 ```
 
 Update `k` uses one global clock and one projection box:
 
 ```text
 eta_k = eta0 / sqrt(k + 1)
-w <- project(w - eta_k * g).
+q <- project(q - eta_k * g_q)
+w <- w0 * q.
 ```
 
-The configured lower and upper factors are applied coordinate-wise to `w0`.
-There is one direct-weight vector, learning rate, regularization coefficient,
-clock, projection rule, training loop, and checkpoint format for both
-representations.
+The configured lower and upper factors are the projection bounds in `q`. Only
+the mapped direct vector `w` is stored and checkpointed. In direct-weight
+space, the same update is a generic `diag(w0^2)` preconditioner paired with
+relative regularization. There is one learning rate, regularization
+coefficient, clock, projection rule, training loop, and checkpoint format for
+both representations; no optimizer state depends on whether a coordinate is
+an original edge or a transition arc.
+
+The explicit `projected_subgradient` kind retains the earlier direct-weight
+Euclidean semantics for reproducibility. Active training uses
+`relative_projected_subgradient`; old configurations are never silently
+reinterpreted.
 
 The current RoutingKit CCH binding accepts `u32` metrics, so direct `f64`
 weights are rounded for route selection and selected paths are evaluated under
@@ -112,8 +121,9 @@ representation-specific optimizer.
 A checkpoint records the representation and topology identity, configuration
 and runtime data identity, current direct weights, and `completed_updates`.
 Restoring it rebuilds `w0`, bounds, and the representation-specific oracle from
-the verified configuration and topology, then resumes the same square-root
-learning-rate clock. Both representations use the same checkpoint structure.
+the verified configuration and topology, restores the configured optimizer
+geometry, then resumes the same square-root learning-rate clock. Both
+representations use the same checkpoint structure.
 
 ## Current evidence boundary
 
@@ -123,25 +133,29 @@ mapping, optimization, CCH, and checkpoint contracts:
 - [`original_edges_smoke_1pct.json`](experiments/configs/original_edges_smoke_1pct.json)
 - [`edge_transition_arcs_smoke_1pct.json`](experiments/configs/edge_transition_arcs_smoke_1pct.json)
 
-The frozen architecture was then evaluated on the deterministic Beijing 10%
-train subset and fixed validation. The bounded calibration selected eta 300
-for `original_edges` and eta 100 for `edge_transition_arcs`. Their 200-update
-development checkpoints achieved decoded Edge F1 0.589923 and 0.603495,
-respectively. Both minimum validation objectives occurred at the final update,
-so convergence remains unconfirmed. The line graph is the recommended
-representation for the later NeuroMLR comparison, based on common decoded
-route metrics rather than incomparable raw objectives.
+The first deterministic Beijing 10% calibration exposed an optimizer
+regression: direct-weight Euclidean updates improved Edge F1 by only about
+`2e-5`. A generic relative-coordinate recovery then reproduced the historical
+`original_edges` result and established meaningful learning for both graph
+representations. At their minimum-objective checkpoints, decoded Edge F1 is
+0.685404 for `original_edges` and 0.694125 for
+`edge_transition_arcs`; Exact Match is 0.373640 and 0.377245. The line graph
+therefore remains the recommended representation for a later NeuroMLR
+comparison, now with learning gain rather than initialization alone as
+evidence. Its best checkpoint is the registered update-299 boundary, so
+convergence remains unconfirmed.
 
-See the [experiment report](experiments/line_graph_10pct_calibration/report.md)
-and [machine-readable summary](experiments/line_graph_10pct_calibration/summary.json).
-No test split was read, so this remains development evidence rather than a
-test-set claim.
+See the [optimizer-recovery report](experiments/optimizer_recovery/report.md)
+and [machine-readable summary](experiments/optimizer_recovery/summary.json).
+The earlier [direct-weight calibration](experiments/line_graph_10pct_calibration/report.md)
+is retained as the diagnostic baseline. No test split was read, so this remains
+development evidence rather than a test-set claim.
 
 ## Development checks
 
 ```bash
 cargo fmt --check
-cargo build --locked --all-targets
+cargo build --release --locked
 cargo test --locked --all-targets
 cargo clippy --locked --all-targets -- -D warnings
 git diff --check

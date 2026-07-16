@@ -1,0 +1,1433 @@
+{
+  "schema_version": 1,
+  "experiment": "beijing_10pct_relative_weight_optimizer_recovery",
+  "status": "completed_development_optimizer_recovery",
+  "scope": {
+    "optimizer_geometry_changed": true,
+    "graph_definitions_changed": false,
+    "model_architecture_changed": false,
+    "test_read": false,
+    "neuromlr_run": false,
+    "full_training_run": false,
+    "learning_rate_grid_run": false
+  },
+  "diagnosis": {
+    "finding": "the direct-weight Euclidean geometry caused the observed optimization regression",
+    "same_data_initial_oracle_evidence": {
+      "legacy_original_edges_validation_mean_regret_update_0": 650449.9359347331,
+      "unified_original_edges_validation_mean_regret_update_0": 650449.9359347331,
+      "bit_identical": true
+    },
+    "direct_geometry": {
+      "parameter": "w_i",
+      "data_gradient": "(n_obs_i - n_pred_i) / N",
+      "regularizer": "lambda/(2m) * sum_i (w_i - w0_i)^2",
+      "issue": "one Euclidean step size ignores the wide scale range of w0"
+    },
+    "recovered_geometry": {
+      "parameter": "q_i = w_i / w0_i",
+      "data_gradient": "w0_i * (n_obs_i - n_pred_i) / N",
+      "regularizer": "lambda/(2m) * sum_i (q_i - 1)^2",
+      "direct_weight_equivalent": "diag(w0_i^2) preconditioning with relative regularization",
+      "stored_checkpoint_state": "one direct weight vector w",
+      "representation_specific_optimizer_state": false
+    },
+    "regularization_sign_audit": {
+      "implemented_direct_gradient_sign": "positive lambda/m * (w_i - w0_i)",
+      "review_formula_showing_a_negative_sign": "not present in the implementation",
+      "effect_on_root_cause": "none; the scale and regularization geometry regression was real"
+    }
+  },
+  "data": {
+    "city": "beijing",
+    "path_contract": "complete_original_edge_id_sequence_min_2_edges",
+    "cycle_policy": "drop",
+    "train_variant": "scale_10pct_seed42",
+    "validation_variant": "scale_fixed_seed20260715",
+    "train_identity": {
+      "path": "data/beijing_data/preprocessed_train_trips_scale_10pct_seed42.pkl",
+      "bytes": 16680638,
+      "sha256": "8943d8958f3b4fadd7d3eb2f351b97268543961e441436e0ad68408cee45cc0a",
+      "source_sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
+      "sample_count": 78570,
+      "seed": 42
+    },
+    "validation_identity": {
+      "path": "data/beijing_data/preprocessed_validation_trips_scale_fixed_seed20260715.pkl",
+      "bytes": 4160448,
+      "sha256": "c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade",
+      "source_sha256": "97d9e9231fc6599084e6af9eaa081e08c09f6108f27f304a26264fff1ee0ec6d",
+      "sample_count": 20000,
+      "seed": 20260715
+    },
+    "filtering": {
+      "train": {
+        "accepted": 62348,
+        "available": 78570,
+        "cyclic": 16222,
+        "discontinuous": 0,
+        "dropped": 16222,
+        "empty": 0,
+        "event": "data",
+        "inspected": 78570,
+        "out_of_bounds": 0,
+        "policy": "complete_paths_min_2_edges_drop_cycles",
+        "split": "train",
+        "too_short": 0,
+        "variant": "scale_10pct_seed42"
+      },
+      "validation": {
+        "accepted": 15812,
+        "available": 20000,
+        "cyclic": 4188,
+        "discontinuous": 0,
+        "dropped": 4188,
+        "empty": 0,
+        "event": "data",
+        "inspected": 20000,
+        "out_of_bounds": 0,
+        "policy": "complete_paths_min_2_edges_drop_cycles",
+        "split": "validation",
+        "too_short": 0,
+        "variant": "scale_fixed_seed20260715"
+      }
+    },
+    "train_unique_od": 61253,
+    "validation_unique_od": 15730,
+    "identical_samples_across_representations": true
+  },
+  "fixed_recovery_protocol": {
+    "optimizer_kind": "relative_projected_subgradient",
+    "eta0": 0.0002,
+    "lambda": 100000.0,
+    "updates": 299,
+    "validation_every": 10,
+    "rayon_threads": 4,
+    "weight_bounds": [
+      0.1,
+      10.0
+    ],
+    "checkpoint_selection": "minimum validation objective; earliest update breaks exact ties",
+    "configuration_difference": "graph representation only"
+  },
+  "runs": {
+    "original_edges": {
+      "run_id": "original_edges_relative_10pct_u299",
+      "graph_representation": "original_edges",
+      "optimizer_kind": "relative_projected_subgradient",
+      "optimizer_parameterization": "relative_to_initial",
+      "eta0": 0.0002,
+      "lambda": 100000.0,
+      "weight_lower_factor": 0.1,
+      "weight_upper_factor": 10.0,
+      "updates": 299,
+      "validation_every": 10,
+      "rayon_threads": 4,
+      "config_path": "experiments/optimizer_recovery/configs/original_edges_relative_10pct_u299.json",
+      "config_sha256": "967b32d8bcfe1bb61d4c9fe00e5e1a7a71c69d8d482550af5ecce03b68e6b3d7",
+      "training_command": [
+        "target/release/train",
+        "--config",
+        "experiments/optimizer_recovery/configs/original_edges_relative_10pct_u299.json",
+        "--output-dir",
+        "artifacts/optimizer_recovery/original_edges_relative_10pct_u299"
+      ],
+      "training_log": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/training.jsonl",
+      "graph_problem": {
+        "original_nodes": 31199,
+        "original_edges": 72156,
+        "routing_nodes": 31199,
+        "routing_arcs": 72156,
+        "coordinates": 72156,
+        "topology_identity": "fnv1a64:8f2310c65bf93af6",
+        "train_mapped_paths": 62348,
+        "train_unique_od": 61253,
+        "validation_mapped_paths": 15812,
+        "validation_unique_od": 15730
+      },
+      "filtering": {
+        "train": {
+          "accepted": 62348,
+          "available": 78570,
+          "cyclic": 16222,
+          "discontinuous": 0,
+          "dropped": 16222,
+          "empty": 0,
+          "event": "data",
+          "inspected": 78570,
+          "out_of_bounds": 0,
+          "policy": "complete_paths_min_2_edges_drop_cycles",
+          "split": "train",
+          "too_short": 0,
+          "variant": "scale_10pct_seed42"
+        },
+        "validation": {
+          "accepted": 15812,
+          "available": 20000,
+          "cyclic": 4188,
+          "discontinuous": 0,
+          "dropped": 4188,
+          "empty": 0,
+          "event": "data",
+          "inspected": 20000,
+          "out_of_bounds": 0,
+          "policy": "complete_paths_min_2_edges_drop_cycles",
+          "split": "validation",
+          "too_short": 0,
+          "variant": "scale_fixed_seed20260715"
+        }
+      },
+      "checkpoint_selection": {
+        "rule": "minimum validation objective; earliest update breaks exact ties",
+        "candidates": [
+          {
+            "update": 0,
+            "validation_objective": 650449.9359347331,
+            "validation_mean_regret": 650449.9359347331,
+            "validation_relative_regret": 0.0945596880145798,
+            "train_objective": 624440.6063225765,
+            "regularization": 0.0,
+            "changed_coordinates": 0,
+            "max_quantization_error": 0.0,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-0.json"
+          },
+          {
+            "update": 10,
+            "validation_objective": 478855.749519473,
+            "validation_mean_regret": 478752.4482595587,
+            "validation_relative_regret": 0.07759803805912789,
+            "train_objective": 452942.38772713224,
+            "regularization": 103.30125991427093,
+            "changed_coordinates": 44196,
+            "max_quantization_error": 0.49999155080877244,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-10.json"
+          },
+          {
+            "update": 20,
+            "validation_objective": 429792.4428501811,
+            "validation_mean_regret": 429652.57689292997,
+            "validation_relative_regret": 0.07116970788986332,
+            "train_objective": 407048.7198989622,
+            "regularization": 139.8659572510925,
+            "changed_coordinates": 44425,
+            "max_quantization_error": 0.4999969032196532,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-20.json"
+          },
+          {
+            "update": 30,
+            "validation_objective": 398248.37837527425,
+            "validation_mean_regret": 398077.5771971176,
+            "validation_relative_regret": 0.0671339345964305,
+            "train_objective": 374752.441228562,
+            "regularization": 170.80117815665676,
+            "changed_coordinates": 44543,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-30.json"
+          },
+          {
+            "update": 40,
+            "validation_objective": 386979.15995995136,
+            "validation_mean_regret": 386781.2404109541,
+            "validation_relative_regret": 0.0661808696718966,
+            "train_objective": 361954.5452763022,
+            "regularization": 197.91954899725422,
+            "changed_coordinates": 44628,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-40.json"
+          },
+          {
+            "update": 50,
+            "validation_objective": 375080.4273974184,
+            "validation_mean_regret": 374858.15201901435,
+            "validation_relative_regret": 0.06485517124804531,
+            "train_objective": 349360.3322306159,
+            "regularization": 222.27537840404383,
+            "changed_coordinates": 44685,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-50.json"
+          },
+          {
+            "update": 60,
+            "validation_objective": 371089.9065102018,
+            "validation_mean_regret": 370844.47373241343,
+            "validation_relative_regret": 0.06485434598115383,
+            "train_objective": 344316.34853627725,
+            "regularization": 245.4327777883601,
+            "changed_coordinates": 44765,
+            "max_quantization_error": 0.4999806680716574,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-60.json"
+          },
+          {
+            "update": 70,
+            "validation_objective": 364469.8996522705,
+            "validation_mean_regret": 364202.8633977068,
+            "validation_relative_regret": 0.0642466797542189,
+            "train_objective": 338017.06385683984,
+            "regularization": 267.03625456364273,
+            "changed_coordinates": 44820,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-70.json"
+          },
+          {
+            "update": 80,
+            "validation_objective": 357724.33195579064,
+            "validation_mean_regret": 357436.8016808324,
+            "validation_relative_regret": 0.06355196271260723,
+            "train_objective": 331275.9415584918,
+            "regularization": 287.53027495825046,
+            "changed_coordinates": 44850,
+            "max_quantization_error": 0.4999962809670251,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-80.json"
+          },
+          {
+            "update": 90,
+            "validation_objective": 354457.0522383798,
+            "validation_mean_regret": 354150.07206411386,
+            "validation_relative_regret": 0.06345859049753443,
+            "train_objective": 327578.2877285651,
+            "regularization": 306.98017426590445,
+            "changed_coordinates": 44907,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-90.json"
+          },
+          {
+            "update": 100,
+            "validation_objective": 350390.31498696376,
+            "validation_mean_regret": 350064.53125536256,
+            "validation_relative_regret": 0.06316061293669879,
+            "train_objective": 323423.9417546731,
+            "regularization": 325.7837316011956,
+            "changed_coordinates": 44949,
+            "max_quantization_error": 0.4999947536853142,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-100.json"
+          },
+          {
+            "update": 110,
+            "validation_objective": 346934.7084953517,
+            "validation_mean_regret": 346590.762792498,
+            "validation_relative_regret": 0.06295875930876682,
+            "train_objective": 319757.72948212014,
+            "regularization": 343.94570285373925,
+            "changed_coordinates": 44981,
+            "max_quantization_error": 0.49999639909037796,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-110.json"
+          },
+          {
+            "update": 120,
+            "validation_objective": 343580.202689681,
+            "validation_mean_regret": 343218.55375223135,
+            "validation_relative_regret": 0.06274424824918963,
+            "train_objective": 316091.32531076163,
+            "regularization": 361.6489374496862,
+            "changed_coordinates": 44999,
+            "max_quantization_error": 0.49999105433380464,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-120.json"
+          },
+          {
+            "update": 130,
+            "validation_objective": 342190.39170052245,
+            "validation_mean_regret": 341811.5791858149,
+            "validation_relative_regret": 0.06287597902035656,
+            "train_objective": 314092.39775733795,
+            "regularization": 378.8125147075692,
+            "changed_coordinates": 45034,
+            "max_quantization_error": 0.4999905727454461,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-130.json"
+          },
+          {
+            "update": 140,
+            "validation_objective": 338094.39367278316,
+            "validation_mean_regret": 337699.0726382156,
+            "validation_relative_regret": 0.06245817538886658,
+            "train_objective": 310483.49599784974,
+            "regularization": 395.3210345675522,
+            "changed_coordinates": 45071,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-140.json"
+          },
+          {
+            "update": 150,
+            "validation_objective": 335516.8533763427,
+            "validation_mean_regret": 335105.47924596246,
+            "validation_relative_regret": 0.0623206778139542,
+            "train_objective": 307604.5220106256,
+            "regularization": 411.37413038024215,
+            "changed_coordinates": 45095,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-150.json"
+          },
+          {
+            "update": 160,
+            "validation_objective": 332924.94141783746,
+            "validation_mean_regret": 332497.8553709189,
+            "validation_relative_regret": 0.06214460388058494,
+            "train_objective": 305066.09815873194,
+            "regularization": 427.0860469186079,
+            "changed_coordinates": 45115,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-160.json"
+          },
+          {
+            "update": 170,
+            "validation_objective": 331561.75515582546,
+            "validation_mean_regret": 331119.29540973355,
+            "validation_relative_regret": 0.062214543253266794,
+            "train_objective": 303509.2778544982,
+            "regularization": 442.45974609190773,
+            "changed_coordinates": 45126,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-170.json"
+          },
+          {
+            "update": 180,
+            "validation_objective": 328998.0699546136,
+            "validation_mean_regret": 328540.6606908162,
+            "validation_relative_regret": 0.062021374382288115,
+            "train_objective": 300597.48099792766,
+            "regularization": 457.40926379736743,
+            "changed_coordinates": 45144,
+            "max_quantization_error": 0.49999034486245364,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-180.json"
+          },
+          {
+            "update": 190,
+            "validation_objective": 328098.10055919254,
+            "validation_mean_regret": 327625.8915677697,
+            "validation_relative_regret": 0.06216242685351461,
+            "train_objective": 299546.94263152423,
+            "regularization": 472.2089914228417,
+            "changed_coordinates": 45164,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-190.json"
+          },
+          {
+            "update": 200,
+            "validation_objective": 324808.0868817272,
+            "validation_mean_regret": 324321.57678242924,
+            "validation_relative_regret": 0.061752877172278474,
+            "train_objective": 296331.42896428326,
+            "regularization": 486.510099297954,
+            "changed_coordinates": 45186,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-200.json"
+          },
+          {
+            "update": 210,
+            "validation_objective": 322805.36071064795,
+            "validation_mean_regret": 322304.66417612066,
+            "validation_relative_regret": 0.061636022190220206,
+            "train_objective": 294693.38968205114,
+            "regularization": 500.69653452726527,
+            "changed_coordinates": 45202,
+            "max_quantization_error": 0.4999875197536312,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-210.json"
+          },
+          {
+            "update": 220,
+            "validation_objective": 321493.4373090244,
+            "validation_mean_regret": 320978.8798802089,
+            "validation_relative_regret": 0.06164237239152675,
+            "train_objective": 292754.4717546307,
+            "regularization": 514.5574288155361,
+            "changed_coordinates": 45207,
+            "max_quantization_error": 0.4999758846079203,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-220.json"
+          },
+          {
+            "update": 230,
+            "validation_objective": 320723.5927089108,
+            "validation_mean_regret": 320195.31464547914,
+            "validation_relative_regret": 0.061778132469999865,
+            "train_objective": 291845.9474149185,
+            "regularization": 528.2780634317005,
+            "changed_coordinates": 45216,
+            "max_quantization_error": 0.4999394976057374,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-230.json"
+          },
+          {
+            "update": 240,
+            "validation_objective": 319467.6100952134,
+            "validation_mean_regret": 318925.7843902852,
+            "validation_relative_regret": 0.0617795390020664,
+            "train_objective": 290371.75472807715,
+            "regularization": 541.8257049282005,
+            "changed_coordinates": 45224,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-240.json"
+          },
+          {
+            "update": 250,
+            "validation_objective": 317587.73119161645,
+            "validation_mean_regret": 317032.574194671,
+            "validation_relative_regret": 0.06165188959620169,
+            "train_objective": 288723.5413633006,
+            "regularization": 555.1569969454241,
+            "changed_coordinates": 45237,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-250.json"
+          },
+          {
+            "update": 260,
+            "validation_objective": 314825.4446119976,
+            "validation_mean_regret": 314257.04267289914,
+            "validation_relative_regret": 0.061331702112950456,
+            "train_objective": 286053.21166748187,
+            "regularization": 568.4019390984346,
+            "changed_coordinates": 45242,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-260.json"
+          },
+          {
+            "update": 270,
+            "validation_objective": 314805.4102369695,
+            "validation_mean_regret": 314223.88876690465,
+            "validation_relative_regret": 0.06157500788632682,
+            "train_objective": 285731.9914667579,
+            "regularization": 581.5214700648346,
+            "changed_coordinates": 45260,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-270.json"
+          },
+          {
+            "update": 280,
+            "validation_objective": 312868.07332497847,
+            "validation_mean_regret": 312273.5989270846,
+            "validation_relative_regret": 0.061402034747099814,
+            "train_objective": 283944.8202101554,
+            "regularization": 594.4743978938805,
+            "changed_coordinates": 45267,
+            "max_quantization_error": 0.4999871703766985,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-280.json"
+          },
+          {
+            "update": 290,
+            "validation_objective": 310820.51753776014,
+            "validation_mean_regret": 310213.24708962726,
+            "validation_relative_regret": 0.06122173403595681,
+            "train_objective": 281834.3787466428,
+            "regularization": 607.2704481328769,
+            "changed_coordinates": 45276,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-290.json"
+          },
+          {
+            "update": 299,
+            "validation_objective": 311756.2404401409,
+            "validation_mean_regret": 311137.50428185146,
+            "validation_relative_regret": 0.061641923946755724,
+            "train_objective": 282104.9376382741,
+            "regularization": 618.7361582894132,
+            "changed_coordinates": 45279,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-299.json"
+          }
+        ],
+        "selected_update": 290,
+        "selected_validation_objective": 310820.51753776014,
+        "selected_validation_mean_regret": 310213.24708962726,
+        "selected_regularization": 607.2704481328769,
+        "selected_checkpoint": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-290.json",
+        "at_registered_budget_boundary": false
+      },
+      "selected_evaluation_command": [
+        "target/release/evaluate",
+        "--checkpoint",
+        "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/checkpoint-290.json",
+        "--split",
+        "validation",
+        "--variant",
+        "scale_fixed_seed20260715",
+        "--output",
+        "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/evaluation-selected.json"
+      ],
+      "selected_validation_metrics": {
+        "edge_f1": 0.6854044397967122,
+        "edge_jaccard": 0.6118006671188209,
+        "edge_precision": 0.6990762409192102,
+        "edge_recall": 0.679209116673605,
+        "exact_match": 0.3736402732102201,
+        "mean_regret": 310213.24708970333,
+        "relative_regret": 0.06122173403597098,
+        "samples": 15812
+      },
+      "update_0_validation_metrics": {
+        "edge_f1": 0.5899016056370742,
+        "edge_jaccard": 0.5197932564931808,
+        "edge_precision": 0.5965286909653134,
+        "edge_recall": 0.5901614633877461,
+        "exact_match": 0.33664305590690613,
+        "mean_regret": 650449.9359347331,
+        "relative_regret": 0.0945596880145798,
+        "samples": 15812
+      },
+      "change_from_update_0": {
+        "edge_precision": 0.10254754995389681,
+        "edge_recall": 0.08904765328585884,
+        "edge_f1": 0.095502834159638,
+        "exact_match": 0.036997217303313956,
+        "edge_jaccard": 0.09200741062564011,
+        "mean_regret": -340236.6888450298,
+        "relative_regret": -0.033337953978608816
+      },
+      "resources": {
+        "training_wall_seconds": 125.95322121800018,
+        "total_wall_seconds": 128.16635212599977,
+        "peak_rss_kib": 162044
+      },
+      "coordinate_change": {
+        "continuous": 45279,
+        "continuous_fraction": 0.6275153833361051,
+        "quantized": 45139,
+        "quantized_fraction": 0.625575142746272,
+        "coordinate_count": 72156
+      },
+      "health_checks": {
+        "graph_representation": true,
+        "optimizer_kind": true,
+        "completed_updates": true,
+        "train_objective_finite": true,
+        "validation_objective_finite": true,
+        "weights_changed": true,
+        "shortest_path_queries_ok": true,
+        "checkpoint_restore_verified": true,
+        "test_not_read": true,
+        "checkpoint_exists": true
+      },
+      "test_read": false,
+      "runner_result": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/runner_result.json"
+    },
+    "edge_transition_arcs": {
+      "run_id": "edge_transition_arcs_relative_10pct_u299",
+      "graph_representation": "edge_transition_arcs",
+      "optimizer_kind": "relative_projected_subgradient",
+      "optimizer_parameterization": "relative_to_initial",
+      "eta0": 0.0002,
+      "lambda": 100000.0,
+      "weight_lower_factor": 0.1,
+      "weight_upper_factor": 10.0,
+      "updates": 299,
+      "validation_every": 10,
+      "rayon_threads": 4,
+      "config_path": "experiments/optimizer_recovery/configs/edge_transition_arcs_relative_10pct_u299.json",
+      "config_sha256": "58c50829f94b0ee95f661f42dbd929d1b943839e3b605da1b3e460506f3af60c",
+      "training_command": [
+        "target/release/train",
+        "--config",
+        "experiments/optimizer_recovery/configs/edge_transition_arcs_relative_10pct_u299.json",
+        "--output-dir",
+        "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299"
+      ],
+      "training_log": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/training.jsonl",
+      "graph_problem": {
+        "original_nodes": 31199,
+        "original_edges": 72156,
+        "routing_nodes": 72156,
+        "routing_arcs": 188249,
+        "coordinates": 188249,
+        "topology_identity": "fnv1a64:2569eeeb8e839a07",
+        "train_mapped_paths": 62348,
+        "train_unique_od": 61253,
+        "validation_mapped_paths": 15812,
+        "validation_unique_od": 15730
+      },
+      "filtering": {
+        "train": {
+          "accepted": 62348,
+          "available": 78570,
+          "cyclic": 16222,
+          "discontinuous": 0,
+          "dropped": 16222,
+          "empty": 0,
+          "event": "data",
+          "inspected": 78570,
+          "out_of_bounds": 0,
+          "policy": "complete_paths_min_2_edges_drop_cycles",
+          "split": "train",
+          "too_short": 0,
+          "variant": "scale_10pct_seed42"
+        },
+        "validation": {
+          "accepted": 15812,
+          "available": 20000,
+          "cyclic": 4188,
+          "discontinuous": 0,
+          "dropped": 4188,
+          "empty": 0,
+          "event": "data",
+          "inspected": 20000,
+          "out_of_bounds": 0,
+          "policy": "complete_paths_min_2_edges_drop_cycles",
+          "split": "validation",
+          "too_short": 0,
+          "variant": "scale_fixed_seed20260715"
+        }
+      },
+      "checkpoint_selection": {
+        "rule": "minimum validation objective; earliest update breaks exact ties",
+        "candidates": [
+          {
+            "update": 0,
+            "validation_objective": 636965.7496205413,
+            "validation_mean_regret": 636965.7496205413,
+            "validation_relative_regret": 0.09704587340453025,
+            "train_objective": 611273.6967184192,
+            "regularization": 0.0,
+            "changed_coordinates": 0,
+            "max_quantization_error": 0.0,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-0.json"
+          },
+          {
+            "update": 10,
+            "validation_objective": 453301.19426120736,
+            "validation_mean_regret": 453259.551392444,
+            "validation_relative_regret": 0.07690150395817634,
+            "train_objective": 429133.6740714892,
+            "regularization": 41.64286876335186,
+            "changed_coordinates": 66561,
+            "max_quantization_error": 0.49999278952600434,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-10.json"
+          },
+          {
+            "update": 20,
+            "validation_objective": 413286.30427606317,
+            "validation_mean_regret": 413232.02921864233,
+            "validation_relative_regret": 0.07120349532776209,
+            "train_objective": 387958.2974355975,
+            "regularization": 54.27505742081648,
+            "changed_coordinates": 67242,
+            "max_quantization_error": 0.49998483141826,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-20.json"
+          },
+          {
+            "update": 30,
+            "validation_objective": 394387.74268994626,
+            "validation_mean_regret": 394322.7526196673,
+            "validation_relative_regret": 0.06872682239709856,
+            "train_objective": 368516.2873202847,
+            "regularization": 64.9900702789266,
+            "changed_coordinates": 67562,
+            "max_quantization_error": 0.499988859257428,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-30.json"
+          },
+          {
+            "update": 40,
+            "validation_objective": 383523.29018000246,
+            "validation_mean_regret": 383448.77091623505,
+            "validation_relative_regret": 0.06747834619514144,
+            "train_objective": 357368.06508052675,
+            "regularization": 74.51926376742068,
+            "changed_coordinates": 67796,
+            "max_quantization_error": 0.49999619421578245,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-40.json"
+          },
+          {
+            "update": 50,
+            "validation_objective": 375286.183262847,
+            "validation_mean_regret": 375202.9959020511,
+            "validation_relative_regret": 0.06656082784778004,
+            "train_objective": 347758.36265352776,
+            "regularization": 83.18736079592831,
+            "changed_coordinates": 68005,
+            "max_quantization_error": 0.49998450886050705,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-50.json"
+          },
+          {
+            "update": 60,
+            "validation_objective": 369428.85212353134,
+            "validation_mean_regret": 369337.7180239337,
+            "validation_relative_regret": 0.0660285324547491,
+            "train_objective": 341626.6785630433,
+            "regularization": 91.13409959763258,
+            "changed_coordinates": 68173,
+            "max_quantization_error": 0.49999303970253095,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-60.json"
+          },
+          {
+            "update": 70,
+            "validation_objective": 366008.2273053096,
+            "validation_mean_regret": 365909.71944543294,
+            "validation_relative_regret": 0.06582119361944705,
+            "train_objective": 337593.2751871954,
+            "regularization": 98.50785987667717,
+            "changed_coordinates": 68309,
+            "max_quantization_error": 0.4999983082670951,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-70.json"
+          },
+          {
+            "update": 80,
+            "validation_objective": 360657.8950438398,
+            "validation_mean_regret": 360552.27640765917,
+            "validation_relative_regret": 0.06521654203689117,
+            "train_objective": 332447.1741645694,
+            "regularization": 105.61863618066815,
+            "changed_coordinates": 68433,
+            "max_quantization_error": 0.4999986971124599,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-80.json"
+          },
+          {
+            "update": 90,
+            "validation_objective": 356480.52191375825,
+            "validation_mean_regret": 356368.12821141345,
+            "validation_relative_regret": 0.06480993896116105,
+            "train_objective": 327918.50105854153,
+            "regularization": 112.39370234477646,
+            "changed_coordinates": 68549,
+            "max_quantization_error": 0.4999981478904374,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-90.json"
+          },
+          {
+            "update": 100,
+            "validation_objective": 355037.67772270495,
+            "validation_mean_regret": 354918.81073799875,
+            "validation_relative_regret": 0.06490026759670058,
+            "train_objective": 325858.70949670416,
+            "regularization": 118.86698470618795,
+            "changed_coordinates": 68636,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-100.json"
+          },
+          {
+            "update": 110,
+            "validation_objective": 351257.3731432551,
+            "validation_mean_regret": 351132.22853481234,
+            "validation_relative_regret": 0.06453083540099805,
+            "train_objective": 321781.85525666014,
+            "regularization": 125.14460844277048,
+            "changed_coordinates": 68772,
+            "max_quantization_error": 0.49999329732963815,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-110.json"
+          },
+          {
+            "update": 120,
+            "validation_objective": 349023.7005189803,
+            "validation_mean_regret": 348892.6038214039,
+            "validation_relative_regret": 0.06440348050175605,
+            "train_objective": 319705.0221738473,
+            "regularization": 131.09669757634134,
+            "changed_coordinates": 68846,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-120.json"
+          },
+          {
+            "update": 130,
+            "validation_objective": 345727.85042525164,
+            "validation_mean_regret": 345590.9926702498,
+            "validation_relative_regret": 0.06405026049942766,
+            "train_objective": 316104.6310177292,
+            "regularization": 136.85775500185622,
+            "changed_coordinates": 68932,
+            "max_quantization_error": 0.4999918566318229,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-130.json"
+          },
+          {
+            "update": 140,
+            "validation_objective": 344846.838435677,
+            "validation_mean_regret": 344704.31200626935,
+            "validation_relative_regret": 0.06416486014292819,
+            "train_objective": 314151.9719100069,
+            "regularization": 142.52642940762448,
+            "changed_coordinates": 68978,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-140.json"
+          },
+          {
+            "update": 150,
+            "validation_objective": 342627.161822886,
+            "validation_mean_regret": 342479.15302699193,
+            "validation_relative_regret": 0.06402041119445619,
+            "train_objective": 311838.4519756692,
+            "regularization": 148.00879589405312,
+            "changed_coordinates": 69021,
+            "max_quantization_error": 0.4999909320031293,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-150.json"
+          },
+          {
+            "update": 160,
+            "validation_objective": 339717.0053024466,
+            "validation_mean_regret": 339563.6434277883,
+            "validation_relative_regret": 0.063652115436242,
+            "train_objective": 309416.0280668269,
+            "regularization": 153.361874658349,
+            "changed_coordinates": 69078,
+            "max_quantization_error": 0.499995096353814,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-160.json"
+          },
+          {
+            "update": 170,
+            "validation_objective": 339660.269295155,
+            "validation_mean_regret": 339501.66937974794,
+            "validation_relative_regret": 0.0639062184225499,
+            "train_objective": 308711.7554325525,
+            "regularization": 158.59991540706025,
+            "changed_coordinates": 69132,
+            "max_quantization_error": 0.49999787600245327,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-170.json"
+          },
+          {
+            "update": 180,
+            "validation_objective": 337482.5077734589,
+            "validation_mean_regret": 337318.8098133241,
+            "validation_relative_regret": 0.06370890045232878,
+            "train_objective": 306218.5569735239,
+            "regularization": 163.69796013484088,
+            "changed_coordinates": 69178,
+            "max_quantization_error": 0.49999542348086834,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-180.json"
+          },
+          {
+            "update": 190,
+            "validation_objective": 335215.9666608608,
+            "validation_mean_regret": 335047.22932567255,
+            "validation_relative_regret": 0.06347638968389603,
+            "train_objective": 303676.4268030082,
+            "regularization": 168.73733518827817,
+            "changed_coordinates": 69235,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-190.json"
+          },
+          {
+            "update": 200,
+            "validation_objective": 333681.75046575424,
+            "validation_mean_regret": 333508.0383919384,
+            "validation_relative_regret": 0.06338950405675181,
+            "train_objective": 302398.11409629526,
+            "regularization": 173.71207381584483,
+            "changed_coordinates": 69284,
+            "max_quantization_error": 0.4999987820337992,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-200.json"
+          },
+          {
+            "update": 210,
+            "validation_objective": 332230.17783152446,
+            "validation_mean_regret": 332051.59885337687,
+            "validation_relative_regret": 0.06330466100270869,
+            "train_objective": 300631.98073062074,
+            "regularization": 178.5789781475867,
+            "changed_coordinates": 69320,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-210.json"
+          },
+          {
+            "update": 220,
+            "validation_objective": 331540.3883774924,
+            "validation_mean_regret": 331356.9798767086,
+            "validation_relative_regret": 0.06340793266307732,
+            "train_objective": 300303.7642353521,
+            "regularization": 183.40850078378799,
+            "changed_coordinates": 69352,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-220.json"
+          },
+          {
+            "update": 230,
+            "validation_objective": 329385.35519113846,
+            "validation_mean_regret": 329197.28046332893,
+            "validation_relative_regret": 0.06315440140155218,
+            "train_objective": 297732.64780893247,
+            "regularization": 188.0747278094955,
+            "changed_coordinates": 69392,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-230.json"
+          },
+          {
+            "update": 240,
+            "validation_objective": 327947.12277823564,
+            "validation_mean_regret": 327754.44783275074,
+            "validation_relative_regret": 0.06306397240020317,
+            "train_objective": 295898.58184095216,
+            "regularization": 192.67494548487602,
+            "changed_coordinates": 69431,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-240.json"
+          },
+          {
+            "update": 250,
+            "validation_objective": 327920.69017683057,
+            "validation_mean_regret": 327723.40785085945,
+            "validation_relative_regret": 0.06326765349146188,
+            "train_objective": 296021.9328818026,
+            "regularization": 197.28232597111264,
+            "changed_coordinates": 69479,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-250.json"
+          },
+          {
+            "update": 260,
+            "validation_objective": 325913.3429909258,
+            "validation_mean_regret": 325711.5214107522,
+            "validation_relative_regret": 0.06300808108195428,
+            "train_objective": 293530.8189429621,
+            "regularization": 201.821580173625,
+            "changed_coordinates": 69520,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-260.json"
+          },
+          {
+            "update": 270,
+            "validation_objective": 324481.5482691755,
+            "validation_mean_regret": 324275.30765036563,
+            "validation_relative_regret": 0.06289705352623207,
+            "train_objective": 292070.11261350196,
+            "regularization": 206.2406188099041,
+            "changed_coordinates": 69540,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-270.json"
+          },
+          {
+            "update": 280,
+            "validation_objective": 323629.8682801648,
+            "validation_mean_regret": 323419.2803572962,
+            "validation_relative_regret": 0.06290607007184236,
+            "train_objective": 291280.9990990806,
+            "regularization": 210.5879228686337,
+            "changed_coordinates": 69574,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-280.json"
+          },
+          {
+            "update": 290,
+            "validation_objective": 322993.4290350803,
+            "validation_mean_regret": 322778.45502894116,
+            "validation_relative_regret": 0.06294377978778593,
+            "train_objective": 290568.0139196913,
+            "regularization": 214.97400613914274,
+            "changed_coordinates": 69594,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-290.json"
+          },
+          {
+            "update": 299,
+            "validation_objective": 321633.42912985856,
+            "validation_mean_regret": 321414.63223348337,
+            "validation_relative_regret": 0.06280810342035387,
+            "train_objective": 289015.29598135786,
+            "regularization": 218.79689637518285,
+            "changed_coordinates": 69615,
+            "max_quantization_error": 0.5,
+            "checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-299.json"
+          }
+        ],
+        "selected_update": 299,
+        "selected_validation_objective": 321633.42912985856,
+        "selected_validation_mean_regret": 321414.63223348337,
+        "selected_regularization": 218.79689637518285,
+        "selected_checkpoint": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-299.json",
+        "at_registered_budget_boundary": true
+      },
+      "selected_evaluation_command": [
+        "target/release/evaluate",
+        "--checkpoint",
+        "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/checkpoint-299.json",
+        "--split",
+        "validation",
+        "--variant",
+        "scale_fixed_seed20260715",
+        "--output",
+        "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/evaluation-selected.json"
+      ],
+      "selected_validation_metrics": {
+        "edge_f1": 0.6941247956586494,
+        "edge_jaccard": 0.6203883582082851,
+        "edge_precision": 0.7071985947747089,
+        "edge_recall": 0.6888563556667483,
+        "exact_match": 0.37724513028079937,
+        "mean_regret": 321414.632233528,
+        "relative_regret": 0.06280810342036212,
+        "samples": 15812
+      },
+      "update_0_validation_metrics": {
+        "edge_f1": 0.6034666866010547,
+        "edge_jaccard": 0.5331433756323303,
+        "edge_precision": 0.6109613573710202,
+        "edge_recall": 0.6028600843897679,
+        "exact_match": 0.3469516822666329,
+        "mean_regret": 636965.7496205413,
+        "relative_regret": 0.09704587340453025,
+        "samples": 15812
+      },
+      "change_from_update_0": {
+        "edge_precision": 0.09623723740368872,
+        "edge_recall": 0.0859962712769804,
+        "edge_f1": 0.09065810905759464,
+        "exact_match": 0.030293448014166446,
+        "edge_jaccard": 0.08724498257595481,
+        "mean_regret": -315551.11738701334,
+        "relative_regret": -0.03423776998416812
+      },
+      "resources": {
+        "training_wall_seconds": 304.2562238249993,
+        "total_wall_seconds": 309.70237317399915,
+        "peak_rss_kib": 220580
+      },
+      "coordinate_change": {
+        "continuous": 69615,
+        "continuous_fraction": 0.36980276123644745,
+        "quantized": 69306,
+        "quantized_fraction": 0.3681613182540146,
+        "coordinate_count": 188249
+      },
+      "health_checks": {
+        "graph_representation": true,
+        "optimizer_kind": true,
+        "completed_updates": true,
+        "train_objective_finite": true,
+        "validation_objective_finite": true,
+        "weights_changed": true,
+        "shortest_path_queries_ok": true,
+        "checkpoint_restore_verified": true,
+        "test_not_read": true,
+        "checkpoint_exists": true
+      },
+      "test_read": false,
+      "runner_result": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/runner_result.json"
+    }
+  },
+  "legacy_original_edges_regression": {
+    "reference": {
+      "artifact_commit": "fa26aa84f3c5e528f662835917d288e4f4368ebb",
+      "code_commit": "62b23eb9471ce490f05512af3c942235a5962410",
+      "artifact_path": "experiments/summaries/beijing_edge_only_10pct.json",
+      "optimizer": {
+        "parameterization": "q_i = w_i / w0_i",
+        "eta0": 0.0002,
+        "lambda": 100000.0,
+        "q_min": 0.1,
+        "q_max": 10.0,
+        "optimizer_updates": 299
+      },
+      "selected_state": 289,
+      "selected_validation_metrics": {
+        "edge_f1": 0.6821453478322816,
+        "exact_match": 0.368454338477106,
+        "mean_regret": 310343.73374652164,
+        "relative_regret": 0.061200710617144466
+      },
+      "state_299": {
+        "mean_regret": 311137.48488489754,
+        "relative_regret": 0.06164191944677813,
+        "regularized_objective": 311756.22104318696
+      },
+      "initial_validation_mean_regret": 650449.9359347331,
+      "training_wall_seconds": 123.1621077180007,
+      "peak_rss_kib": 153856,
+      "test_read": false
+    },
+    "current_selected_update": 290,
+    "current_selected_validation_metrics": {
+      "edge_f1": 0.6854044397967122,
+      "edge_jaccard": 0.6118006671188209,
+      "edge_precision": 0.6990762409192102,
+      "edge_recall": 0.679209116673605,
+      "exact_match": 0.3736402732102201,
+      "mean_regret": 310213.24708970333,
+      "relative_regret": 0.06122173403597098,
+      "samples": 15812
+    },
+    "current_minus_legacy_selected": {
+      "edge_f1": 0.003259091964430527,
+      "exact_match": 0.005185934733114073,
+      "mean_regret": -130.48665681830607,
+      "relative_regret": 2.1023418826517093e-05
+    },
+    "state_299_mean_regret_difference": 0.019396953925024718,
+    "judgment": "passed; the generic implementation reproduces the legacy optimization trajectory and selected route quality"
+  },
+  "direct_to_relative_route_quality": {
+    "original_edges": {
+      "direct_selected": {
+        "run_id": "original_edges_eta300_10pct_u200",
+        "optimizer_parameterization": "direct_weights",
+        "eta0": 300.0,
+        "lambda": 0.001,
+        "updates": 200,
+        "selected_update": 200,
+        "selected_validation_metrics": {
+          "edge_f1": 0.589923385706932,
+          "edge_jaccard": 0.5196826726927616,
+          "edge_precision": 0.5964594734053533,
+          "edge_recall": 0.5903182251875979,
+          "exact_match": 0.33594738173539085,
+          "mean_regret": 650133.5660751847,
+          "relative_regret": 0.0945165645729146,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.5899016056370742,
+          "edge_jaccard": 0.5197932564931808,
+          "edge_precision": 0.5965286909653134,
+          "edge_recall": 0.5901614633877461,
+          "exact_match": 0.33664305590690613,
+          "mean_regret": 650449.9359347331,
+          "relative_regret": 0.0945596880145798,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": -6.921755996003309e-05,
+          "edge_recall": 0.00015676179985180116,
+          "edge_f1": 2.178006985786851e-05,
+          "exact_match": -0.0006956741715152814,
+          "edge_jaccard": -0.00011058380041917282,
+          "mean_regret": -316.369859548402,
+          "relative_regret": -4.312344166519655e-05
+        },
+        "training_wall_seconds": 85.95670023799994,
+        "peak_rss_kib": 162080,
+        "final_changed_coordinates": 41026,
+        "final_changed_quantized_coordinates": 25682,
+        "test_read": false
+      },
+      "relative_selected_update": 290,
+      "relative_selected_metrics": {
+        "edge_f1": 0.6854044397967122,
+        "edge_jaccard": 0.6118006671188209,
+        "edge_precision": 0.6990762409192102,
+        "edge_recall": 0.679209116673605,
+        "exact_match": 0.3736402732102201,
+        "mean_regret": 310213.24708970333,
+        "relative_regret": 0.06122173403597098,
+        "samples": 15812
+      },
+      "relative_minus_direct_selected": {
+        "edge_precision": 0.10261676751385684,
+        "edge_recall": 0.08889089148600704,
+        "edge_f1": 0.09548105408978014,
+        "exact_match": 0.03769289147482924,
+        "edge_jaccard": 0.09211799442605928
+      },
+      "relative_change_from_update_0": {
+        "edge_precision": 0.10254754995389681,
+        "edge_recall": 0.08904765328585884,
+        "edge_f1": 0.095502834159638,
+        "exact_match": 0.036997217303313956,
+        "edge_jaccard": 0.09200741062564011,
+        "mean_regret": -340236.6888450298,
+        "relative_regret": -0.033337953978608816
+      }
+    },
+    "edge_transition_arcs": {
+      "direct_selected": {
+        "run_id": "edge_transition_arcs_eta100_10pct_u200",
+        "optimizer_parameterization": "direct_weights",
+        "eta0": 100.0,
+        "lambda": 0.001,
+        "updates": 200,
+        "selected_update": 200,
+        "selected_validation_metrics": {
+          "edge_f1": 0.6034950122887961,
+          "edge_jaccard": 0.5331382440856497,
+          "edge_precision": 0.6109797504815881,
+          "edge_recall": 0.6029040601736645,
+          "exact_match": 0.34676195294712875,
+          "mean_regret": 636870.8997214858,
+          "relative_regret": 0.09703235958353762,
+          "samples": 15812
+        },
+        "update_0_validation_metrics": {
+          "edge_f1": 0.6034666866010547,
+          "edge_jaccard": 0.5331433756323303,
+          "edge_precision": 0.6109613573710202,
+          "edge_recall": 0.6028600843897679,
+          "exact_match": 0.3469516822666329,
+          "mean_regret": 636965.7496205413,
+          "relative_regret": 0.09704587340453025,
+          "samples": 15812
+        },
+        "change_from_update_0": {
+          "edge_precision": 1.8393110567949122e-05,
+          "edge_recall": 4.397578389658818e-05,
+          "edge_f1": 2.8325687741359573e-05,
+          "exact_match": -0.0001897293195041727,
+          "edge_jaccard": -5.131546680581245e-06,
+          "mean_regret": -94.84989905555267,
+          "relative_regret": -1.3513820992627767e-05
+        },
+        "training_wall_seconds": 207.69002889500007,
+        "peak_rss_kib": 220444,
+        "final_changed_coordinates": 59955,
+        "final_changed_quantized_coordinates": 18598,
+        "test_read": false
+      },
+      "relative_selected_update": 299,
+      "relative_selected_metrics": {
+        "edge_f1": 0.6941247956586494,
+        "edge_jaccard": 0.6203883582082851,
+        "edge_precision": 0.7071985947747089,
+        "edge_recall": 0.6888563556667483,
+        "exact_match": 0.37724513028079937,
+        "mean_regret": 321414.632233528,
+        "relative_regret": 0.06280810342036212,
+        "samples": 15812
+      },
+      "relative_minus_direct_selected": {
+        "edge_precision": 0.09621884429312078,
+        "edge_recall": 0.08595229549308381,
+        "edge_f1": 0.09062978336985328,
+        "exact_match": 0.03048317733367062,
+        "edge_jaccard": 0.08725011412263539
+      },
+      "relative_change_from_update_0": {
+        "edge_precision": 0.09623723740368872,
+        "edge_recall": 0.0859962712769804,
+        "edge_f1": 0.09065810905759464,
+        "exact_match": 0.030293448014166446,
+        "edge_jaccard": 0.08724498257595481,
+        "mean_regret": -315551.11738701334,
+        "relative_regret": -0.03423776998416812
+      }
+    },
+    "comparison_boundary": "route metrics are common, but direct and relative runs used their own matched parameterization hyperparameters and unequal update budgets"
+  },
+  "relative_optimizer_representation_comparison": {
+    "edge_transition_minus_original_route_metrics": {
+      "edge_precision": 0.008122353855498754,
+      "edge_recall": 0.009647238993143348,
+      "edge_f1": 0.008720355861937201,
+      "exact_match": 0.0036048570705792815,
+      "edge_jaccard": 0.008587691089464222
+    },
+    "training_wall_seconds": {
+      "original_edges": 125.95322121800018,
+      "edge_transition_arcs": 304.2562238249993,
+      "edge_transition_over_original_ratio": 2.415628761874949
+    },
+    "peak_rss_kib": {
+      "original_edges": 162044,
+      "edge_transition_arcs": 220580,
+      "edge_transition_over_original_ratio": 1.3612352200636864
+    },
+    "raw_objective_compared_across_representations": false
+  },
+  "previous_single_edge_audit": {
+    "configuration": "experiments/configs/edge_transition_arcs_eta300_10pct_u50.json",
+    "configuration_sha256": "3942f6ccbc329fd4cc3ab54deb7ee05402c40e344fe08a4bd6f728e569542c58",
+    "data": {
+      "city": "beijing",
+      "cycle_policy": "drop",
+      "path_contract": "complete_original_edge_id_sequence_min_2_edges",
+      "train": {
+        "bytes": 16680638,
+        "declared_sample_count": 78570,
+        "path": "data/beijing_data/preprocessed_train_trips_scale_10pct_seed42.pkl",
+        "seed": 42,
+        "sha256": "8943d8958f3b4fadd7d3eb2f351b97268543961e441436e0ad68408cee45cc0a",
+        "source_sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
+        "variant": "scale_10pct_seed42",
+        "verified": true
+      },
+      "validation": {
+        "bytes": 4160448,
+        "declared_sample_count": 20000,
+        "path": "data/beijing_data/preprocessed_validation_trips_scale_fixed_seed20260715.pkl",
+        "seed": 20260715,
+        "sha256": "c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade",
+        "source_sha256": "97d9e9231fc6599084e6af9eaa081e08c09f6108f27f304a26264fff1ee0ec6d",
+        "variant": "scale_fixed_seed20260715",
+        "verified": true
+      }
+    },
+    "line_graph_initial_metric": {
+      "coordinates": 188249,
+      "endpoint_offsets": 0,
+      "has_first_edge_parameter": false,
+      "has_start_cost": false,
+      "routing_arcs": 188249,
+      "routing_nodes": 72156,
+      "topology_identity": "fnv1a64:2569eeeb8e839a07"
+    },
+    "model_semantics_changed": false,
+    "purpose": "edge_transition_arcs_zero_cost_single_edge_impact_audit",
+    "rayon_threads": 4,
+    "schema_version": 1,
+    "splits": {
+      "train": {
+        "direct_edge_but_observed_route_longer_than_one_edge": {
+          "proportion_conditional_on_direct_edge": 1.0,
+          "proportion_of_effective_trajectories": 0.0004490921922114583,
+          "samples": 28
+        },
+        "direct_original_edge": {
+          "proportion_of_effective_trajectories": 0.0004490921922114583,
+          "proportion_of_unique_ods": 0.0004571204675689354,
+          "samples": 28,
+          "unique_ods": 28
+        },
+        "effective_trajectories": 62348,
+        "filtering": {
+          "accepted": 62348,
+          "available": 78570,
+          "cyclic": 16222,
+          "discontinuous": 0,
+          "dropped": 16222,
+          "empty": 0,
+          "inspected": 78570,
+          "out_of_bounds": 0,
+          "too_short": 0
+        },
+        "initial_edge_transition_prediction": {
+          "affected_samples": 28,
+          "all_affected_observations_have_more_than_one_edge": true,
+          "proportion_of_effective_trajectories": 0.0004490921922114583,
+          "proportion_of_unique_ods": 0.0004571204675689354,
+          "zero_cost_single_edge_ods": 28
+        },
+        "unique_ods": 61253
+      },
+      "validation": {
+        "direct_edge_but_observed_route_longer_than_one_edge": {
+          "proportion_conditional_on_direct_edge": 1.0,
+          "proportion_of_effective_trajectories": 0.0006324310650139134,
+          "samples": 10
+        },
+        "direct_original_edge": {
+          "proportion_of_effective_trajectories": 0.0006324310650139134,
+          "proportion_of_unique_ods": 0.0006357279084551812,
+          "samples": 10,
+          "unique_ods": 10
+        },
+        "effective_trajectories": 15812,
+        "filtering": {
+          "accepted": 15812,
+          "available": 20000,
+          "cyclic": 4188,
+          "discontinuous": 0,
+          "dropped": 4188,
+          "empty": 0,
+          "inspected": 20000,
+          "out_of_bounds": 0,
+          "too_short": 0
+        },
+        "initial_edge_transition_prediction": {
+          "affected_samples": 10,
+          "all_affected_observations_have_more_than_one_edge": true,
+          "proportion_of_effective_trajectories": 0.0006324310650139134,
+          "proportion_of_unique_ods": 0.0006357279084551812,
+          "zero_cost_single_edge_ods": 10
+        },
+        "unique_ods": 15730
+      }
+    },
+    "test_read": false,
+    "wall_seconds": 3.923921909
+  },
+  "recommendation": {
+    "representation_for_neuromlr_comparison": "edge_transition_arcs",
+    "optimizer_kind": "relative_projected_subgradient",
+    "basis": "meaningful learning from update 0 is now established for both representations, and line graph retains higher common decoded Edge F1 and Exact Match",
+    "do_not_use_direct_geometry_for_formal_comparison": true
+  },
+  "risks": {
+    "line_graph_best_checkpoint_at_registered_budget_boundary": true,
+    "line_graph_convergence_confirmed": false,
+    "original_best_checkpoint_at_registered_budget_boundary": false,
+    "integer_cch_quantization": true,
+    "single_edge_zero_cost": true,
+    "single_edge_validation_exposure": 0.0006324310650139134,
+    "single_seed_and_fixed_validation": true
+  },
+  "provenance": {
+    "direct_weight_calibration_summary": "experiments/line_graph_10pct_calibration/summary.json",
+    "original_result": "artifacts/optimizer_recovery/original_edges_relative_10pct_u299/runner_result.json",
+    "transition_result": "artifacts/optimizer_recovery/edge_transition_arcs_relative_10pct_u299/runner_result.json",
+    "raw_logs_and_checkpoints_retained_locally": true
+  }
+}

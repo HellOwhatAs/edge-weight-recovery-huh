@@ -58,6 +58,12 @@ def load_config(path: Path) -> dict[str, Any]:
         "edge_transition_arcs",
     }:
         raise ValueError(f"{path}: invalid graph.representation")
+    optimizer = config.get("optimizer")
+    if not isinstance(optimizer, dict) or optimizer.get("kind") not in {
+        "projected_subgradient",
+        "relative_projected_subgradient",
+    }:
+        raise ValueError(f"{path}: invalid optimizer.kind")
     return config
 
 
@@ -119,6 +125,8 @@ def validate_training_log(
     checks = {
         "graph_representation": finished.get("graph_representation")
         == config["graph"]["representation"],
+        "optimizer_kind": finished.get("optimizer_kind")
+        == config["optimizer"]["kind"],
         "completed_updates": finished.get("completed_updates") == required_updates,
         "train_objective_finite": finite_number(finished.get("train_objective")),
         "validation_objective_finite": finite_number(
@@ -374,6 +382,10 @@ def run_one(
             finished = latest(events, "finished")
             finished_summary = {
                 "completed_updates": finished.get("completed_updates"),
+                "optimizer_kind": finished.get("optimizer_kind"),
+                "optimizer_parameterization": finished.get(
+                    "optimizer_parameterization"
+                ),
                 "changed_coordinates": finished.get("changed_coordinates"),
                 "changed_quantized_coordinates": finished.get(
                     "changed_quantized_coordinates"
@@ -388,6 +400,7 @@ def run_one(
         "schema_version": 4,
         "run_id": run_id,
         "graph_representation": config["graph"]["representation"],
+        "optimizer_kind": config["optimizer"]["kind"],
         "eta0": config["optimizer"]["eta0"],
         "lambda": config["optimizer"]["lambda"],
         "updates": config["training"]["updates"],

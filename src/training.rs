@@ -3,8 +3,8 @@ use crate::config::TrainingConfig;
 use crate::data::{GraphData, PathValidationReport};
 use crate::evaluation::{PathMetrics, evaluate_paths};
 use crate::graph_problem::{GraphProblem, GraphRepresentation};
-use crate::objective::{compute_regret, count_difference_l1, regularization};
-use crate::optimizer::ProjectedSubgradientOptimizer;
+use crate::objective::{compute_regret, count_difference_l1};
+use crate::optimizer::{OptimizerGeometry, ProjectedSubgradientOptimizer};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::fs::File;
@@ -37,11 +37,14 @@ pub fn run_training(
         ));
     }
     let graph_representation = GraphRepresentation::parse(&config.graph_representation)?;
+    let optimizer_geometry = OptimizerGeometry::parse(&config.optimizer_kind)?;
     let mut logger = JsonlLogger::new(output_dir)?;
     logger.log(json!({
         "event": "configuration",
         "run_id": config.run_id,
         "graph_representation": graph_representation.as_str(),
+        "optimizer_kind": optimizer_geometry.as_str(),
+        "optimizer_parameterization": optimizer_geometry.parameterization(),
         "configuration": config.as_json(),
         "resume_path": resume_path,
         "test_read": false,
@@ -98,6 +101,8 @@ pub fn run_training(
     logger.log(json!({
         "event": "graph_problem",
         "graph_representation": graph_representation.as_str(),
+        "optimizer_kind": optimizer_geometry.as_str(),
+        "optimizer_parameterization": optimizer_geometry.parameterization(),
         "original_nodes": graph.x.len(),
         "original_edges": graph.tail.len(),
         "routing_nodes": problem.routing_node_count(),
@@ -130,6 +135,7 @@ pub fn run_training(
     // training query or optimizer mutation.
     problem.customize(&weights)?;
     let mut optimizer = ProjectedSubgradientOptimizer::with_completed_updates(
+        optimizer_geometry,
         config.eta0,
         config.lambda,
         restored_updates,
@@ -157,7 +163,7 @@ pub fn run_training(
             train_oracle.weighted_direct_path_cost_sum,
             train_oracle.sample_count,
         )?;
-        let penalty = regularization(&weights, problem.initial_weights(), config.lambda)?;
+        let penalty = optimizer.regularization(&weights, problem.initial_weights())?;
         let train_objective = train_regret.mean_data_loss + penalty;
         if !train_objective.is_finite() {
             return Err(format!(
@@ -240,6 +246,9 @@ pub fn run_training(
                 "status": if changed_coordinates == 0 { "no_direct_change" } else { "applied" },
                 "eta": step.eta,
                 "max_abs_delta": step.max_abs_delta,
+                "max_abs_parameter_delta": step.max_abs_parameter_delta,
+                "optimizer_kind": optimizer.geometry().as_str(),
+                "optimizer_parameterization": optimizer.geometry().parameterization(),
                 "projected_coordinates": step.projected_coordinates,
                 "changed_coordinates": changed_coordinates,
                 "completed_updates_before": completed_updates,
@@ -251,6 +260,8 @@ pub fn run_training(
         logger.log(json!({
             "event": "state",
             "graph_representation": graph_representation.as_str(),
+            "optimizer_kind": optimizer.geometry().as_str(),
+            "optimizer_parameterization": optimizer.geometry().parameterization(),
             "completed_updates": completed_updates,
             "train_mean_regret": train_regret.mean_data_loss,
             "train_relative_regret": train_regret.relative_data_loss,
@@ -302,6 +313,8 @@ pub fn run_training(
     logger.log(json!({
         "event": "finished",
         "graph_representation": graph_representation.as_str(),
+        "optimizer_kind": optimizer.geometry().as_str(),
+        "optimizer_parameterization": optimizer.geometry().parameterization(),
         "completed_updates": restored.completed_updates,
         "train_objective": last_train_objective,
         "validation_objective": last_validation_objective,
@@ -657,20 +670,25 @@ mod tests {
     }
 
     #[test]
-    fn both_graph_representations_use_the_same_direct_weight_optimizer() {
+    fn both_graph_representations_use_both_common_optimizer_geometries() {
         let graph = graph();
         let paths = vec![((0, 3), vec![0, 1]), ((0, 3), vec![0, 1])];
         for representation in [
             GraphRepresentation::OriginalEdges,
             GraphRepresentation::EdgeTransitionArcs,
         ] {
-            let problem = GraphProblem::build(&graph, representation, 0.1, 10.0).unwrap();
-            let initial = problem.initial_weights().to_vec();
-            let mut weights = initial.clone();
-            let mut optimizer = ProjectedSubgradientOptimizer::new(0.5, 0.1).unwrap();
-            advance(&problem, &paths, &mut weights, &mut optimizer, 1);
-            assert_eq!(optimizer.completed_updates(), 1);
-            assert_ne!(weights, initial);
+            for geometry in [
+                OptimizerGeometry::DirectWeights,
+                OptimizerGeometry::RelativeWeights,
+            ] {
+                let problem = GraphProblem::build(&graph, representation, 0.1, 10.0).unwrap();
+                let initial = problem.initial_weights().to_vec();
+                let mut weights = initial.clone();
+                let mut optimizer = ProjectedSubgradientOptimizer::new(geometry, 0.5, 0.1).unwrap();
+                advance(&problem, &paths, &mut weights, &mut optimizer, 1);
+                assert_eq!(optimizer.completed_updates(), 1);
+                assert_ne!(weights, initial);
+            }
         }
     }
 
@@ -682,54 +700,63 @@ mod tests {
             GraphRepresentation::OriginalEdges,
             GraphRepresentation::EdgeTransitionArcs,
         ] {
-            let problem = GraphProblem::build(&graph, representation, 0.1, 10.0).unwrap();
-            let mut uninterrupted_weights = problem.initial_weights().to_vec();
-            let mut uninterrupted = ProjectedSubgradientOptimizer::new(0.5, 0.1).unwrap();
-            advance(
-                &problem,
-                &paths,
-                &mut uninterrupted_weights,
-                &mut uninterrupted,
-                4,
-            );
+            for geometry in [
+                OptimizerGeometry::DirectWeights,
+                OptimizerGeometry::RelativeWeights,
+            ] {
+                let problem = GraphProblem::build(&graph, representation, 0.1, 10.0).unwrap();
+                let mut uninterrupted_weights = problem.initial_weights().to_vec();
+                let mut uninterrupted =
+                    ProjectedSubgradientOptimizer::new(geometry, 0.5, 0.1).unwrap();
+                advance(
+                    &problem,
+                    &paths,
+                    &mut uninterrupted_weights,
+                    &mut uninterrupted,
+                    4,
+                );
 
-            let mut resumed_weights = problem.initial_weights().to_vec();
-            let mut first_half = ProjectedSubgradientOptimizer::new(0.5, 0.1).unwrap();
-            advance(&problem, &paths, &mut resumed_weights, &mut first_half, 2);
-            let checkpoint = TrainingCheckpoint {
-                graph_representation: representation.as_str().to_string(),
-                completed_updates: first_half.completed_updates(),
-                weights: resumed_weights,
-                configuration: json!({"fixture": true}),
-                runtime_identity: json!({"fixture": true}),
-                topology_identity: problem.topology_identity().to_string(),
-            };
-            let nonce = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "direct-resume-{}-{nonce}.json",
-                representation.as_str()
-            ));
-            checkpoint.save_to(&path).unwrap();
-            let restored = TrainingCheckpoint::load(&path).unwrap();
-            std::fs::remove_file(path).unwrap();
+                let mut resumed_weights = problem.initial_weights().to_vec();
+                let mut first_half =
+                    ProjectedSubgradientOptimizer::new(geometry, 0.5, 0.1).unwrap();
+                advance(&problem, &paths, &mut resumed_weights, &mut first_half, 2);
+                let checkpoint = TrainingCheckpoint {
+                    graph_representation: representation.as_str().to_string(),
+                    completed_updates: first_half.completed_updates(),
+                    weights: resumed_weights,
+                    configuration: json!({"fixture": true}),
+                    runtime_identity: json!({"fixture": true}),
+                    topology_identity: problem.topology_identity().to_string(),
+                };
+                let nonce = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos();
+                let path = std::env::temp_dir().join(format!(
+                    "optimizer-resume-{}-{}-{nonce}.json",
+                    representation.as_str(),
+                    geometry.parameterization(),
+                ));
+                checkpoint.save_to(&path).unwrap();
+                let restored = TrainingCheckpoint::load(&path).unwrap();
+                std::fs::remove_file(path).unwrap();
 
-            let mut resumed_weights = restored.weights;
-            let mut resumed = ProjectedSubgradientOptimizer::with_completed_updates(
-                0.5,
-                0.1,
-                restored.completed_updates,
-            )
-            .unwrap();
-            advance(&problem, &paths, &mut resumed_weights, &mut resumed, 2);
+                let mut resumed_weights = restored.weights;
+                let mut resumed = ProjectedSubgradientOptimizer::with_completed_updates(
+                    geometry,
+                    0.5,
+                    0.1,
+                    restored.completed_updates,
+                )
+                .unwrap();
+                advance(&problem, &paths, &mut resumed_weights, &mut resumed, 2);
 
-            assert_eq!(resumed_weights, uninterrupted_weights);
-            assert_eq!(
-                resumed.completed_updates(),
-                uninterrupted.completed_updates()
-            );
+                assert_eq!(resumed_weights, uninterrupted_weights);
+                assert_eq!(
+                    resumed.completed_updates(),
+                    uninterrupted.completed_updates()
+                );
+            }
         }
     }
 }

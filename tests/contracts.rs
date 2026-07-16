@@ -8,6 +8,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const ORIGINAL_EDGES_SMOKE: &str = "experiments/configs/original_edges_smoke_1pct.json";
 const EDGE_TRANSITION_ARCS_SMOKE: &str = "experiments/configs/edge_transition_arcs_smoke_1pct.json";
+const ORIGINAL_RELATIVE_RECOVERY: &str =
+    "experiments/optimizer_recovery/configs/original_edges_relative_10pct_u299.json";
+const TRANSITION_RELATIVE_RECOVERY: &str =
+    "experiments/optimizer_recovery/configs/edge_transition_arcs_relative_10pct_u299.json";
 
 #[test]
 fn train_help_exposes_only_the_unified_inputs() {
@@ -141,6 +145,7 @@ fn active_smokes_share_one_schema_and_differ_only_by_representation() {
         transitions.weight_upper_factor
     );
     assert_eq!(original.eta0, transitions.eta0);
+    assert_eq!(original.optimizer_kind, transitions.optimizer_kind);
     assert_eq!(original.lambda, transitions.lambda);
     assert_eq!(original.updates, transitions.updates);
     assert_eq!(original.validation_every, transitions.validation_every);
@@ -250,6 +255,34 @@ fn registered_calibration_matrix_is_bounded_and_frozen() {
             "original_edges_smoke_1pct.json".to_string(),
         ],
         "only the two technical smokes and bounded calibration matrix are active"
+    );
+}
+
+#[test]
+fn relative_optimizer_recovery_is_representation_neutral() {
+    let original = TrainingConfig::load(Path::new(ORIGINAL_RELATIVE_RECOVERY))
+        .expect("load original-edge relative recovery config");
+    let transitions = TrainingConfig::load(Path::new(TRANSITION_RELATIVE_RECOVERY))
+        .expect("load transition-arc relative recovery config");
+
+    for config in [&original, &transitions] {
+        assert_eq!(config.optimizer_kind, "relative_projected_subgradient");
+        assert_eq!(config.eta0, 0.0002);
+        assert_eq!(config.lambda, 100000.0);
+        assert_eq!(config.weight_lower_factor, 0.1);
+        assert_eq!(config.weight_upper_factor, 10.0);
+        assert_eq!(config.updates, 299);
+        assert_eq!(config.validation_every, 10);
+        assert_eq!(config.rayon_threads, 4);
+        assert_eq!(config.train_variant, "scale_10pct_seed42");
+        assert_eq!(config.validation_variant, "scale_fixed_seed20260715");
+    }
+    assert_eq!(original.graph_representation, "original_edges");
+    assert_eq!(transitions.graph_representation, "edge_transition_arcs");
+    assert_eq!(
+        normalized_smoke_configuration(&original),
+        normalized_smoke_configuration(&transitions),
+        "representation must be the only mathematical recovery-config difference"
     );
 }
 

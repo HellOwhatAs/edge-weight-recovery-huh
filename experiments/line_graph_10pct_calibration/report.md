@@ -1,5 +1,7 @@
 # 北京 10% 图表示路线复现校准
 
+> **状态：优化退化诊断基线。** 本报告冻结的直接权重欧氏优化后来被确认存在尺度退化，因此下述“进入 NeuroMLR”建议不能单独作为执行依据。相对权重优化已在 `original_edges` 上复现旧结果，并重新训练两种表示；当前结论和正式推荐见[相对权重优化恢复报告](../optimizer_recovery/report.md)。本报告及原始数据不被覆盖，用于保留问题发现过程和直接优化对照。
+
 ## 结论
 
 推荐 `edge_transition_arcs` 进入后续 NeuroMLR 正式对比。按各自筛选出的学习率、最低 validation objective checkpoint 和完全相同的 15,812 条 validation 轨迹，line graph 的 Edge F1 为 0.603495，`original_edges` 为 0.589923，绝对提高 0.013572（1.357 个百分点）；Exact Match 分别为 0.346762 和 0.335947，提高 0.010815（1.081 个百分点）。此结论只使用解码后的共同原图边路线指标，不跨表示比较 raw objective。

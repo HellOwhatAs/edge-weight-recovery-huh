@@ -69,8 +69,26 @@ pub fn compute_regret(
     })
 }
 
-/// `lambda / (2m) * ||w - w0||^2` in the direct learned coordinates.
-pub fn regularization(weights: &[f64], initial: &[f64], lambda: f64) -> Result<f64, String> {
+/// `lambda / (2m) * ||w - w0||^2` in direct learned coordinates.
+pub fn direct_regularization(weights: &[f64], initial: &[f64], lambda: f64) -> Result<f64, String> {
+    regularization(weights, initial, lambda, false)
+}
+
+/// `lambda / (2m) * ||w / w0 - 1||^2` in dimensionless relative coordinates.
+pub fn relative_regularization(
+    weights: &[f64],
+    initial: &[f64],
+    lambda: f64,
+) -> Result<f64, String> {
+    regularization(weights, initial, lambda, true)
+}
+
+fn regularization(
+    weights: &[f64],
+    initial: &[f64],
+    lambda: f64,
+    relative: bool,
+) -> Result<f64, String> {
     if weights.len() != initial.len() {
         return Err("weight and initial-weight lengths differ".to_string());
     }
@@ -87,7 +105,17 @@ pub fn regularization(weights: &[f64], initial: &[f64], lambda: f64) -> Result<f
                 "non-finite regularization state at coordinate {coordinate}"
             ));
         }
-        squared_norm += (weight - initial_weight).powi(2);
+        if relative && initial_weight <= 0.0 {
+            return Err(format!(
+                "relative regularization requires positive initial[{coordinate}], got {initial_weight}"
+            ));
+        }
+        let difference = if relative {
+            weight / initial_weight - 1.0
+        } else {
+            weight - initial_weight
+        };
+        squared_norm += difference.powi(2);
     }
     let value = lambda * squared_norm / (2.0 * weights.len() as f64);
     if !value.is_finite() {
@@ -115,7 +143,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn computes_common_regret_and_regularization() {
+    fn computes_common_regret_and_both_regularizers() {
         let regret = compute_regret(&[5.0, 5.0, 2.0, 2.0], &[2, 2, 0, 0], 8.0, 2).unwrap();
         assert_eq!(regret.observed_cost_sum, 20.0);
         assert_eq!(regret.predicted_cost_sum, 8.0);
@@ -123,8 +151,11 @@ mod tests {
         assert_eq!(regret.mean_data_loss, 6.0);
         assert_eq!(regret.relative_data_loss, 0.6);
 
-        let penalty = regularization(&[2.0, 5.0], &[1.0, 3.0], 4.0).unwrap();
-        assert_eq!(penalty, 5.0);
+        let direct = direct_regularization(&[2.0, 5.0], &[1.0, 3.0], 4.0).unwrap();
+        assert_eq!(direct, 5.0);
+        let relative = relative_regularization(&[2.0, 5.0], &[1.0, 3.0], 4.0).unwrap();
+        assert!((relative - 13.0 / 9.0).abs() < 1e-12);
+        assert!(relative_regularization(&[1.0], &[0.0], 1.0).is_err());
     }
 
     #[test]

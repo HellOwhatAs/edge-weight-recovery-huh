@@ -12,6 +12,7 @@ pub struct TrainingConfig {
     pub graph_representation: String,
     pub weight_lower_factor: f64,
     pub weight_upper_factor: f64,
+    pub optimizer_kind: String,
     pub eta0: f64,
     pub lambda: f64,
     pub updates: u64,
@@ -99,7 +100,6 @@ impl TrainingConfig {
                 "complete_original_edge_id_sequence_min_2_edges",
             ),
             ("/data/cycle_policy", "drop"),
-            ("/optimizer/kind", "projected_subgradient"),
             ("/oracle/kind", "cch"),
             ("/oracle/customization", "full"),
             ("/test_policy", "never_read"),
@@ -115,6 +115,15 @@ impl TrainingConfig {
             != Some(true)
         {
             return Err("/oracle/group_unique_od must be true".to_string());
+        }
+
+        let optimizer_kind = require_str(&raw, "/optimizer/kind")?.to_string();
+        if optimizer_kind != "projected_subgradient"
+            && optimizer_kind != "relative_projected_subgradient"
+        {
+            return Err(format!(
+                "/optimizer/kind must be \"projected_subgradient\" or \"relative_projected_subgradient\", got {optimizer_kind:?}"
+            ));
         }
 
         let run_id = require_safe_component(&raw, "/run_id", "run_id")?;
@@ -176,6 +185,7 @@ impl TrainingConfig {
             graph_representation,
             weight_lower_factor,
             weight_upper_factor,
+            optimizer_kind,
             eta0,
             lambda,
             updates,
@@ -245,7 +255,7 @@ impl RunOptions {
 fn print_help() {
     println!(
         "edge-weight-recovery train\n\
-         Train direct weights on the original graph or its directed line graph with one optimizer.\n\
+         Train one weight vector on the original graph or its directed line graph with one configured optimizer geometry.\n\
          Training uses full CCH customization, validation diagnostics, and never reads test.\n\n\
          Usage:\n\
            train --config PATH --output-dir PATH [--resume CHECKPOINT]\n\n\
@@ -367,6 +377,7 @@ mod tests {
         let original = TrainingConfig::from_value(config_value("original_edges")).unwrap();
         let transitions = TrainingConfig::from_value(config_value("edge_transition_arcs")).unwrap();
         assert_eq!(original.eta0, transitions.eta0);
+        assert_eq!(original.optimizer_kind, transitions.optimizer_kind);
         assert_eq!(original.lambda, transitions.lambda);
         assert_eq!(original.updates, transitions.updates);
     }
@@ -376,6 +387,20 @@ mod tests {
         let mut raw = config_value("original_edges");
         raw["optimizer"]["extra_lambda"] = json!(1.0);
         assert!(TrainingConfig::from_value(raw).is_err());
+    }
+
+    #[test]
+    fn both_optimizer_geometries_are_explicit_and_strict() {
+        let mut relative = config_value("original_edges");
+        relative["optimizer"]["kind"] = json!("relative_projected_subgradient");
+        assert_eq!(
+            TrainingConfig::from_value(relative).unwrap().optimizer_kind,
+            "relative_projected_subgradient"
+        );
+
+        let mut unknown = config_value("original_edges");
+        unknown["optimizer"]["kind"] = json!("adaptive_magic");
+        assert!(TrainingConfig::from_value(unknown).is_err());
     }
 
     #[test]
