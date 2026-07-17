@@ -1,0 +1,50 @@
+{
+  "schema_version": 3,
+  "run_id": "project_common_train_u500",
+  "description": "Frozen NeuroMLR-comparable Beijing training set: raw edge IDs, node-cycle drop, minimum five roads; static line graph and recommended relative optimizer unchanged.",
+  "data": {
+    "city": "beijing",
+    "train_variant": "neuromlr_common",
+    "validation_variant": "neuromlr_common",
+    "path_contract": "complete_original_edge_id_sequence_min_2_edges",
+    "cycle_policy": "drop",
+    "train_identity": {
+      "path": "data/beijing_data/preprocessed_train_trips_neuromlr_common.pkl",
+      "bytes": 124775366,
+      "sha256": "d7f64525dc4b7c20ffddcd07b30a7948ff10c7a9d97dffa71508a73d73af4ad7",
+      "source_sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce",
+      "sample_count": 605935
+    },
+    "validation_identity": {
+      "path": "data/beijing_data/preprocessed_validation_trips_neuromlr_common.pkl",
+      "bytes": 107806,
+      "sha256": "2006cd5330d24a6862684f5583006e38608c7b0b96d77c41cd3da80feda2dee0",
+      "source_sha256": "c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade",
+      "sample_count": 500,
+      "seed": 20260716
+    }
+  },
+  "graph": {
+    "representation": "edge_transition_arcs",
+    "weight_lower_factor": 0.1,
+    "weight_upper_factor": 10.0
+  },
+  "optimizer": {
+    "kind": "relative_projected_subgradient",
+    "eta0": 0.0002,
+    "lambda": 100000.0
+  },
+  "oracle": {
+    "kind": "cch",
+    "customization": "full",
+    "group_unique_od": true
+  },
+  "training": {
+    "updates": 500,
+    "validation_every": 25
+  },
+  "runtime": {
+    "rayon_threads": 16
+  },
+  "test_policy": "never_read"
+}

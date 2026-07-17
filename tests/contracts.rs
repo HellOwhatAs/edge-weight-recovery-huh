@@ -16,6 +16,16 @@ const TRANSITION_RELATIVE_RECOVERY: &str =
 const INDEPENDENT_TIME_BUCKETS: &str = "experiments/independent_time_buckets/time_buckets.json";
 const FULL_STATIC_REFERENCE: &str =
     "experiments/independent_time_buckets/configs/static_full_reference_u500.json";
+const FINAL_BENCHMARK_PROTOCOL: &str = "experiments/neuromlr_cch_dijkstra_benchmarks/protocol.json";
+const FINAL_PROJECT_CONFIG: &str =
+    "experiments/neuromlr_cch_dijkstra_benchmarks/configs/project_common_train_u500.json";
+const FINAL_TRAIN_AUDIT: &str = "experiments/neuromlr_cch_dijkstra_benchmarks/train_audit.json";
+const FINAL_VALIDATION_AUDIT: &str =
+    "experiments/neuromlr_cch_dijkstra_benchmarks/validation_audit.json";
+const FINAL_TEST_AUDIT: &str = "experiments/neuromlr_cch_dijkstra_benchmarks/test_audit.json";
+const FINAL_EFFICIENCY_AMENDMENT: &str =
+    "experiments/neuromlr_cch_dijkstra_benchmarks/efficiency_protocol_amendment.json";
+const FINAL_BENCHMARK_SUMMARY: &str = "experiments/neuromlr_cch_dijkstra_benchmarks/summary.json";
 const INDEPENDENT_BUCKET_CONFIGS: [&str; 5] = [
     "experiments/independent_time_buckets/configs/static_night_00_06_u500.json",
     "experiments/independent_time_buckets/configs/static_morning_06_10_u500.json",
@@ -64,6 +74,272 @@ fn independent_bucket_configs_are_ordinary_static_models_with_data_filters() {
     assert_eq!(ids.len(), 5);
     assert_eq!(train_samples, 623275);
     assert_eq!(validation_samples, 15812);
+}
+
+#[test]
+fn final_quality_protocol_freezes_common_raw_edge_inputs_and_metrics() {
+    let protocol: Value = serde_json::from_slice(
+        &std::fs::read(FINAL_BENCHMARK_PROTOCOL).expect("read final benchmark protocol"),
+    )
+    .expect("decode final benchmark protocol");
+    assert_eq!(
+        protocol.pointer("/schema_version").and_then(Value::as_u64),
+        Some(1)
+    );
+    assert_eq!(
+        protocol
+            .pointer("/data/road_id_space")
+            .and_then(Value::as_str),
+        Some("unaltered_shapefile_record_index")
+    );
+    assert_eq!(
+        protocol
+            .pointer("/data/minimum_edges")
+            .and_then(Value::as_u64),
+        Some(5)
+    );
+    assert_eq!(
+        protocol
+            .pointer("/data/splits/train/maximum_selected")
+            .unwrap(),
+        &Value::Null
+    );
+    assert_eq!(
+        protocol
+            .pointer("/data/splits/validation/maximum_selected")
+            .and_then(Value::as_u64),
+        Some(500)
+    );
+    assert_eq!(
+        protocol
+            .pointer("/data/splits/test/maximum_selected")
+            .and_then(Value::as_u64),
+        Some(500)
+    );
+    assert_eq!(
+        protocol
+            .pointer("/quality/query_protocol")
+            .and_then(Value::as_str),
+        Some("true_first_edge_to_true_last_edge_complete_sequence")
+    );
+    assert_eq!(
+        protocol
+            .pointer("/neuromlr/upstream_commit")
+            .and_then(Value::as_str),
+        Some("c45e3b5811e5a59b36e4682307d2196c02dac360")
+    );
+    assert_eq!(
+        protocol.pointer("/quality/primary_methods").unwrap(),
+        &json!(["project_edge_to_edge", "neuromlr_greedy"])
+    );
+    assert_eq!(
+        protocol
+            .pointer("/neuromlr/dijkstra_validation")
+            .and_then(Value::as_str),
+        Some("not_run_by_user_request")
+    );
+    assert_eq!(
+        protocol
+            .pointer("/oracle_efficiency/training_formal_workload/maximum_unique_od_groups")
+            .and_then(Value::as_u64),
+        Some(50000)
+    );
+}
+
+#[test]
+fn final_project_config_uses_the_aligned_common_training_pickle() {
+    let config = TrainingConfig::load(Path::new(FINAL_PROJECT_CONFIG)).unwrap();
+    assert_eq!(config.train_variant, "neuromlr_common");
+    assert_eq!(config.validation_variant, "neuromlr_common");
+    assert_eq!(config.graph_representation, "edge_transition_arcs");
+    assert_eq!(config.optimizer_kind, "relative_projected_subgradient");
+    assert_eq!(config.eta0, 0.0002);
+    assert_eq!(config.lambda, 100000.0);
+    assert_eq!(config.updates, 500);
+    assert_eq!(config.validation_every, 25);
+    assert_eq!(config.rayon_threads, 16);
+    assert_eq!(
+        config
+            .as_json()
+            .pointer("/data/train_identity/sample_count")
+            .and_then(Value::as_u64),
+        Some(605935)
+    );
+    assert_eq!(
+        config
+            .as_json()
+            .pointer("/data/validation_identity/sample_count")
+            .and_then(Value::as_u64),
+        Some(500)
+    );
+}
+
+#[test]
+fn final_summary_separates_fair_quality_from_node_to_node_and_freezes_actual_workloads() {
+    let summary: Value = serde_json::from_slice(&std::fs::read(FINAL_BENCHMARK_SUMMARY).unwrap())
+        .expect("decode final benchmark summary");
+    assert_eq!(
+        summary
+            .pointer("/scope/external_quality_baseline")
+            .and_then(Value::as_str),
+        Some("neuromlr_greedy")
+    );
+    assert_eq!(
+        summary
+            .pointer("/quality/test/project_edge_to_edge/metrics/samples")
+            .and_then(Value::as_u64),
+        Some(500)
+    );
+    assert_eq!(
+        summary
+            .pointer("/quality/test/neuromlr_greedy/metrics/samples")
+            .and_then(Value::as_u64),
+        Some(500)
+    );
+    assert!(
+        summary
+            .pointer("/quality/test/project_minus_neuromlr_greedy/edge_f1")
+            .and_then(Value::as_f64)
+            .unwrap()
+            < 0.0
+    );
+    assert_eq!(
+        summary
+            .pointer("/oracle_efficiency/training/workload/fixed_point_od_groups")
+            .and_then(Value::as_u64),
+        Some(4971)
+    );
+    assert_eq!(
+        summary
+            .pointer("/oracle_efficiency/inference/workload/query_protocol")
+            .and_then(Value::as_str),
+        Some("node_to_node")
+    );
+}
+
+#[test]
+fn efficiency_amendment_requires_all_state_model_equivalence() {
+    let amendment: Value =
+        serde_json::from_slice(&std::fs::read(FINAL_EFFICIENCY_AMENDMENT).unwrap())
+            .expect("decode efficiency amendment");
+    let workload = amendment.pointer("/frozen_training_workload").unwrap();
+    assert_eq!(
+        workload
+            .pointer("/fixed_point_groups")
+            .and_then(Value::as_u64),
+        Some(4971)
+    );
+    assert_eq!(
+        workload
+            .pointer("/selected_observations")
+            .and_then(Value::as_u64),
+        Some(4979)
+    );
+    for key in [
+        "all_distance_sums_equal",
+        "all_predicted_counts_equal",
+        "all_objectives_equal",
+        "final_weights_bitwise_equal",
+    ] {
+        assert_eq!(
+            workload
+                .pointer(&format!("/{key}"))
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+    }
+}
+
+#[test]
+fn final_test_audit_is_bound_to_the_single_frozen_manifest() {
+    let audit: Value = serde_json::from_slice(&std::fs::read(FINAL_TEST_AUDIT).unwrap()).unwrap();
+    assert_eq!(
+        audit
+            .pointer("/audit/common_manifest/test_read")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        audit
+            .pointer("/outputs/manifest/records")
+            .and_then(Value::as_u64),
+        Some(500)
+    );
+    assert_eq!(
+        audit
+            .pointer("/outputs/manifest/sha256")
+            .and_then(Value::as_str),
+        Some("d340e0715853f3245538f00525f4edeed6edca19c5e5326253f160baace1c5a9")
+    );
+}
+
+#[test]
+fn common_manifest_audits_balance_and_prove_test_was_not_read() {
+    for (path, source, eligible, selected) in [
+        (FINAL_TRAIN_AUDIT, 785709, 605935, 605935),
+        (FINAL_VALIDATION_AUDIT, 20000, 15399, 500),
+    ] {
+        let audit: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        let root = audit.pointer("/audit/common_manifest").unwrap();
+        assert_eq!(
+            root.pointer("/source/records").and_then(Value::as_u64),
+            Some(source)
+        );
+        assert_eq!(
+            root.pointer("/filtering/eligible").and_then(Value::as_u64),
+            Some(eligible)
+        );
+        assert_eq!(
+            root.pointer("/filtering/selected").and_then(Value::as_u64),
+            Some(selected)
+        );
+        assert_eq!(
+            root.pointer("/test_read").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            root.pointer("/filtering/dropped")
+                .and_then(Value::as_u64)
+                .unwrap()
+                + eligible,
+            source
+        );
+    }
+}
+
+#[test]
+fn test_manifest_requires_a_hash_bound_unlock_and_receipt() {
+    let output_dir = temporary_directory("forbidden-test-manifest");
+    let output = Command::new(env!("CARGO_BIN_EXE_build_common_manifest"))
+        .args([
+            "--city",
+            "beijing",
+            "--split",
+            "test",
+            "--variant",
+            "small",
+            "--minimum-edges",
+            "5",
+            "--maximum-selected",
+            "500",
+            "--manifest",
+        ])
+        .arg(output_dir.join("test.jsonl"))
+        .arg("--pickle")
+        .arg(output_dir.join("test.pkl"))
+        .arg("--audit")
+        .arg(output_dir.join("test-audit.json"))
+        .arg("--protocol")
+        .arg(FINAL_BENCHMARK_PROTOCOL)
+        .arg("--test-unlock")
+        .arg(output_dir.join("missing-unlock.json"))
+        .arg("--test-receipt")
+        .arg(output_dir.join("receipt.json"))
+        .output()
+        .expect("run guarded test manifest command");
+    assert!(!output.status.success());
+    assert!(!output_dir.join("receipt.json").exists());
+    assert!(!output_dir.join("test.jsonl").exists());
 }
 
 #[test]

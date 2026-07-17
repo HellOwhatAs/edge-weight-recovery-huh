@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/idea-iitd/NeuroMLR",
+  "commit": "c45e3b5811e5a59b36e4682307d2196c02dac360",
+  "tree": "318d28140208ae3cfa538ed8e0fd3adcb023dae7",
+  "checkout_modified": false,
+  "files": {
+    "model_all.py": "091d18e83c618a3dcc3676c4fb63d68737bd3d872f45732547298fa995e6c2af",
+    "models_general.py": "180af33516fc21c7572b20db95367246a35d1017fe194d6848de261b59e172d5",
+    "train.py": "b031fc272c2c776dd4bcd77539599b8fa80b1d2c0bbc555fcd140f7cb08cb1a0",
+    "eval.py": "8e78946ef9b1b0602939c09695e8610604edc944f95a005728d04820266fd19c",
+    "utils.py": "c4f54ae923e993340232ccd1a21f6ce5e711dcf127f460f70a843e89dcb04017",
+    "requirements.txt": "aa4e4644cb56597c25c4dede0dc3cbe65c1d2c5421da94b678f65be8e2639503"
+  },
+  "execution_adapter": "scripts/neuromlr_fair.py"
+}

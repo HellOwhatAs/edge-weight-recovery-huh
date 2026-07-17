@@ -8,6 +8,9 @@
 
 use crate::data::{GraphData, TripPath};
 use crate::oracle::cch::{CCH_INFINITY, CchMetric, CchReusableQuery, CchTopology};
+use crate::oracle::dijkstra::{
+    DijkstraMetric, DijkstraReusableQuery, DijkstraTopology, DijkstraU32Path,
+};
 use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -22,6 +25,31 @@ type QueryEndpointsF64 = (Vec<(u32, f64)>, Vec<(u32, f64)>);
 pub enum GraphRepresentation {
     OriginalEdges,
     EdgeTransitionArcs,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum OracleKind {
+    Cch,
+    Dijkstra,
+}
+
+impl OracleKind {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "cch" => Ok(Self::Cch),
+            "dijkstra" => Ok(Self::Dijkstra),
+            _ => Err(format!(
+                "unsupported shortest-path oracle {value:?}; expected \"cch\" or \"dijkstra\""
+            )),
+        }
+    }
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Cch => "cch",
+            Self::Dijkstra => "dijkstra",
+        }
+    }
 }
 
 impl GraphRepresentation {
@@ -80,12 +108,20 @@ pub struct OracleStats {
     pub oracle_duration: Duration,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct OracleBuildStats {
+    pub cch_topology: Duration,
+    pub dijkstra_topology: Duration,
+}
+
 pub struct GraphProblem {
     representation: GraphRepresentation,
     original: OriginalTopology,
     routing: RoutingTopology,
     mapping: RepresentationMapping,
     cch: CchTopology,
+    dijkstra: DijkstraTopology,
+    oracle_build_stats: OracleBuildStats,
     initial_weights: Vec<f64>,
     lower_bounds: Vec<f64>,
     upper_bounds: Vec<f64>,
@@ -94,7 +130,7 @@ pub struct GraphProblem {
 
 pub struct GraphMetric<'a> {
     problem: &'a GraphProblem,
-    cch: CchMetric<'a>,
+    oracle: CustomizedOracle<'a>,
     direct_weights: Vec<f64>,
     quantized_weights: Vec<u32>,
 }
@@ -104,9 +140,25 @@ pub struct GraphMetric<'a> {
 /// path decoding from callers.
 pub struct GraphQuery<'metric, 'problem> {
     problem: &'problem GraphProblem,
-    cch: CchReusableQuery<'metric>,
+    oracle: ReusableOracleQuery<'metric, 'problem>,
     direct_weights: &'metric [f64],
     quantized_weights: &'metric [u32],
+}
+
+enum CustomizedOracle<'a> {
+    Cch(CchMetric<'a>),
+    Dijkstra(DijkstraMetric<'a>),
+}
+
+enum ReusableOracleQuery<'metric, 'problem> {
+    Cch(CchReusableQuery<'metric>),
+    Dijkstra(DijkstraReusableQuery<'metric, 'problem>),
+}
+
+struct RawOraclePath {
+    distance: u32,
+    node_path: Vec<usize>,
+    arc_path: Vec<usize>,
 }
 
 #[derive(Clone, Debug)]
@@ -177,6 +229,7 @@ impl GraphProblem {
             GraphRepresentation::EdgeTransitionArcs => build_edge_transition_graph(graph)?,
         };
 
+        let cch_started = Instant::now();
         let cch = CchTopology::build(
             routing.node_count,
             &routing.tail,
@@ -184,6 +237,10 @@ impl GraphProblem {
             &routing.x,
             &routing.y,
         )?;
+        let cch_topology = cch_started.elapsed();
+        let dijkstra_started = Instant::now();
+        let dijkstra = DijkstraTopology::build(routing.node_count, &routing.tail, &routing.head)?;
+        let dijkstra_topology = dijkstra_started.elapsed();
         let lower_bounds = scaled_bounds(&initial_weights, lower_factor, "lower")?;
         let upper_bounds = scaled_bounds(&initial_weights, upper_factor, "upper")?;
         for (coordinate, &upper) in upper_bounds.iter().enumerate() {
@@ -199,6 +256,11 @@ impl GraphProblem {
             routing,
             mapping,
             cch,
+            dijkstra,
+            oracle_build_stats: OracleBuildStats {
+                cch_topology,
+                dijkstra_topology,
+            },
             initial_weights,
             lower_bounds,
             upper_bounds,
@@ -236,6 +298,10 @@ impl GraphProblem {
 
     pub fn routing_arc_count(&self) -> usize {
         self.routing.tail.len()
+    }
+
+    pub const fn oracle_build_stats(&self) -> OracleBuildStats {
+        self.oracle_build_stats
     }
 
     /// Stable transition lookup. Original-edge problems return `None` because
@@ -355,6 +421,16 @@ impl GraphProblem {
     /// Quantize direct coordinate weights and fully customize the internal CCH.
     /// The returned metric remains inseparably bound to this representation.
     pub fn customize<'a>(&'a self, weights: &[f64]) -> Result<GraphMetric<'a>, String> {
+        self.customize_with_oracle(weights, OracleKind::Cch)
+    }
+
+    /// Quantize one direct vector once, then bind it to the requested oracle.
+    /// CCH and Dijkstra therefore receive byte-identical integer arc metrics.
+    pub fn customize_with_oracle<'a>(
+        &'a self,
+        weights: &[f64],
+        oracle_kind: OracleKind,
+    ) -> Result<GraphMetric<'a>, String> {
         self.validate_direct_weights(weights)?;
         let quantized_weights = weights
             .iter()
@@ -365,10 +441,15 @@ impl GraphProblem {
             })
             .collect::<Result<Vec<_>, _>>()?;
         debug_assert_eq!(quantized_weights.len(), self.routing.tail.len());
-        let cch = self.cch.customize(&quantized_weights)?;
+        let oracle = match oracle_kind {
+            OracleKind::Cch => CustomizedOracle::Cch(self.cch.customize(&quantized_weights)?),
+            OracleKind::Dijkstra => {
+                CustomizedOracle::Dijkstra(self.dijkstra.customize(&quantized_weights)?)
+            }
+        };
         Ok(GraphMetric {
             problem: self,
-            cch,
+            oracle,
             direct_weights: weights.to_vec(),
             quantized_weights,
         })
@@ -509,6 +590,29 @@ impl GraphProblem {
         }
     }
 
+    fn edge_query_endpoints_u32(
+        &self,
+        source_edge: usize,
+        target_edge: usize,
+    ) -> Result<QueryEndpointsU32, String> {
+        if !matches!(self.mapping, RepresentationMapping::EdgeTransitionArcs(_)) {
+            return Err(
+                "edge-to-edge queries require the edge_transition_arcs representation".to_string(),
+            );
+        }
+        let edge_count = self.original.tail.len();
+        if source_edge >= edge_count || target_edge >= edge_count {
+            return Err(format!(
+                "edge-to-edge query ({source_edge}, {target_edge}) is outside {edge_count} original edges"
+            ));
+        }
+        let source = u32::try_from(source_edge)
+            .map_err(|_| format!("source edge {source_edge} does not fit u32"))?;
+        let target = u32::try_from(target_edge)
+            .map_err(|_| format!("target edge {target_edge} does not fit u32"))?;
+        Ok((vec![(source, 0)], vec![(target, 0)]))
+    }
+
     #[cfg(test)]
     fn query_endpoints_f64(&self, source: u32, target: u32) -> Result<QueryEndpointsF64, String> {
         if source as usize >= self.original.node_count
@@ -544,6 +648,13 @@ impl GraphProblem {
 }
 
 impl<'problem> GraphMetric<'problem> {
+    pub const fn oracle_kind(&self) -> OracleKind {
+        match &self.oracle {
+            CustomizedOracle::Cch(_) => OracleKind::Cch,
+            CustomizedOracle::Dijkstra(_) => OracleKind::Dijkstra,
+        }
+    }
+
     pub fn direct_weights(&self) -> &[f64] {
         &self.direct_weights
     }
@@ -558,6 +669,15 @@ impl<'problem> GraphMetric<'problem> {
 
     pub fn shortest_path(&self, source: u32, target: u32) -> Result<ShortestPath, String> {
         self.new_query().shortest_path(source, target)
+    }
+
+    pub fn shortest_path_edges(
+        &self,
+        source_edge: usize,
+        target_edge: usize,
+    ) -> Result<ShortestPath, String> {
+        self.new_query()
+            .shortest_path_edges(source_edge, target_edge)
     }
 
     pub fn batch_stats(
@@ -659,9 +779,13 @@ impl<'problem> GraphMetric<'problem> {
     }
 
     pub fn new_query(&self) -> GraphQuery<'_, 'problem> {
+        let oracle = match &self.oracle {
+            CustomizedOracle::Cch(metric) => ReusableOracleQuery::Cch(metric.new_query()),
+            CustomizedOracle::Dijkstra(metric) => ReusableOracleQuery::Dijkstra(metric.new_query()),
+        };
         GraphQuery {
             problem: self.problem,
-            cch: self.cch.new_query(),
+            oracle,
             direct_weights: &self.direct_weights,
             quantized_weights: &self.quantized_weights,
         }
@@ -671,7 +795,7 @@ impl<'problem> GraphMetric<'problem> {
 impl GraphQuery<'_, '_> {
     pub fn shortest_path(&mut self, source: u32, target: u32) -> Result<ShortestPath, String> {
         let (sources, targets) = self.problem.query_endpoints_u32(source, target)?;
-        let raw = self.cch.shortest_path(&sources, &targets)?;
+        let raw = self.raw_shortest_path(&sources, &targets)?;
         let (coordinates, original_edges) = match &self.problem.mapping {
             RepresentationMapping::OriginalEdges => {
                 let original_edges = self.problem.decode_path(&raw.arc_path)?;
@@ -686,6 +810,81 @@ impl GraphQuery<'_, '_> {
         self.problem
             .validate_decoded_od(&original_edges, source, target)?;
 
+        self.finish_path(
+            raw.distance,
+            coordinates,
+            original_edges,
+            &format!("OD ({source}, {target})"),
+        )
+    }
+
+    /// Recover a complete original-road sequence with the true first and last
+    /// roads fixed as line-graph endpoint states. The returned node path
+    /// includes both endpoints; only its `L-1` transition arcs carry cost.
+    pub fn shortest_path_edges(
+        &mut self,
+        source_edge: usize,
+        target_edge: usize,
+    ) -> Result<ShortestPath, String> {
+        let (sources, targets) = self
+            .problem
+            .edge_query_endpoints_u32(source_edge, target_edge)?;
+        let raw = self.raw_shortest_path(&sources, &targets)?;
+        self.problem
+            .validate_line_graph_path(&raw.node_path, &raw.arc_path)?;
+        if raw.node_path.first().copied() != Some(source_edge)
+            || raw.node_path.last().copied() != Some(target_edge)
+        {
+            return Err(format!(
+                "edge-to-edge oracle returned endpoints {:?}->{:?}, expected {source_edge}->{target_edge}",
+                raw.node_path.first(),
+                raw.node_path.last()
+            ));
+        }
+        self.finish_path(
+            raw.distance,
+            raw.arc_path,
+            raw.node_path,
+            &format!("edge query ({source_edge}, {target_edge})"),
+        )
+    }
+
+    fn raw_shortest_path(
+        &mut self,
+        sources: &[(u32, u32)],
+        targets: &[(u32, u32)],
+    ) -> Result<RawOraclePath, String> {
+        match &mut self.oracle {
+            ReusableOracleQuery::Cch(query) => {
+                let path = query.shortest_path(sources, targets)?;
+                Ok(RawOraclePath {
+                    distance: path.distance,
+                    node_path: path.node_path,
+                    arc_path: path.arc_path,
+                })
+            }
+            ReusableOracleQuery::Dijkstra(query) => {
+                let DijkstraU32Path {
+                    distance,
+                    node_path,
+                    arc_path,
+                } = query.shortest_path(sources, targets)?;
+                Ok(RawOraclePath {
+                    distance,
+                    node_path,
+                    arc_path,
+                })
+            }
+        }
+    }
+
+    fn finish_path(
+        &self,
+        distance: u32,
+        coordinates: Vec<usize>,
+        original_edges: Vec<usize>,
+        context: &str,
+    ) -> Result<ShortestPath, String> {
         let reconstructed = coordinates.iter().try_fold(0u128, |sum, &coordinate| {
             let weight = self
                 .quantized_weights
@@ -694,10 +893,10 @@ impl GraphQuery<'_, '_> {
             sum.checked_add(*weight as u128)
                 .ok_or_else(|| "reconstructed path cost overflow".to_string())
         })?;
-        if reconstructed != raw.distance as u128 {
+        if reconstructed != distance as u128 {
             return Err(format!(
-                "CCH coordinate path costs {reconstructed} but reported distance {} for OD ({source}, {target})",
-                raw.distance
+                "{} coordinate path costs {reconstructed} but reported distance {distance} for {context}",
+                self.oracle_kind().as_str(),
             ));
         }
         let direct_cost = coordinates.iter().try_fold(0.0, |sum, &coordinate| {
@@ -713,11 +912,18 @@ impl GraphQuery<'_, '_> {
             }
         })?;
         Ok(ShortestPath {
-            distance: raw.distance,
+            distance,
             direct_cost,
             coordinates,
             original_edges,
         })
+    }
+
+    fn oracle_kind(&self) -> OracleKind {
+        match &self.oracle {
+            ReusableOracleQuery::Cch(_) => OracleKind::Cch,
+            ReusableOracleQuery::Dijkstra(_) => OracleKind::Dijkstra,
+        }
     }
 }
 
@@ -1216,6 +1422,52 @@ mod tests {
         assert_eq!(shortest.original_edges, vec![0, 1, 2]);
         assert_eq!(shortest.distance, 2);
         assert_eq!(shortest.direct_cost, 2.0);
+    }
+
+    #[test]
+    fn edge_to_edge_fixes_true_first_and_last_roads_for_both_oracles() {
+        let problem =
+            GraphProblem::build(&graph(), GraphRepresentation::EdgeTransitionArcs, 0.1, 10.0)
+                .unwrap();
+        for oracle in [OracleKind::Cch, OracleKind::Dijkstra] {
+            let metric = problem
+                .customize_with_oracle(problem.initial_weights(), oracle)
+                .unwrap();
+            let path = metric.shortest_path_edges(0, 2).unwrap();
+            assert_eq!(path.original_edges, vec![0, 1, 2]);
+            assert_eq!(path.coordinates, vec![0, 2]);
+            assert_eq!(path.distance, 8);
+            assert_eq!(metric.oracle_kind(), oracle);
+        }
+        let original =
+            GraphProblem::build(&graph(), GraphRepresentation::OriginalEdges, 0.1, 10.0).unwrap();
+        assert!(
+            original
+                .customize(original.initial_weights())
+                .unwrap()
+                .shortest_path_edges(0, 2)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn cch_and_integer_dijkstra_use_identical_quantized_distances() {
+        let problem =
+            GraphProblem::build(&graph(), GraphRepresentation::EdgeTransitionArcs, 0.1, 10.0)
+                .unwrap();
+        let weights = [3.2, 1.4, 4.7, 2.2];
+        let cch = problem
+            .customize_with_oracle(&weights, OracleKind::Cch)
+            .unwrap();
+        let dijkstra = problem
+            .customize_with_oracle(&weights, OracleKind::Dijkstra)
+            .unwrap();
+        assert_eq!(cch.quantized_weights(), dijkstra.quantized_weights());
+        let cch_path = cch.shortest_path(0, 3).unwrap();
+        let dijkstra_path = dijkstra.shortest_path(0, 3).unwrap();
+        assert_eq!(cch_path.distance, dijkstra_path.distance);
+        assert_eq!(cch_path.direct_cost, dijkstra_path.direct_cost);
+        assert_eq!(cch_path.original_edges, dijkstra_path.original_edges);
     }
 
     #[test]

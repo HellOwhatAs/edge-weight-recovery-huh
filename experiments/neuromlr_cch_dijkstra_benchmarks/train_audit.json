@@ -1,0 +1,71 @@
+{
+  "audit": {
+    "common_manifest": {
+      "city": "beijing",
+      "filtering": {
+        "cyclic": 160877,
+        "discontinuous": 0,
+        "dropped": 179774,
+        "eligibility_coverage": 0.7711951880403559,
+        "eligible": 605935,
+        "empty": 0,
+        "out_of_bounds_or_unrepresentable": 0,
+        "selected": 605935,
+        "selected_source_coverage": 0.7711951880403559,
+        "too_short": 18897
+      },
+      "identity_audit": {
+        "duplicate_original_trip_ids": 0,
+        "selected_edge_occurrences": 20470911,
+        "selected_maximum_edges": 296,
+        "selected_minimum_edges": 5,
+        "selected_unique_edges": 55835
+      },
+      "policy": {
+        "continuity": "head(previous)==tail(next)",
+        "cycle_policy": "drop_if_any_original_node_repeats",
+        "maximum_selected": null,
+        "minimum_edges": 5,
+        "neuromlr_traffic_features": false,
+        "road_id_space": "unaltered_shapefile_record_index",
+        "selection": "first_eligible_in_source_order"
+      },
+      "schema_version": 1,
+      "source": {
+        "bytes": 120236049,
+        "path": "data/beijing_data/preprocessed_train_trips_all.pkl",
+        "records": 785709,
+        "sha256": "d7fdfb5870c54df79d1044ecb12a076e0244dbd5d3bc74fd67d1bdcc2b7c0fce"
+      },
+      "split": "train",
+      "test_read": false,
+      "upstream_compatibility": {
+        "adapter_policy": "preserve_raw_edge_ids_one_to_one",
+        "graph_parallel_edge_ids": 695,
+        "selected_paths_that_upstream_condense_edges_would_change": 40065
+      },
+      "variant": "all"
+    },
+    "protocol": {
+      "path": "experiments/neuromlr_cch_dijkstra_benchmarks/protocol.json",
+      "sha256": "c386dab988e2d13c00c5321f169f4d10f064f4dd2be56ace11496b2356cebd12",
+      "status": "frozen_after_validation"
+    },
+    "schema_version": 1
+  },
+  "outputs": {
+    "manifest": {
+      "bytes": 206011175,
+      "path": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/manifests/train.jsonl",
+      "records": 605935,
+      "sha256": "4cd26d89fe7baf6c49155aa9860ee4eaa4ceb98791af4468a2eb05f871252a4b"
+    },
+    "training_pickle": {
+      "bytes": 124775366,
+      "path": "data/beijing_data/preprocessed_train_trips_neuromlr_common.pkl",
+      "records": 605935,
+      "sha256": "d7f64525dc4b7c20ffddcd07b30a7948ff10c7a9d97dffa71508a73d73af4ad7",
+      "trip_key": "manifest_id"
+    }
+  }
+}

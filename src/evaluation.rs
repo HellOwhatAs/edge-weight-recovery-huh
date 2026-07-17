@@ -5,6 +5,16 @@ use std::collections::HashSet;
 type LocalPathMetrics = (usize, f64, f64, f64, f64, f64, f64, f64);
 
 #[derive(Clone, Debug, Default, PartialEq)]
+pub struct RouteMetrics {
+    pub sample_count: usize,
+    pub exact_match: f64,
+    pub edge_precision: f64,
+    pub edge_recall: f64,
+    pub edge_f1: f64,
+    pub edge_jaccard: f64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct PathMetrics {
     pub sample_count: usize,
     pub exact_match: f64,
@@ -29,6 +39,25 @@ pub fn evaluate_paths(
     paths: &[MappedPath],
     num_chunks: usize,
 ) -> Result<PathMetrics, String> {
+    evaluate_bound_paths(metric, paths, num_chunks, false)
+}
+
+/// Evaluate the fair NeuroMLR protocol: the true first and last original
+/// roads are fixed and the complete road sequence, including both, is scored.
+pub fn evaluate_edge_to_edge_paths(
+    metric: &GraphMetric<'_>,
+    paths: &[MappedPath],
+    num_chunks: usize,
+) -> Result<PathMetrics, String> {
+    evaluate_bound_paths(metric, paths, num_chunks, true)
+}
+
+fn evaluate_bound_paths(
+    metric: &GraphMetric<'_>,
+    paths: &[MappedPath],
+    num_chunks: usize,
+    edge_to_edge: bool,
+) -> Result<PathMetrics, String> {
     if paths.is_empty() {
         return Ok(PathMetrics::default());
     }
@@ -45,31 +74,24 @@ pub fn evaluate_paths(
             let mut observed_cost = 0.0;
 
             for observed in chunk {
-                let predicted = query.shortest_path(observed.source, observed.target)?;
-                exact += f64::from(predicted.original_edges == observed.original_edges);
-
-                let predicted_set = predicted
-                    .original_edges
-                    .iter()
-                    .copied()
-                    .collect::<HashSet<_>>();
-                let observed_set = observed
-                    .original_edges
-                    .iter()
-                    .copied()
-                    .collect::<HashSet<_>>();
-                let intersection = predicted_set.intersection(&observed_set).count() as f64;
-                let sample_precision = intersection / predicted_set.len().max(1) as f64;
-                let sample_recall = intersection / observed_set.len().max(1) as f64;
-                precision += sample_precision;
-                recall += sample_recall;
-                f1 += if sample_precision + sample_recall == 0.0 {
-                    0.0
+                let predicted = if edge_to_edge {
+                    let source_edge = *observed.original_edges.first().ok_or_else(|| {
+                        "edge-to-edge evaluation received an empty observed path".to_string()
+                    })?;
+                    let target_edge = *observed.original_edges.last().ok_or_else(|| {
+                        "edge-to-edge evaluation received an empty observed path".to_string()
+                    })?;
+                    query.shortest_path_edges(source_edge, target_edge)?
                 } else {
-                    2.0 * sample_precision * sample_recall / (sample_precision + sample_recall)
+                    query.shortest_path(observed.source, observed.target)?
                 };
-                let union = predicted_set.union(&observed_set).count();
-                jaccard += intersection / union.max(1) as f64;
+                let sample =
+                    sample_route_metrics(&observed.original_edges, &predicted.original_edges);
+                exact += sample.0;
+                precision += sample.1;
+                recall += sample.2;
+                f1 += sample.3;
+                jaccard += sample.4;
 
                 let sample_observed_cost =
                     path_cost(metric.direct_weights(), &observed.coordinates)?;
@@ -122,6 +144,67 @@ pub fn evaluate_paths(
         regret_sum: total.6,
         observed_cost_sum: total.7,
     })
+}
+
+/// Method-independent macro evaluator over complete original-road ID
+/// sequences. It is the sole quality aggregation used for exported project
+/// and NeuroMLR predictions.
+pub fn evaluate_raw_paths(
+    observed: &[Vec<usize>],
+    predicted: &[Vec<usize>],
+) -> Result<RouteMetrics, String> {
+    if observed.len() != predicted.len() {
+        return Err(format!(
+            "raw evaluator length mismatch: observed={}, predicted={}",
+            observed.len(),
+            predicted.len()
+        ));
+    }
+    if observed.is_empty() {
+        return Ok(RouteMetrics::default());
+    }
+    let mut total = (0.0, 0.0, 0.0, 0.0, 0.0);
+    for (truth, prediction) in observed.iter().zip(predicted) {
+        if truth.is_empty() || prediction.is_empty() {
+            return Err("raw evaluator requires nonempty complete road sequences".to_string());
+        }
+        let sample = sample_route_metrics(truth, prediction);
+        total.0 += sample.0;
+        total.1 += sample.1;
+        total.2 += sample.2;
+        total.3 += sample.3;
+        total.4 += sample.4;
+    }
+    let denominator = observed.len() as f64;
+    Ok(RouteMetrics {
+        sample_count: observed.len(),
+        exact_match: total.0 / denominator,
+        edge_precision: total.1 / denominator,
+        edge_recall: total.2 / denominator,
+        edge_f1: total.3 / denominator,
+        edge_jaccard: total.4 / denominator,
+    })
+}
+
+fn sample_route_metrics(observed: &[usize], predicted: &[usize]) -> (f64, f64, f64, f64, f64) {
+    let predicted_set = predicted.iter().copied().collect::<HashSet<_>>();
+    let observed_set = observed.iter().copied().collect::<HashSet<_>>();
+    let intersection = predicted_set.intersection(&observed_set).count() as f64;
+    let precision = intersection / predicted_set.len().max(1) as f64;
+    let recall = intersection / observed_set.len().max(1) as f64;
+    let f1 = if precision + recall == 0.0 {
+        0.0
+    } else {
+        2.0 * precision * recall / (precision + recall)
+    };
+    let union = predicted_set.union(&observed_set).count();
+    (
+        f64::from(predicted == observed),
+        precision,
+        recall,
+        f1,
+        intersection / union.max(1) as f64,
+    )
 }
 
 /// Combine metrics from disjoint path partitions, such as departure-time
@@ -209,6 +292,36 @@ mod tests {
             assert_eq!(metrics.exact_match, 0.5);
             assert_eq!(metrics.edge_f1, 0.5);
         }
+    }
+
+    #[test]
+    fn edge_to_edge_evaluation_scores_complete_paths_with_fixed_endpoint_edges() {
+        let graph = graph();
+        let problem =
+            GraphProblem::build(&graph, GraphRepresentation::EdgeTransitionArcs, 0.1, 10.0)
+                .unwrap();
+        let mapped = problem
+            .map_paths(&[((0, 3), vec![0, 1]), ((0, 3), vec![2, 3])])
+            .unwrap();
+        let metric = problem.customize(problem.initial_weights()).unwrap();
+        let metrics = evaluate_edge_to_edge_paths(&metric, &mapped, 4).unwrap();
+        assert_eq!(metrics.sample_count, 2);
+        assert_eq!(metrics.exact_match, 1.0);
+        assert_eq!(metrics.edge_f1, 1.0);
+    }
+
+    #[test]
+    fn raw_sequence_evaluator_uses_per_trip_macro_set_metrics() {
+        let observed = vec![vec![1, 2, 3], vec![7, 8]];
+        let predicted = vec![vec![1, 2, 4, 5], vec![7, 8]];
+        let metrics = evaluate_raw_paths(&observed, &predicted).unwrap();
+        assert_eq!(metrics.sample_count, 2);
+        assert_eq!(metrics.exact_match, 0.5);
+        assert!((metrics.edge_precision - 0.75).abs() < 1e-12);
+        assert!((metrics.edge_recall - (5.0 / 6.0)).abs() < 1e-12);
+        assert!((metrics.edge_f1 - (11.0 / 14.0)).abs() < 1e-12);
+        assert!((metrics.edge_jaccard - 0.7).abs() < 1e-12);
+        assert!(evaluate_raw_paths(&observed, &predicted[..1]).is_err());
     }
 
     #[test]

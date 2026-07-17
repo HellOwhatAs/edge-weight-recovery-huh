@@ -1,3 +1,4 @@
+pub mod benchmark_data;
 pub mod checkpoint;
 pub mod config;
 pub mod data;

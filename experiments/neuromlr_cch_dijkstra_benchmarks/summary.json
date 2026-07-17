@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "status": "complete",
+  "study": "final_neuromlr_greedy_quality_and_cch_efficiency",
+  "repository": {
+    "branch": "neuromlr-cch-dijkstra-benchmarks",
+    "starting_commit": "d5c8dd59f56b0fd783ef00a3d1cfe2428e4e3863"
+  },
+  "scope": {
+    "external_quality_baseline": "neuromlr_greedy",
+    "neuromlr_dijkstra": "excluded_by_later_user_instruction_due_to_runtime",
+    "internal_oracles": [
+      "cch",
+      "binary_heap_dijkstra"
+    ],
+    "quality_query_protocol": "fixed_true_first_edge_to_true_last_edge_complete_raw_edge_sequence",
+    "supplementary_project_query_protocol": "node_to_node"
+  },
+  "protocol": {
+    "quality_path": "experiments/neuromlr_cch_dijkstra_benchmarks/protocol.json",
+    "quality_sha256": "c386dab988e2d13c00c5321f169f4d10f064f4dd2be56ace11496b2356cebd12",
+    "validation_evidence_sha256": "ff8d1b42a87b5ce3edc53c9a9c1e3d025027354e5d0068cb55f4b623b1e78559",
+    "efficiency_amendment_path": "experiments/neuromlr_cch_dijkstra_benchmarks/efficiency_protocol_amendment.json",
+    "efficiency_amendment_sha256": "b9fe95762c644aacaeb7eee5c7e3efb8da4d0eac2dcd5815792752373b8745a2",
+    "test_manifest_decodes": 1,
+    "test_receipt_sha256": "c2ed71719e93023a87b06408b55d32f4bc439db982b89e6fe56cfa73d0afe67c"
+  },
+  "random_seed": 20260716,
+  "data": {
+    "filter": {
+      "minimum_edges": 5,
+      "continuity": "head(previous)==tail(next)",
+      "cycle_policy": "drop_if_any_original_node_repeats",
+      "road_id_space": "unaltered_shapefile_record_index",
+      "selection": "first_eligible_in_source_order"
+    },
+    "splits": {
+      "train": {
+        "source_records": 785709,
+        "eligible_records": 605935,
+        "selected_records": 605935,
+        "eligibility_coverage": 0.7711951880403559,
+        "filter_reasons": {
+          "cyclic": 160877,
+          "too_short": 18897,
+          "discontinuous": 0,
+          "out_of_bounds_or_unrepresentable": 0,
+          "empty": 0
+        },
+        "manifest_sha256": "4cd26d89fe7baf6c49155aa9860ee4eaa4ceb98791af4468a2eb05f871252a4b",
+        "aligned_pickle_sha256": "d7f64525dc4b7c20ffddcd07b30a7948ff10c7a9d97dffa71508a73d73af4ad7"
+      },
+      "validation": {
+        "source_records": 20000,
+        "eligible_records": 15399,
+        "selected_records": 500,
+        "eligibility_coverage": 0.76995,
+        "filter_reasons": {
+          "cyclic": 4143,
+          "too_short": 458,
+          "discontinuous": 0,
+          "out_of_bounds_or_unrepresentable": 0,
+          "empty": 0
+        },
+        "manifest_sha256": "2b631a725e41cee3b5ce7fd4b072f4138ba22ef3a2b38dedbd2804333bb9663a",
+        "aligned_pickle_sha256": "2006cd5330d24a6862684f5583006e38608c7b0b96d77c41cd3da80feda2dee0"
+      },
+      "test": {
+        "source_records": 10000,
+        "eligible_records": 7678,
+        "selected_records": 500,
+        "eligibility_coverage": 0.7678,
+        "filter_reasons": {
+          "cyclic": 2092,
+          "too_short": 230,
+          "discontinuous": 0,
+          "out_of_bounds_or_unrepresentable": 0,
+          "empty": 0
+        },
+        "manifest_sha256": "d340e0715853f3245538f00525f4edeed6edca19c5e5326253f160baace1c5a9",
+        "aligned_pickle_sha256": "f0d4873e3416eed00821c44d7346a50c5a09e7298e697b719469e9249aa686c8",
+        "audit_sha256": "a23706885d952d6871356b94af2180d24eaceb6665898491e204bc7f853723fd"
+      }
+    }
+  },
+  "quality": {
+    "metric_aggregation": "unweighted_macro_average_of_raw_edge_id_sets_per_trajectory",
+    "validation_selection": {
+      "project": {
+        "selected_update": 200,
+        "checkpoint_sha256": "197a8a0e71ca196ac6b62cd0b02e7373bdb5f0650a2429248cb7f7db4807f211",
+        "edge_f1": 0.7777639867250402,
+        "exact_match": 0.486
+      },
+      "neuromlr_greedy": {
+        "selected_epoch": 45,
+        "checkpoint_sha256": "bd859c38aff49e51e3e60edf6b2c3d76399b28006e1f587b531a59f645d80454",
+        "edge_f1": 0.7754948698472995,
+        "exact_match": 0.52,
+        "endpoint_mismatches": 6
+      }
+    },
+    "test": {
+      "project_edge_to_edge": {
+        "metrics": {
+          "edge_precision": 0.7788787425047294,
+          "edge_recall": 0.7597186210027069,
+          "edge_f1": 0.7660147768901696,
+          "exact_match": 0.476,
+          "edge_jaccard": 0.6986392822276009,
+          "samples": 500
+        },
+        "endpoint_mismatches": 0,
+        "predictions": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/predictions/project-edge-to-edge-test.jsonl",
+        "predictions_sha256": "9526fa6a735395c48c007387c92a3f2b1b5427ed65bdffa0526bc7b3586fabe4",
+        "summary_sha256": "bca46790491a6e6984d7e06d57ad7f720bffb2f9eb4413b136a467b8747646f8"
+      },
+      "neuromlr_greedy": {
+        "metrics": {
+          "edge_precision": 0.7745490339391754,
+          "edge_recall": 0.7687219669287403,
+          "edge_f1": 0.7684955069606699,
+          "exact_match": 0.508,
+          "edge_jaccard": 0.7082647921093215,
+          "samples": 500
+        },
+        "endpoint_mismatches": 4,
+        "predictions": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/predictions/neuromlr-greedy-test.jsonl",
+        "predictions_sha256": "1e799367b52e4fd8b886ee1d1423fc4fb5b831a325788f003fcd464e94cfe128",
+        "common_summary_sha256": "cd81ac6b3979a2b8ffdaaf6353730b2f459c63f0ffe3e5b074811ce7a8ea358b",
+        "supplementary_upstream_length_weighted": {
+          "precision": 0.7836568770423905,
+          "recall": 0.7789324046905823
+        }
+      },
+      "project_minus_neuromlr_greedy": {
+        "edge_precision": 0.004329708565554,
+        "edge_recall": -0.0090033459260334,
+        "edge_f1": -0.0024807300705003,
+        "exact_match": -0.032,
+        "edge_jaccard": -0.0096255098817206
+      },
+      "interpretation": "Project reaches close route quality but does not exceed NeuroMLR-Greedy on Edge F1 or Exact Match."
+    },
+    "supplementary_project_node_to_node_test": {
+      "edge_precision": 0.7100451944818833,
+      "edge_recall": 0.687151352973084,
+      "edge_f1": 0.6949460796285262,
+      "exact_match": 0.412,
+      "edge_jaccard": 0.6257255553151799,
+      "samples": 500
+    }
+  },
+  "training_runtime_supplementary": {
+    "project_full_common_train_500_updates": {
+      "wall_seconds": 1871.58,
+      "peak_rss_kib": 5759968,
+      "threads": 16,
+      "training_log_sha256": "69eb04a29d50199dd5fa3e548cd56f122373a0dee4acf348cb365f0eefc67e9f"
+    },
+    "neuromlr_50_epochs": {
+      "training_seconds": 20270.690723649997,
+      "total_seconds": 20281.926204337993,
+      "peak_rss_kib": 3066064,
+      "device": "cuda:0",
+      "training_log_sha256": "a868c952866ff35f87a1a20ff306934477ea8404ce283364a188134e90f76b51"
+    },
+    "neuromlr_greedy_test_inference": {
+      "queries": 500,
+      "warmup_repetitions": 1,
+      "measured_repetitions": 5,
+      "mean_prediction_seconds": 1.6737995439994848,
+      "mean_seconds_per_query": 0.00334759908799897,
+      "queries_per_second": 298.72155348140893,
+      "peak_rss_kib": 1417916,
+      "peak_cuda_memory_bytes": 404156416
+    },
+    "comparability_note": "These project and NeuroMLR runtimes are supplementary and are not used as an algorithmic speedup because update/epoch semantics, hardware utilization, and timing boundaries differ."
+  },
+  "oracle_efficiency": {
+    "training": {
+      "workload": {
+        "candidate_common_train_prefix": 6000,
+        "initial_path_matching_od_groups": 5000,
+        "fixed_point_od_groups": 4971,
+        "observations": 4979,
+        "updates": 20,
+        "state_evaluations": 21,
+        "threads": 16,
+        "fixed_point_passes": 8,
+        "dynamic_tie_groups_removed": 29
+      },
+      "timing_boundary": "oracle setup plus 21 customization/query batches plus 20 optimizer updates; common IO, graph mapping, initial screening, and fixed-point selection excluded",
+      "repetitions": 4,
+      "cch": {
+        "mean_topology_preprocessing_seconds": 1.895930166,
+        "mean_core_seconds": 1.8827888235,
+        "mean_setup_plus_core_seconds": 3.7787189895,
+        "mean_customization_total_seconds": 0.93493848075,
+        "mean_customization_seconds_per_state": 0.0445208800357143,
+        "mean_query_total_seconds": 0.8796513485,
+        "mean_optimizer_total_seconds": 0.02673616475,
+        "isolated_peak_rss_kib": 112380
+      },
+      "dijkstra": {
+        "mean_adjacency_setup_seconds": 0.0007773465,
+        "mean_core_seconds": 6.33454233775,
+        "mean_setup_plus_core_seconds": 6.33531968425,
+        "mean_customization_total_seconds": 0.02259506275,
+        "mean_customization_seconds_per_state": 0.00107595536904762,
+        "mean_query_total_seconds": 6.243286548,
+        "mean_optimizer_total_seconds": 0.026909664,
+        "isolated_peak_rss_kib": 152572
+      },
+      "speedup_dijkstra_over_cch": {
+        "setup_plus_core": 1.6765786770209896,
+        "core_only": 3.364446537330956,
+        "query_component_only": 7.097455780231774
+      },
+      "consistency": {
+        "all_quantized_distance_sums_equal": true,
+        "all_predicted_counts_equal": true,
+        "all_objectives_equal": true,
+        "all_final_weights_bitwise_equal": true,
+        "maximum_absolute_final_weight_difference": 0.0
+      },
+      "summary_sha256": "502cf44c30076c5ecee420d80729fbb43f0eceae30c7c9e236eee146fc4a6406",
+      "measurement_scope_note": "Measured only on the stated 4,971-OD workload; no full-data Dijkstra time is inferred."
+    },
+    "inference": {
+      "workload": {
+        "checkpoint_sha256": "197a8a0e71ca196ac6b62cd0b02e7373bdb5f0650a2429248cb7f7db4807f211",
+        "queries": 500,
+        "query_protocol": "node_to_node",
+        "threads": 1,
+        "warmup_repetitions": 1,
+        "measured_repetitions": 5
+      },
+      "cch": {
+        "topology_preprocessing_seconds": 1.808505846,
+        "customization_seconds": 0.043216023,
+        "mean_total_query_seconds": 0.0298602738,
+        "mean_latency_seconds": 0.0000597205476,
+        "queries_per_second": 16744.65556976909,
+        "peak_rss_kib": 62068
+      },
+      "dijkstra": {
+        "adjacency_setup_seconds": 0.00082507,
+        "metric_setup_seconds": 0.001074126,
+        "mean_total_query_seconds": 0.2403339754,
+        "mean_latency_seconds": 0.0004806679508,
+        "queries_per_second": 2080.438269985859,
+        "peak_rss_kib": 66280
+      },
+      "query_only_speedup_dijkstra_over_cch": 8.048619279572716,
+      "consistency": {
+        "distance_mismatches": 0,
+        "identical_routes": 499,
+        "equal_distance_tie_path_differences": 1,
+        "tie_manifest_ids": [
+          "test:000000281"
+        ]
+      }
+    }
+  },
+  "quality_checks": {
+    "cargo_fmt_check": "passed",
+    "cargo_build_release_locked": "passed",
+    "cargo_test_all_targets": {
+      "status": "passed",
+      "library_tests": 50,
+      "contract_tests": 14
+    },
+    "cargo_clippy_all_targets_deny_warnings": "passed",
+    "python_unittest": {
+      "status": "passed",
+      "tests": 4
+    },
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "resume_candidates": [
+    "在相同的完整北京共同训练集和首尾道路固定协议下，本方法与 NeuroMLR-Greedy 达到接近的路线复现质量（Edge F1 0.7660 vs 0.7685，相差 0.25 个百分点）。",
+    "在严格保持 21 个训练状态、次梯度与最终模型完全一致的 4,971-OD、20-update workload 上，CCH 相较普通 Dijkstra 将包含拓扑预处理的训练端到端流程加速 1.68 倍（耗时减少 40.4%）。",
+    "在同一 checkpoint、500 条单线程 node-to-node 查询上，CCH 的核心最短路推理相较普通 Dijkstra 加速 8.05 倍。"
+  ]
+}

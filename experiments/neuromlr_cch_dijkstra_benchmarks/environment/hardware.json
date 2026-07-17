@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "captured_date": "2026-07-16",
+  "timezone": "Asia/Shanghai",
+  "host": {
+    "kernel": "Linux 6.6.87.2-microsoft-standard-WSL2",
+    "operating_system": "Ubuntu 24.04.3 LTS",
+    "virtualization": "WSL2"
+  },
+  "cpu": {
+    "model": "13th Gen Intel(R) Core(TM) i7-13620H",
+    "logical_cpus_visible": 16,
+    "cores_visible": 8,
+    "threads_per_core": 2,
+    "l3_cache_mib": 24
+  },
+  "memory": {
+    "ram_bytes_visible_to_wsl": 8109883392,
+    "swap_bytes": 2147483648
+  },
+  "gpu": {
+    "model": "NVIDIA GeForce RTX 5060 Ti",
+    "memory_mib": 16311,
+    "driver": "610.62",
+    "pytorch_cuda_runtime": "12.8"
+  },
+  "toolchain": {
+    "python": "3.12.3",
+    "torch": "2.7.1+cu128",
+    "torch_geometric": "2.6.1",
+    "rustc": "1.93.1 (01f6ddf75 2026-02-11)",
+    "cargo": "1.93.1 (083ac5135 2025-12-15)"
+  },
+  "registered_threads": {
+    "neuromlr_torch_intraop": 8,
+    "neuromlr_torch_interop": 8,
+    "project_training_and_training_oracle_benchmark_rayon": 16,
+    "project_inference_latency_benchmark": 1
+  }
+}

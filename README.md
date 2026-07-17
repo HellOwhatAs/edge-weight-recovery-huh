@@ -172,6 +172,16 @@ bucket improves Exact Match. All five selected checkpoints are before update
 500, so extending the fixed search solely to rescue this result is not
 justified. The full static line graph remains the recommended model.
 
+The final held-out comparison adds a fixed-first-edge/fixed-last-edge query for
+fair comparison with NeuroMLR-Greedy. On the common 500-path Beijing test set,
+the project reaches Edge F1 0.766015 versus 0.768496 for NeuroMLR-Greedy. The
+quality is close but does not exceed the baseline. Internally, CCH is 1.68×
+faster than binary-heap Dijkstra on the strictly path-stable 4,971-OD,
+20-update training workload when CCH preprocessing is included, and 8.05×
+faster for query-only inference on 500 one-thread node-to-node queries. See the
+[final benchmark report](experiments/neuromlr_cch_dijkstra_benchmarks/report.md)
+and [machine-readable summary](experiments/neuromlr_cch_dijkstra_benchmarks/summary.json).
+
 The former shared-residual and trip-average travel-time study is preserved in
 the [historical archive](experiments/archive/full_data_shared_temporal_residual)
 but its model, optimizer, checkpoint, evaluator, and binaries are no longer
@@ -179,8 +189,10 @@ active. See the [independent-bucket report](experiments/independent_time_buckets
 and [machine-readable summary](experiments/independent_time_buckets/summary.json).
 The [optimizer-recovery report](experiments/optimizer_recovery/report.md) and
 earlier [direct-weight calibration](experiments/line_graph_10pct_calibration/report.md)
-remain as historical evidence. No test split was read, so all results are
-development evidence rather than test-set claims.
+remain as historical evidence. No test split was read for those historical
+studies, so their results remain development evidence. The final benchmark
+above used its hash-gated test manifest exactly once after validation protocol
+freeze.
 
 ## Development checks
 

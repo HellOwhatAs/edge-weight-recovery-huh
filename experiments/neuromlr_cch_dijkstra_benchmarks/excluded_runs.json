@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "path": "artifacts/neuromlr_cch_dijkstra_benchmarks/neuromlr_excluded_parallel_sum",
+      "status": "stopped_and_excluded_before_checkpoint_selection",
+      "completed_epochs": 2,
+      "reason": "SciPy COO duplicate entries summed 695 parallel reverse-graph edges during Lipschitz initialization; upstream NetworkX multigraph Dijkstra uses minimum parallel-edge cost.",
+      "training_log_sha256": "adc389a72a26b85f024454fa7d9b3ea39b24e823d54add8bed50866b8881f1f3",
+      "configuration_sha256": "926c4bc54668efa3d1ef6121b9f7700624555b48ac9074a345ab1aba87bf947d",
+      "candidate_checkpoints_created": 0,
+      "test_read": false
+    },
+    {
+      "path": "artifacts/neuromlr_cch_dijkstra_benchmarks/project_common_train_u500_partial_4threads",
+      "status": "stopped_and_excluded_before_protocol_freeze",
+      "completed_state": 40,
+      "completed_updates_in_checkpoint": 40,
+      "reason": "Stopped after the user requested an 8-vs-16-thread full-workload scaling decision; the formal run was restarted from initialization with the selected thread count.",
+      "training_log_sha256": "804412d48328b8743937fbb2799a7b74f604fac85f82198e58e7ed204460387a",
+      "checkpoint_sha256": "7f07ce66ad4fb8b8aeb345681cd01e58245937c6c1544391eada141a82fb1f1f",
+      "candidate_checkpoints_created": 2,
+      "eligible_for_checkpoint_selection": false,
+      "test_read": false
+    },
+    {
+      "path": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/benchmarks/training-oracles-rep1-cch-first.json",
+      "status": "completed_but_excluded_after_consistency_failure",
+      "reason": "The 50,000 groups matched at initialization, but new equal-distance ties changed predicted counts at state 2 and caused model divergence; this cannot support a same-model speed claim.",
+      "artifact_sha256": "af52538e7efc5d11b59002430eefb4d3acbfc9848762f1f189a9e69d04407bfc",
+      "distance_mismatch_at_shared_initial_weights": false,
+      "final_weights_bitwise_equal": false,
+      "maximum_absolute_final_weight_difference": 296572.74121896434,
+      "used_for_speedup": false,
+      "test_read": false
+    },
+    {
+      "path": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/benchmarks/training-workload-stabilized-50k.json",
+      "status": "stopped_without_output_after_approximately_20_minutes",
+      "reason": "The 50,000-group dynamic-tie fixed-point screen exceeded the interactive runtime cap; the study therefore froze the fully converged 4,971-group workload and makes no 50,000-group timing claim.",
+      "artifact_created": false,
+      "used_for_speedup": false,
+      "test_read": false
+    },
+    {
+      "path": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/benchmarks/training-oracle-frozen-load-smoke-5k.json",
+      "status": "validation_only_not_formal_timing",
+      "reason": "Verified that reloading the fixed-point OD list reproduces exact CCH/Dijkstra states before launching the four isolated formal repetitions.",
+      "artifact_sha256": "6aee757c045371d915c0e9576ee522eac5d0f992d21a815f5762989e1bfcd0cf",
+      "all_distance_sums_equal": true,
+      "all_predicted_counts_equal": true,
+      "final_weights_bitwise_equal": true,
+      "used_for_speedup": false,
+      "test_read": false
+    }
+  ]
+}

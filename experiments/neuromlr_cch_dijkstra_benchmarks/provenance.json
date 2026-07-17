@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "repository_start": {
+    "branch": "master",
+    "commit": "d5c8dd59f56b0fd783ef00a3d1cfe2428e4e3863"
+  },
+  "experiment_branch": "neuromlr-cch-dijkstra-benchmarks",
+  "random_seed": 20260716,
+  "city": "beijing",
+  "timezone": "Asia/Shanghai",
+  "external_quality_baseline": "neuromlr_greedy_only",
+  "neuromlr_dijkstra_run": false,
+  "scope_revision": "NeuroMLR-Dijkstra removed by user before protocol freeze because of runtime; project-internal CCH versus Dijkstra benchmarks remain in scope.",
+  "push_performed": false
+}
