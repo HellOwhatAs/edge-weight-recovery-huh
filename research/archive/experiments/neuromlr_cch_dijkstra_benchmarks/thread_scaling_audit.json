@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "status": "selected_before_protocol_freeze",
+  "selection_rule": "minimum median train_oracle_ms over completed_updates 0 through 9",
+  "execution": "sequential_on_same_machine",
+  "workload": {
+    "train_observations": 605935,
+    "unique_od_queries_per_state": 549482,
+    "updates": 10,
+    "state_samples_used_for_selection": 10,
+    "graph_representation": "edge_transition_arcs",
+    "oracle": "cch",
+    "optimizer": "relative_projected_subgradient",
+    "test_read": false
+  },
+  "runs": [
+    {
+      "rayon_threads": 8,
+      "config_path": "experiments/neuromlr_cch_dijkstra_benchmarks/configs/project_thread_scaling_8_u10.json",
+      "config_sha256": "04173bbfda67a6655cbb1080573d01c02e37f4b0f81c34ac6d2ee3156acd9af0",
+      "training_log_path": "artifacts/neuromlr_cch_dijkstra_benchmarks/thread_scaling_8_u10/training.jsonl",
+      "training_log_sha256": "5563da9f7ca80ddd8b2d22a356153294e938401c8a24b74261e4d39ddc43ca90",
+      "checkpoint_path": "artifacts/neuromlr_cch_dijkstra_benchmarks/thread_scaling_8_u10/checkpoint.json",
+      "checkpoint_sha256": "e78b6bbf9aa6709420e170c87c2ab6c8952167da28f2a0894b2026d010ce547f",
+      "median_train_oracle_ms": 5289.13238,
+      "mean_train_oracle_ms": 5296.1076613,
+      "minimum_train_oracle_ms": 5149.460522,
+      "maximum_train_oracle_ms": 5444.202995,
+      "process_wall_seconds": 71.67,
+      "peak_rss_kib": 5726236
+    },
+    {
+      "rayon_threads": 16,
+      "config_path": "experiments/neuromlr_cch_dijkstra_benchmarks/configs/project_thread_scaling_16_u10.json",
+      "config_sha256": "278940b08e389d8f585212ebbce83792d43825e59e7d9540a5135bd4f99c383f",
+      "training_log_path": "artifacts/neuromlr_cch_dijkstra_benchmarks/thread_scaling_16_u10/training.jsonl",
+      "training_log_sha256": "a8cd8b8df1e1e640fd9375799813a6188506f42c428ef38fe90fbf9eef5cda01",
+      "checkpoint_path": "artifacts/neuromlr_cch_dijkstra_benchmarks/thread_scaling_16_u10/checkpoint.json",
+      "checkpoint_sha256": "f33885bb6735f4251655f30c34954aff5901672d79ab0802bb4da67597b20586",
+      "median_train_oracle_ms": 3514.572767,
+      "mean_train_oracle_ms": 3544.1536672,
+      "minimum_train_oracle_ms": 3405.187275,
+      "maximum_train_oracle_ms": 3745.725536,
+      "process_wall_seconds": 48.97,
+      "peak_rss_kib": 5748652
+    }
+  ],
+  "consistency": {
+    "completed_updates_identical": true,
+    "final_weights_identical": true,
+    "per_state_integer_diagnostics_identical": true,
+    "maximum_absolute_float_state_difference": 4.272442311048508e-08,
+    "maximum_absolute_validation_metric_difference": 5.820766091346741e-11
+  },
+  "decision": {
+    "selected_rayon_threads": 16,
+    "median_speedup_over_8_threads": 1.504914745161115,
+    "formal_training_restart_from_initialization": true
+  }
+}

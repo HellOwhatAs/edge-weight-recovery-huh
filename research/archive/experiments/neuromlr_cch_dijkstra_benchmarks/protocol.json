@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "status": "frozen_after_validation",
+  "frozen_after_validation_date": "2026-07-17",
+  "study": "final_neuromlr_quality_and_cch_efficiency",
+  "random_seed": 20260716,
+  "data": {
+    "city": "beijing",
+    "road_id_space": "unaltered_shapefile_record_index",
+    "minimum_edges": 5,
+    "continuity": "head(previous)==tail(next)",
+    "cycle_policy": "drop_if_any_original_node_repeats",
+    "selection": "first_eligible_in_source_order",
+    "splits": {
+      "train": {
+        "variant": "all",
+        "maximum_selected": null,
+        "role": "identical_complete_training_trajectories_for_both_methods",
+        "source_records": 785709,
+        "eligible_records": 605935,
+        "selected_records": 605935,
+        "manifest_sha256": "4cd26d89fe7baf6c49155aa9860ee4eaa4ceb98791af4468a2eb05f871252a4b",
+        "aligned_pickle_sha256": "d7f64525dc4b7c20ffddcd07b30a7948ff10c7a9d97dffa71508a73d73af4ad7"
+      },
+      "validation": {
+        "variant": "scale_fixed_seed20260715",
+        "maximum_selected": 500,
+        "role": "implementation_validation_and_checkpoint_selection",
+        "source_records": 20000,
+        "eligible_records": 15399,
+        "selected_records": 500,
+        "manifest_sha256": "2b631a725e41cee3b5ce7fd4b072f4138ba22ef3a2b38dedbd2804333bb9663a",
+        "aligned_pickle_sha256": "2006cd5330d24a6862684f5583006e38608c7b0b96d77c41cd3da80feda2dee0"
+      },
+      "test": {
+        "variant": "small",
+        "maximum_selected": 500,
+        "role": "single_final_quality_read_after_protocol_freeze"
+      }
+    }
+  },
+  "quality": {
+    "query_protocol": "true_first_edge_to_true_last_edge_complete_sequence",
+    "metrics": [
+      "edge_precision_macro",
+      "edge_recall_macro",
+      "edge_f1_macro",
+      "exact_match",
+      "edge_jaccard_macro"
+    ],
+    "primary_methods": [
+      "project_edge_to_edge",
+      "neuromlr_greedy"
+    ],
+    "supplementary_methods": [
+      "project_node_to_node"
+    ],
+    "excluded_methods": {
+      "neuromlr_dijkstra": "removed_by_user_before_protocol_freeze_due_to_inference_cost"
+    },
+    "edge_overlap": "set_of_raw_edge_ids_per_trajectory",
+    "aggregation": "unweighted_macro_average_over_trajectories",
+    "endpoint_audit": "count_predictions_whose_first_or_last_raw_edge_differs_from_truth"
+  },
+  "project_model": {
+    "graph_representation": "edge_transition_arcs",
+    "optimizer": "relative_projected_subgradient",
+    "baseline": "road_length",
+    "temporal_features": false,
+    "weight_lower_factor": 0.1,
+    "weight_upper_factor": 10.0,
+    "eta0": 0.0002,
+    "lambda": 100000.0,
+    "updates": 500,
+    "validation_every": 25,
+    "checkpoint_selection": [
+      "maximum_validation_edge_to_edge_edge_f1",
+      "maximum_validation_edge_to_edge_exact_match",
+      "earliest_update"
+    ],
+    "selected_validation_checkpoint": {
+      "update": 200,
+      "path": "artifacts/neuromlr_cch_dijkstra_benchmarks/project_common_train_u500/checkpoint-200.json",
+      "sha256": "197a8a0e71ca196ac6b62cd0b02e7373bdb5f0650a2429248cb7f7db4807f211",
+      "selection_artifact": "artifacts/neuromlr_cch_dijkstra_benchmarks/project_common_train_u500/edge_to_edge_selection.json",
+      "selection_artifact_sha256": "5e436d0729f852efe0c5ce15a0b6f703b7baa42c1570e88f34a817f324463c86",
+      "validation_edge_f1": 0.7777639867250402,
+      "validation_exact_match": 0.486
+    },
+    "rayon_threads": 16,
+    "rayon_thread_selection": "pre_freeze_full_workload_8_vs_16_pilot_selected_16_by_median_train_oracle_ms",
+    "integer_weight_semantics": "round_direct_weight_to_positive_u32"
+  },
+  "neuromlr": {
+    "upstream_repository": "https://github.com/idea-iitd/NeuroMLR",
+    "upstream_commit": "c45e3b5811e5a59b36e4682307d2196c02dac360",
+    "traffic_features": false,
+    "gnn": "GCN",
+    "gnn_layers": 1,
+    "lipschitz_initialization": true,
+    "embedding_size": 128,
+    "hidden_size": 256,
+    "mlp_hidden_layers": 3,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "optimizer": "Adam_amsgrad",
+    "epochs": 50,
+    "validation_every_epochs": 5,
+    "checkpoint_selection": [
+      "maximum_validation_greedy_common_edge_f1",
+      "maximum_validation_greedy_exact_match",
+      "earliest_epoch"
+    ],
+    "selected_validation_checkpoint": {
+      "epoch": 45,
+      "path": "artifacts/neuromlr_cch_dijkstra_benchmarks/neuromlr_formal/checkpoint-epoch-45.pt",
+      "sha256": "bd859c38aff49e51e3e60edf6b2c3d76399b28006e1f587b531a59f645d80454",
+      "selection_artifact": "artifacts/neuromlr_cch_dijkstra_benchmarks/neuromlr_formal/greedy_common_selection.json",
+      "selection_artifact_sha256": "110d28dfabed37334869a1dd1051464491c4b36f07f9d65bbc61daabf1d7855f",
+      "validation_edge_f1": 0.7754948698472995,
+      "validation_exact_match": 0.52,
+      "validation_endpoint_mismatches": 6
+    },
+    "dijkstra_validation": "not_run_by_user_request",
+    "road_vocabulary": "all_raw_map_edges_identity_mapping",
+    "training_targets_per_length_L_path": "L-1",
+    "prediction_output": "raw_edge_id_rollout_starting_at_the_fixed_true_first_edge_and_conditioned_on_the_true_last_edge",
+    "greedy_unreached_policy": "retain_upstream_closest-point_truncation_after_at_most_300_steps; do_not_append_or_repair_the_true_last_edge",
+    "inference_warmup_repetitions": 1,
+    "inference_measured_repetitions": 5
+  },
+  "oracle_efficiency": {
+    "graph_representation": "edge_transition_arcs",
+    "oracles": [
+      "cch",
+      "binary_heap_dijkstra"
+    ],
+    "shared_integer_metric": true,
+    "inference_queries": "same_fixed_node_to_node_batch_and_same_selected_project_checkpoint",
+    "warmup_repetitions": 1,
+    "measured_repetitions": 5,
+    "inference_speedup_definition": "mean_dijkstra_query_seconds_divided_by_mean_cch_query_seconds; topology_setup_customization_and_io_reported_separately",
+    "training_formal_workload": {
+      "candidate_train_manifest_prefix": 60000,
+      "maximum_unique_od_groups": 50000,
+      "require_initial_cch_dijkstra_path_match": true,
+      "expected_selected_observations": 50826,
+      "updates": 20,
+      "oracle_state_evaluations": 21,
+      "rayon_threads": 16,
+      "measured_repetitions": 4,
+      "oracle_order": [
+        "cch_first",
+        "dijkstra_first",
+        "cch_first",
+        "dijkstra_first"
+      ],
+      "pilot_distance_mismatches": 0,
+      "pilot_equal_distance_path_differences_excluded": 202,
+      "pilot_updates": 1,
+      "pilot_artifact": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/benchmarks/training_oracle_pilot_u1.json",
+      "pilot_artifact_sha256": "f013082ff1d6dcfc9565a4f9ec9d8d4402925f86412acbd0ade439338d17aeba",
+      "pilot_all_distance_sums_equal": true,
+      "pilot_all_predicted_counts_equal": true,
+      "pilot_final_weights_bitwise_equal": true
+    },
+    "training_workload_rule": "freeze_after_dijkstra_pilot_at_largest_common_workload_both_oracles_complete",
+    "timing_boundaries": {
+      "data_and_checkpoint_io": "separate",
+      "cch_topology_preprocessing": "separate_one_time",
+      "dijkstra_adjacency_setup": "separate_one_time",
+      "customization": "separate_per_metric",
+      "query_core": "oracle_search_and_path_decode_only",
+      "optimizer_update": "separate",
+      "end_to_end_training": "method_specific_topology_or_adjacency_setup_plus_21_customizations_and_query_batches_plus_20_optimizer_updates; common_data_loading_mapping_and_workload_selection_excluded",
+      "training_speedup_definition": "mean_dijkstra_end_to_end_seconds_divided_by_mean_cch_end_to_end_seconds_over_four_isolated_repetitions_with_alternating_oracle_order"
+    }
+  },
+  "test_gate": {
+    "required_protocol_status": "frozen_after_validation",
+    "required_unlock_file": true,
+    "required_validation_evidence_sha256": true,
+    "maximum_manifest_decodes": 1,
+    "receipt_required": true
+  }
+}

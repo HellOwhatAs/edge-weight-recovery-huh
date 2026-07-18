@@ -1,0 +1,15 @@
+{
+  "audit_path": "experiments/neuromlr_cch_dijkstra_benchmarks/test_audit.json",
+  "manifest": {
+    "bytes": 161725,
+    "path": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/manifests/test.jsonl",
+    "records": 500,
+    "sha256": "d340e0715853f3245538f00525f4edeed6edca19c5e5326253f160baace1c5a9"
+  },
+  "protocol_sha256": "c386dab988e2d13c00c5321f169f4d10f064f4dd2be56ace11496b2356cebd12",
+  "schema_version": 1,
+  "selected_records": 500,
+  "split": "test",
+  "status": "completed",
+  "test_read": true
+}

@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "status": "frozen_efficiency_workload_after_validity_failure",
+  "date": "2026-07-17",
+  "parent_protocol": {
+    "path": "experiments/neuromlr_cch_dijkstra_benchmarks/protocol.json",
+    "sha256": "c386dab988e2d13c00c5321f169f4d10f064f4dd2be56ace11496b2356cebd12"
+  },
+  "scope": "oracle_efficiency.training_formal_workload_only",
+  "quality_protocol_unchanged": true,
+  "reason": {
+    "summary": "Initial-path equality did not guarantee equal tie-breaking after optimizer updates, so the original 50,000-OD workload could not support a same-model training-speed claim.",
+    "invalidated_run": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/benchmarks/training-oracles-rep1-cch-first.json",
+    "invalidated_run_sha256": "af52538e7efc5d11b59002430eefb4d3acbfc9848762f1f189a9e69d04407bfc",
+    "first_predicted_count_difference_state": 2,
+    "first_weight_induced_distance_sum_difference_state": 9,
+    "final_different_weights": true,
+    "maximum_absolute_final_weight_difference": 296572.74121896434,
+    "classification": "dynamic equal-distance tie-breaking followed by optimizer divergence; not an oracle distance error"
+  },
+  "attempted_50000_group_stabilization": {
+    "status": "manually_stopped_at_approximately_20_minutes_without_fixed_point_output",
+    "candidate_train_manifest_prefix": 60000,
+    "initial_maximum_groups": 50000,
+    "updates": 20,
+    "threads": 16,
+    "result_artifact_created": false,
+    "used_for_claim": false,
+    "test_read": false
+  },
+  "frozen_training_workload": {
+    "selection": "first 5,000 initial CCH/Dijkstra path-matching OD groups from the first 6,000 common train trajectories, followed by fixed-point removal of every OD with an equal-distance path difference in any of 21 shared-weight states",
+    "candidate_train_manifest_prefix": 6000,
+    "initial_maximum_groups": 5000,
+    "initial_groups": 5000,
+    "fixed_point_groups": 4971,
+    "selected_observations": 4979,
+    "updates": 20,
+    "oracle_state_evaluations": 21,
+    "threads": 16,
+    "stabilization_passes": 8,
+    "removed_groups_by_pass": [6, 7, 3, 5, 3, 3, 2, 0],
+    "total_dynamic_tie_groups_removed": 29,
+    "workload_artifact": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/benchmarks/training-oracle-stabilization-smoke-5k.json",
+    "workload_artifact_sha256": "458e5013943a422dea2238fbad64a6ccb22b5059ae10d492ca09e7b1747e86b2",
+    "fixed_workload_reload_verified": true,
+    "fixed_workload_reload_artifact_sha256": "6aee757c045371d915c0e9576ee522eac5d0f992d21a815f5762989e1bfcd0cf",
+    "all_distance_sums_equal": true,
+    "all_predicted_counts_equal": true,
+    "all_objectives_equal": true,
+    "final_weights_bitwise_equal": true,
+    "test_read": false
+  },
+  "formal_measurement": {
+    "repetitions": 4,
+    "oracle_order": [
+      "cch_first",
+      "dijkstra_first",
+      "cch_first",
+      "dijkstra_first"
+    ],
+    "run_sha256": [
+      "8c7f99ae2fbfd53a071f663c084e85a044af4006c9835d3a609106161dbadeb3",
+      "750cf15724f00e47b006b6f6c24b154083cb75884165dbd36f6f3601c4f815fb",
+      "d3812c7435184fe2f8b286aaee4fcec1a2a5d6ea785b8285a1e895d00ffd6a0a",
+      "7f5439b45a6242f1dc359f406294d0cd9b690976e108aff3b45be62e831e35a9"
+    ],
+    "memory_run_sha256": {
+      "cch": "731a811bd46fc17c1c1d8914bc51704ea8296ab9ae4c060536b3f93f8efef46a",
+      "dijkstra": "fb5de9870e8822fa818b62dd54c62fa748a9e4072719a3f657f20a0bfd2c26c5"
+    },
+    "timing_boundary": "oracle-specific topology or adjacency setup plus 21 customizations/query batches and 20 optimizer updates; common data loading, graph mapping, initial OD screening, and fixed-point workload stabilization excluded",
+    "speedup_definition": "mean Dijkstra setup-plus-core seconds divided by mean CCH setup-plus-core seconds",
+    "summary_artifact": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/results/oracle-efficiency-summary.json",
+    "summary_artifact_sha256": "502cf44c30076c5ecee420d80729fbb43f0eceae30c7c9e236eee146fc4a6406"
+  }
+}

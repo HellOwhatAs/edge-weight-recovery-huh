@@ -1,0 +1,16 @@
+[package]
+name = "ewr-research-evaluator"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+ewr-research-protocol = { path = "../ewr-research-protocol" }
+serde_json.workspace = true
+
+[[bin]]
+name = "ewr-evaluate"
+path = "src/main.rs"
+
+[lints]
+workspace = true

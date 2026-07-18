@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "status": "validation_complete_protocol_frozen",
+  "protocol": {
+    "path": "experiments/neuromlr_cch_dijkstra_benchmarks/protocol.json",
+    "sha256": "c386dab988e2d13c00c5321f169f4d10f064f4dd2be56ace11496b2356cebd12",
+    "status": "frozen_after_validation"
+  },
+  "common_data": {
+    "train": {
+      "audit_path": "experiments/neuromlr_cch_dijkstra_benchmarks/train_audit.json",
+      "audit_sha256": "1aa494e0ac0e82ad21ec15efbdf46a0e5bc61fa0abb4c4ff6c1f5eb45c0ea129",
+      "manifest_sha256": "4cd26d89fe7baf6c49155aa9860ee4eaa4ceb98791af4468a2eb05f871252a4b",
+      "aligned_pickle_sha256": "d7f64525dc4b7c20ffddcd07b30a7948ff10c7a9d97dffa71508a73d73af4ad7",
+      "records": 605935,
+      "test_read": false
+    },
+    "validation": {
+      "audit_path": "experiments/neuromlr_cch_dijkstra_benchmarks/validation_audit.json",
+      "audit_sha256": "221fb02a2774e062b4fcc115d1f9232d1600a0214050c23c4d06bf378d64c154",
+      "manifest_sha256": "2b631a725e41cee3b5ce7fd4b072f4138ba22ef3a2b38dedbd2804333bb9663a",
+      "aligned_pickle_sha256": "2006cd5330d24a6862684f5583006e38608c7b0b96d77c41cd3da80feda2dee0",
+      "records": 500,
+      "test_read": false
+    }
+  },
+  "checkpoint_selection": {
+    "project_edge_to_edge": {
+      "selection_path": "artifacts/neuromlr_cch_dijkstra_benchmarks/project_common_train_u500/edge_to_edge_selection.json",
+      "selection_sha256": "5e436d0729f852efe0c5ce15a0b6f703b7baa42c1570e88f34a817f324463c86",
+      "selected_update": 200,
+      "checkpoint_sha256": "197a8a0e71ca196ac6b62cd0b02e7373bdb5f0650a2429248cb7f7db4807f211",
+      "prediction_sha256": "8b7c9af8d9c928675eeb78b7796b24220b3c7725d97125ce95fef853135c090d",
+      "metrics": {
+        "edge_precision": 0.7912121878914419,
+        "edge_recall": 0.7712479738745199,
+        "edge_f1": 0.7777639867250402,
+        "exact_match": 0.486,
+        "edge_jaccard": 0.7120731199560867,
+        "samples": 500
+      },
+      "test_read": false
+    },
+    "neuromlr_greedy": {
+      "selection_path": "artifacts/neuromlr_cch_dijkstra_benchmarks/neuromlr_formal/greedy_common_selection.json",
+      "selection_sha256": "110d28dfabed37334869a1dd1051464491c4b36f07f9d65bbc61daabf1d7855f",
+      "selected_epoch": 45,
+      "checkpoint_sha256": "bd859c38aff49e51e3e60edf6b2c3d76399b28006e1f587b531a59f645d80454",
+      "prediction_sha256": "8b53b69f11893bbab06ab7384abac4aa1db42b7570658bfddc742ba5226f7d69",
+      "endpoint_mismatches": 6,
+      "metrics": {
+        "edge_precision": 0.7834154994542429,
+        "edge_recall": 0.7757472559518849,
+        "edge_f1": 0.7754948698472995,
+        "exact_match": 0.52,
+        "edge_jaccard": 0.7146226274333404,
+        "samples": 500
+      },
+      "test_read": false
+    }
+  },
+  "validation_comparison": {
+    "project_minus_neuromlr_edge_f1": 0.0022691168777407,
+    "project_minus_neuromlr_exact_match": -0.034,
+    "used_for_final_claim": false
+  },
+  "oracle_consistency": {
+    "edge_to_edge_validation_path": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/audits/validation-edge-to-edge-oracle-consistency.json",
+    "edge_to_edge_validation_sha256": "d3cd7a58481c031f8d2ea803c5ff019dffd02782d1193c4f6425887cefe6281c",
+    "records": 500,
+    "distance_mismatches": 0,
+    "equal_distance_path_differences": 0,
+    "identical_routes": 500,
+    "training_pilot_path": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/benchmarks/training_oracle_pilot_u1.json",
+    "training_pilot_sha256": "f013082ff1d6dcfc9565a4f9ec9d8d4402925f86412acbd0ade439338d17aeba",
+    "training_selected_groups": 50000,
+    "training_selected_observations": 50826,
+    "training_distance_mismatches": 0,
+    "training_equal_distance_path_differences_excluded": 202,
+    "training_all_predicted_counts_equal": true,
+    "training_final_weights_bitwise_equal": true,
+    "test_read": false
+  },
+  "thread_selection": {
+    "path": "experiments/neuromlr_cch_dijkstra_benchmarks/thread_scaling_audit.json",
+    "sha256": "0018387c53059ba684d38cc77af550bf9b241ddd8263fc09338bb50032c0420c",
+    "selected_rayon_threads": 16,
+    "test_read": false
+  },
+  "reproducibility": {
+    "upstream_sha256": "977be50c6853c4582d170f7da4e6008fcccb6570b8027f6ae398f262822ae695",
+    "hardware_sha256": "ff432996e8be036cc3e84718be294aabd11a30d65d8b16582a4e086689325fce",
+    "requirements_sha256": "98467179554162e2dd6153486add5c10f779bd36b7a9dbbbca345592b069dc2c"
+  },
+  "test_read": false
+}

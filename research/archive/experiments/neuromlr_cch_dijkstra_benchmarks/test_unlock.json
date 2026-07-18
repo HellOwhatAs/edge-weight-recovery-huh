@@ -1,0 +1,13 @@
+{
+  "authorized_split": "test",
+  "maximum_manifest_decodes": 1,
+  "protocol": "experiments/neuromlr_cch_dijkstra_benchmarks/protocol.json",
+  "protocol_sha256": "c386dab988e2d13c00c5321f169f4d10f064f4dd2be56ace11496b2356cebd12",
+  "receipt_required": true,
+  "schema_version": 1,
+  "status": "test_unlocked",
+  "validation_evidence": {
+    "path": "experiments/neuromlr_cch_dijkstra_benchmarks/validation_evidence.json",
+    "sha256": "ff8d1b42a87b5ce3edc53c9a9c1e3d025027354e5d0068cb55f4b623b1e78559"
+  }
+}

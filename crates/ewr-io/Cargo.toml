@@ -1,0 +1,15 @@
+[package]
+name = "ewr-io"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+ewr-core = { path = "../ewr-core" }
+serde = { version = "1", features = ["derive"] }
+serde-pickle = "1.2.0"
+serde_json = { version = "1", features = ["float_roundtrip"] }
+shapefile = "=0.7.0"
+
+[lints]
+workspace = true
