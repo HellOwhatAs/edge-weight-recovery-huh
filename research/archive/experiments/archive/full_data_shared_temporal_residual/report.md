@@ -45,7 +45,7 @@ validation = [380, 200, 123, 81, 81, 144, 336, 717,
 
 有效 train 全程 duration 中位数 633 秒、p90 1,597 秒、p99 3,012 秒；validation 分别为 643、1,626、3,111 秒。
 
-full train 原始 785,709 条中丢弃 162,434 条环路；validation 原始 20,000 条中丢弃 4,188 条环路。其余错误类型均为 0。时间字段没有非正 duration。完整审计见 [`time_audit.json`](time_audit.json)，桶定义见 [`time_buckets.json`](time_buckets.json)。
+full train 原始 785,709 条中丢弃 162,434 条环路；validation 原始 20,000 条中丢弃 4,188 条环路。其余错误类型均为 0。时间字段没有非正 duration。完整审计见 [`time_audit.json`](time_audit.json)，相同的桶定义只保留一份，见 [`../../independent_time_buckets/time_buckets.json`](../../independent_time_buckets/time_buckets.json)。
 
 ## 凸的共享时间模型
 
@@ -153,7 +153,7 @@ python3 scripts/run_temporal_experiment.py \
   --rayon-threads 4
 ```
 
-每个正式 run 保存 update 0、25、…、500。`scripts/select_route_checkpoint.py` 对所有已注册 checkpoint 使用同一个 validation evaluator，并以最大 Edge F1 选择 development checkpoint。日志、checkpoint、逐 checkpoint 评价和 runner result 保存在忽略目录 `artifacts/full_data_time_conditioning/`。
+每个正式 run 当时保存 update 0、25、…、500。旧的 `scripts/select_route_checkpoint.py` 对所有已注册 checkpoint 使用同一个 validation evaluator，并以最大 Edge F1 选择 development checkpoint。日志、checkpoint、逐 checkpoint 评价和 runner result 已在薄档案清理中删除，相关 trace 和哈希保留在 `summary.json`。
 
 ## 正式结果
 
@@ -224,7 +224,7 @@ python3 scripts/run_temporal_experiment.py \
 | 时间条件化长度 | 6,041.7 s | 1,654,420 KiB | 3.92e-4 | 0 |
 | 时间条件化旅行时间 | 5,056.6 s | 1,665,172 KiB | 8.76e-4 | 0 |
 
-所有 formal runner、训练日志、checkpoint、逐 checkpoint 评价和选择依据仍在 `artifacts/full_data_time_conditioning/`。可提交、机器可读的汇总为 [`summary.json`](summary.json)，其中保留配置哈希、实际 argv、完整 checkpoint trace、分桶 delta、资源和量化诊断。
+本地 formal runner、训练日志和 checkpoint 已在薄档案清理中移除。可提交、机器可读的汇总为 [`summary.json`](summary.json)，其中保留配置哈希、实际 argv、完整 checkpoint trace、分桶 delta、资源和量化诊断；原始文件仍可从对应 Git 时代的外部 artifact 备份恢复（若存在）。
 
 ## 结论
 

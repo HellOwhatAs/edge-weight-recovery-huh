@@ -32,10 +32,12 @@ upstream 300-step and closest-point truncation behavior when it fails to reach
 the destination; no destination edge is appended afterward. Such endpoint
 failures remain in the common quality metrics and are counted separately.
 
-Large manifests, aligned pickles, checkpoints, raw predictions, and timing
-samples live under `generated/` and are intentionally ignored by Git. Their
-paths, byte sizes, record counts, and SHA-256 identities are retained in the
-tracked audit and summary files.
+Selected raw predictions, audits, and timing samples remain under the ignored
+historical `generated/` tree. The reproducible full-train manifest and
+non-selected checkpoints were pruned; their paths, byte sizes, record counts,
+and SHA-256 identities remain in the tracked audit and summary files. Selected
+formal and compatibility checkpoints are listed in
+`research/archive/compatibility-fixtures.json`.
 
 On the 500-path common test set, project edge-to-edge F1 is `0.766015` and
 NeuroMLR-Greedy F1 is `0.768496`; this is close quality, not an improvement.

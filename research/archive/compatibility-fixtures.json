@@ -1,0 +1,36 @@
+{
+  "schema": "ewr.historical-compatibility-fixtures/v1",
+  "policy": "optional ignored local files; production and tests must not require them",
+  "fixtures": [
+    {
+      "purpose": "frozen-v1 line-graph initial-state differential replay",
+      "path": "artifacts/retained/frozen-v1/line-graph-checkpoint-0.json",
+      "sha256": "2bb7589263d0ad72f6c9174f650e208da80f6d2b8e76c56defed9043db1c4489"
+    },
+    {
+      "purpose": "frozen-v1 line-graph one-cadence differential replay",
+      "path": "artifacts/retained/frozen-v1/line-graph-checkpoint-10.json",
+      "sha256": "78139b575088eb2f73e28e6b45918d58488db7532246d3ca64b4b07e9f9d0231"
+    },
+    {
+      "purpose": "frozen-v1 line-graph final-state differential replay",
+      "path": "artifacts/retained/frozen-v1/line-graph-checkpoint-299.json",
+      "sha256": "2b9c846e492be680d9335a2cfe822b323a20312826226282df8b841a1c8296cb"
+    },
+    {
+      "purpose": "formal project checkpoint selected by common validation Edge F1",
+      "path": "artifacts/retained/formal/project-common-update-200.json",
+      "sha256": "197a8a0e71ca196ac6b62cd0b02e7373bdb5f0650a2429248cb7f7db4807f211"
+    },
+    {
+      "purpose": "current NeuroMLR epoch-45 checkpoint migrated to protocol metadata",
+      "path": "research/generated/full_data_comparison_20260718/neuromlr/checkpoint-epoch-45-migrated.pt",
+      "sha256": "8ce1043d4908d86b50f282600cda1937d283a1b219700834148b09299f60b6dd"
+    },
+    {
+      "purpose": "pre-migration NeuroMLR epoch-45 source retained for migration audit",
+      "path": "artifacts/neuromlr_cch_dijkstra_benchmarks/neuromlr_formal/checkpoint-epoch-45.pt",
+      "sha256": "bd859c38aff49e51e3e60edf6b2c3d76399b28006e1f587b531a59f645d80454"
+    }
+  ]
+}

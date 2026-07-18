@@ -29,8 +29,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 pub const TRAINING_SUMMARY_SCHEMA_V1: &str = "ewr.project-training-summary/v1";
-pub const PREDICTION_DIAGNOSTICS_SCHEMA_V1: &str =
-    "ewr.project-prediction-diagnostics/v1";
+pub const PREDICTION_DIAGNOSTICS_SCHEMA_V1: &str = "ewr.project-prediction-diagnostics/v1";
 pub const TRAINING_SUMMARY_FILENAME: &str = "training-summary.json";
 pub const USAGE: &str = "\
 Usage:
@@ -247,7 +246,8 @@ pub fn predict_loaded(
             let mut warmup_seconds = Vec::with_capacity(warmup_repetitions);
             for _ in 0..warmup_repetitions {
                 let started = Instant::now();
-                let paths = oracle.shortest_paths(graph.routing_topology(), &quantized, &queries)?;
+                let paths =
+                    oracle.shortest_paths(graph.routing_topology(), &quantized, &queries)?;
                 warmup_seconds.push(started.elapsed().as_secs_f64());
                 black_box(paths);
             }
@@ -360,8 +360,9 @@ pub fn run_predict(arguments: &PredictArguments) -> Result<PredictionRun, Experi
     run.diagnostics
         .timing
         .input_and_network_adapter_load_seconds = input_seconds;
-    run.diagnostics.timing.total_before_diagnostics_write_seconds =
-        total_started.elapsed().as_secs_f64();
+    run.diagnostics
+        .timing
+        .total_before_diagnostics_write_seconds = total_started.elapsed().as_secs_f64();
     run.diagnostics.peak_rss_kib = peak_rss_kib();
     write_json_atomic(&arguments.diagnostics, &run.diagnostics)?;
     Ok(run)
@@ -507,7 +508,10 @@ fn write_json_atomic(path: &Path, value: &impl Serialize) -> Result<(), Experime
 }
 
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), ExperimentError> {
-    if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
         std::fs::create_dir_all(parent).map_err(|error| {
             failure(format!(
                 "failed to create output directory {}: {error}",
@@ -546,8 +550,12 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), ExperimentError> {
             }
         }
     }
-    let (temporary_path, mut file) = temporary
-        .ok_or_else(|| failure(format!("could not reserve temporary output for {}", path.display())))?;
+    let (temporary_path, mut file) = temporary.ok_or_else(|| {
+        failure(format!(
+            "could not reserve temporary output for {}",
+            path.display()
+        ))
+    })?;
     let result = (|| {
         file.write_all(bytes).map_err(|error| {
             failure(format!(
@@ -646,7 +654,9 @@ where
     }
 }
 
-fn parse_flag_values(arguments: &[OsString]) -> Result<BTreeMap<String, OsString>, ExperimentError> {
+fn parse_flag_values(
+    arguments: &[OsString],
+) -> Result<BTreeMap<String, OsString>, ExperimentError> {
     if !arguments.len().is_multiple_of(2) {
         return Err(failure("every option requires a separate value"));
     }
@@ -863,15 +873,10 @@ mod tests {
     #[test]
     fn predict_is_fixed_edge_to_edge_complete_and_deterministic() {
         let mut oracle = CchOracle::new();
-        let artifact = Trainer::new(
-            &network(),
-            &trajectories(),
-            &config(1, 1).fit,
-            &mut oracle,
-        )
-        .unwrap()
-        .fit()
-        .unwrap();
+        let artifact = Trainer::new(&network(), &trajectories(), &config(1, 1).fit, &mut oracle)
+            .unwrap()
+            .fit()
+            .unwrap();
         let dataset = vec![DatasetRecordV1 {
             sample_id: "test:0".into(),
             original_edge_ids: vec![0, 1, 2],
@@ -880,7 +885,13 @@ mod tests {
         assert_eq!(run.predictions.len(), 1);
         assert_eq!(run.predictions[0].predicted_edge_ids, vec![0, 1, 2]);
         assert!(run.diagnostics.deterministic_repetitions);
-        assert_eq!(run.diagnostics.timing.measured_metric_and_query_seconds.len(), 2);
+        assert_eq!(
+            run.diagnostics
+                .timing
+                .measured_metric_and_query_seconds
+                .len(),
+            2
+        );
     }
 
     #[test]

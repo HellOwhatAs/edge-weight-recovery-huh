@@ -169,4 +169,4 @@ optimizer kind       = relative_projected_subgradient
 - **开发集边界：** 只有一个 train seed 和固定 validation；test 从未读取，结果不是测试集或泛化结论。
 - **超参数边界：** line graph 暂时复用旧 edge-only 的 `eta0=0.0002, lambda=100000`，本次没有进行表示专用调参。
 
-完整机器摘要见 [`summary.json`](summary.json)，原始日志、checkpoint、外部评估和运行命令保存在本地忽略目录 `artifacts/optimizer_recovery/`。
+完整机器摘要见 [`summary.json`](summary.json)。原始日志和中间 checkpoint 已在薄档案清理中移除；update 0、10、299 的 line-graph checkpoint 作为可选差分 fixture 保留在 `artifacts/retained/frozen-v1/`，其 SHA-256 记录在 archive 根目录的 `compatibility-fixtures.json`。

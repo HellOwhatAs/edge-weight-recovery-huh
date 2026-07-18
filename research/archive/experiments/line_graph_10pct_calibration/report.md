@@ -152,7 +152,7 @@ line graph 在 Precision、Recall、F1、Exact Match 和 Jaccard 上都高于 or
 
 机器可读结果为 [`summary.json`](summary.json)。它包含全部 8 个筛选 run、2 个 development run、每个 validation checkpoint 的 objective/变化坐标、所选 checkpoint、update-0 与所选点的完整指标、配置 SHA-256、实际命令、训练/评估时间、peak RSS、健康检查和 `test_read=false` 证据。
 
-原始配置已纳入版本控制。完整日志、console 输出、所有 checkpoint、runner result、独立评估 JSON 和单边审计 JSON 保留在本地 `artifacts/line_graph_10pct_calibration/`；该目录按仓库策略不提交大体积运行产物。
+两个 development 最终配置仍纳入版本控制；screening 配置的内容、SHA-256 和实际命令保留在 `summary.json`，独立旧配置文件不再保留。完整日志、checkpoint 和 runner result 已在薄档案清理中删除。
 
 ## 验证
 

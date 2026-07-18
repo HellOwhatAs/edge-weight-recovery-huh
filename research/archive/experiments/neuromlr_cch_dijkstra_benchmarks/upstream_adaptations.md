@@ -3,7 +3,8 @@
 The official checkout is left byte-for-byte clean at commit
 `c45e3b5811e5a59b36e4682307d2196c02dac360`; model classes are imported from
 its `model_all.py` and `models_general.py`. The tracked driver is
-[`../../scripts/neuromlr_fair.py`](../../scripts/neuromlr_fair.py).
+the retired `scripts/neuromlr_fair.py` adapter. Recover that exact source with
+`git show 0f4bd55:scripts/neuromlr_fair.py` when auditing the old run.
 
 The following execution adaptations are required for the frozen comparison:
 

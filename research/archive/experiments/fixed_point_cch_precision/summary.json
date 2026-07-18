@@ -1,0 +1,50 @@
+{
+  "schema": "ewr.historical-fixed-point-summary/v1",
+  "status": "superseded",
+  "data": {
+    "train_variant": "scale_10pct_seed42",
+    "validation_variant": "scale_fixed_seed20260715",
+    "accepted_validation_samples": 15812,
+    "test_read": false
+  },
+  "common_training": {
+    "optimizer": "relative_projected_subgradient",
+    "eta0": 0.0002,
+    "lambda": 100000.0,
+    "updates": 299,
+    "validation_every": 10,
+    "rayon_threads": 4
+  },
+  "decimal_place_1": {
+    "oracle_weight_scale": 10,
+    "original_edges": {
+      "config_sha256": "56b92c74182731ae501e12ee916c0ca468da32e3a35e3dd30fb834778d0a652a",
+      "selected_update": 299,
+      "baseline_edge_f1": 0.5899016056370742,
+      "selected_edge_f1": 0.6856137798978136,
+      "selected_exact_match": 0.3729445990387048,
+      "selected_mean_regret": 310231.3549617065,
+      "training_wall_seconds": 140.52840835500137
+    },
+    "edge_transition_arcs": {
+      "config_sha256": "645acf632a68a20e14e73c4669c0ac4eaf50f87b94f91b64af333e981fc53acc",
+      "selected_update": 290,
+      "baseline_edge_f1": 0.6034666866010547,
+      "selected_edge_f1": 0.6964682204630224,
+      "selected_exact_match": 0.37825701998482164,
+      "selected_mean_regret": 322016.8014178813,
+      "training_wall_seconds": 338.4488140409994
+    },
+    "integer_checkpoint_comparison": {
+      "original_edges_update_299_edge_f1": 0.6842311331024985,
+      "edge_transition_arcs_update_290_edge_f1": 0.6975106688816913
+    }
+  },
+  "decimal_place_2": {
+    "oracle_weight_scale": 100,
+    "config_sha256": "744683daf8b6c843a964dcf0526bf0a967fcb71bd850069d919db6f9268f5bcd",
+    "status": "failed_before_training",
+    "error": "invalid upper bound for coordinate 465: fixed-point weight 2322804000 reaches the CCH infinity sentinel"
+  },
+  "decision": "retain integer CCH quantization in frozen v1"
+}
