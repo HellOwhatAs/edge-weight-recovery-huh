@@ -1,0 +1,71 @@
+{
+  "audit": {
+    "common_manifest": {
+      "city": "beijing",
+      "filtering": {
+        "cyclic": 4143,
+        "discontinuous": 0,
+        "dropped": 4601,
+        "eligibility_coverage": 0.76995,
+        "eligible": 15399,
+        "empty": 0,
+        "out_of_bounds_or_unrepresentable": 0,
+        "selected": 500,
+        "selected_source_coverage": 0.025,
+        "too_short": 458
+      },
+      "identity_audit": {
+        "duplicate_original_trip_ids": 507,
+        "selected_edge_occurrences": 17360,
+        "selected_maximum_edges": 138,
+        "selected_minimum_edges": 5,
+        "selected_unique_edges": 9184
+      },
+      "policy": {
+        "continuity": "head(previous)==tail(next)",
+        "cycle_policy": "drop_if_any_original_node_repeats",
+        "maximum_selected": 500,
+        "minimum_edges": 5,
+        "neuromlr_traffic_features": false,
+        "road_id_space": "unaltered_shapefile_record_index",
+        "selection": "first_eligible_in_source_order"
+      },
+      "schema_version": 1,
+      "source": {
+        "bytes": 4160448,
+        "path": "data/beijing_data/preprocessed_validation_trips_scale_fixed_seed20260715.pkl",
+        "records": 20000,
+        "sha256": "c855d1ebc396576463c363cf2b94480569938de77908aac560df2573d75a1ade"
+      },
+      "split": "validation",
+      "test_read": false,
+      "upstream_compatibility": {
+        "adapter_policy": "preserve_raw_edge_ids_one_to_one",
+        "graph_parallel_edge_ids": 695,
+        "selected_paths_that_upstream_condense_edges_would_change": 26
+      },
+      "variant": "scale_fixed_seed20260715"
+    },
+    "protocol": {
+      "path": "experiments/neuromlr_cch_dijkstra_benchmarks/protocol.json",
+      "sha256": "c386dab988e2d13c00c5321f169f4d10f064f4dd2be56ace11496b2356cebd12",
+      "status": "frozen_after_validation"
+    },
+    "schema_version": 1
+  },
+  "outputs": {
+    "manifest": {
+      "bytes": 169166,
+      "path": "experiments/neuromlr_cch_dijkstra_benchmarks/generated/manifests/validation.jsonl",
+      "records": 500,
+      "sha256": "2b631a725e41cee3b5ce7fd4b072f4138ba22ef3a2b38dedbd2804333bb9663a"
+    },
+    "training_pickle": {
+      "bytes": 107806,
+      "path": "data/beijing_data/preprocessed_validation_trips_neuromlr_common.pkl",
+      "records": 500,
+      "sha256": "2006cd5330d24a6862684f5583006e38608c7b0b96d77c41cd3da80feda2dee0",
+      "trip_key": "manifest_id"
+    }
+  }
+}

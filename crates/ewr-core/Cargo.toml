@@ -1,0 +1,8 @@
+[package]
+name = "ewr-core"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true

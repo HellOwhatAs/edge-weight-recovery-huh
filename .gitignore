@@ -8,6 +8,8 @@
 /runs/
 /experiments/generated/
 /experiments/**/generated/
+/research/generated/
+/research/**/generated/
 
 # Retired study trees are available at the immutable archive commit.
 /experiments/convergence_study/
@@ -23,3 +25,5 @@ __pycache__/
 *.py[cod]
 *.log
 .pytest_cache/
+.venv/
+/baselines/**/.venv/

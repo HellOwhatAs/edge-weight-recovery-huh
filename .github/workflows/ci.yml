@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust quality components
+        run: rustup component add rustfmt clippy
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Test production workspace
+        run: cargo test --workspace --locked --all-targets
+      - name: Lint production workspace
+        run: cargo clippy --workspace --locked --all-targets -- -D warnings
+
+  research-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust quality components
+        run: rustup component add rustfmt clippy
+      - name: Check formatting
+        run: cargo fmt --manifest-path research/Cargo.toml --all --check
+      - name: Test research workspace
+        run: cargo test --manifest-path research/Cargo.toml --workspace --locked --all-targets
+      - name: Lint research workspace
+        run: cargo clippy --manifest-path research/Cargo.toml --workspace --locked --all-targets -- -D warnings
+
+  neuromlr-protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile the adapter
+        run: python -m py_compile baselines/neuromlr/neuromlr_adapter.py
+      - name: Validate package metadata
+        run: python -c "import pathlib, tomllib; tomllib.loads(pathlib.Path('baselines/neuromlr/pyproject.toml').read_text())"
+      - name: Test dependency-free protocol behavior
+        run: python -m unittest discover -s baselines/neuromlr/tests -v

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "dataset": {
+    "nodes": "data/beijing_data/map/nodes.shp",
+    "edges": "data/beijing_data/map/edges.shp",
+    "trajectories": "data/beijing_data/preprocessed_train_trips_all.pkl"
+  },
+  "fit": {
+    "eta0": 0.0002,
+    "lambda": 100000.0,
+    "lower_factor": 0.1,
+    "upper_factor": 10.0,
+    "updates": 500
+  },
+  "runtime": {
+    "threads": 8,
+    "checkpoint_every": 25
+  }
+}

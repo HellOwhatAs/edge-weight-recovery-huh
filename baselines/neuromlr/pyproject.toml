@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ewr-neuromlr-adapter"
+version = "0.1.0"
+description = "Protocol adapter for the pinned NeuroMLR research baseline"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy==2.2.6",
+  "pyshp==2.3.1",
+  "scipy==1.15.3",
+  "termcolor==1.1.0",
+  "torch==2.7.1",
+  "torch-geometric==2.6.1",
+]
+
+[project.optional-dependencies]
+test = ["pytest==8.4.1"]
+
+[project.scripts]
+ewr-neuromlr = "neuromlr_adapter:main"
+
+[tool.setuptools]
+py-modules = ["neuromlr_adapter"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-config --strict-markers"

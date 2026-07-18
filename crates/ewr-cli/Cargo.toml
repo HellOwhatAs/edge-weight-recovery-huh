@@ -1,0 +1,18 @@
+[package]
+name = "ewr-cli"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[[bin]]
+name = "ewr"
+path = "src/main.rs"
+
+[dependencies]
+ewr-cch = { path = "../ewr-cch" }
+ewr-core = { path = "../ewr-core" }
+ewr-io = { path = "../ewr-io" }
+rayon = "1"
+
+[lints]
+workspace = true

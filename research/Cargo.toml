@@ -1,0 +1,29 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/ewr-research-dijkstra",
+    "crates/ewr-research-evaluator",
+    "crates/ewr-research-project-experiment",
+    "crates/ewr-research-protocol",
+]
+default-members = [
+    "crates/ewr-research-dijkstra",
+    "crates/ewr-research-evaluator",
+    "crates/ewr-research-project-experiment",
+    "crates/ewr-research-protocol",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "warn"
