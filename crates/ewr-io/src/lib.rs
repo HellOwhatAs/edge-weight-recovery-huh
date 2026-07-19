@@ -11,4 +11,4 @@ pub use artifact::{
     ArtifactError, TRAINING_ARTIFACT_SCHEMA_V1, load_training_artifact, save_training_artifact,
 };
 pub use config::{ConfigError, DatasetPaths, TrainConfig};
-pub use dataset::{DatasetError, LoadReport, LoadedDataset, load_dataset};
+pub use dataset::{DatasetError, LoadReport, LoadedDataset, load_dataset, load_network};

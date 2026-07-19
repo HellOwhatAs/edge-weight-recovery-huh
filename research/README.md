@@ -38,6 +38,12 @@ implements the production core's oracle port with deterministic binary-heap
 Dijkstra over the same quantized line-graph metric. It contains no optimizer,
 training loop, dataset I/O, or production feature switch.
 
+`ewr-research-static-baselines` owns the untrained road-length shortest path
+and first-order Markov shortest-path controls. Both fix the true first and last
+raw roads, preserve directed parallel-road identity, use 16 CPU workers by
+default, and publish only protocol-v1 prediction rows. Its README documents the
+validation-only smoothing selection and timing boundary.
+
 `ewr-research-evaluator` is the method-neutral quality gate. It strictly reads
 the protocol JSONL files, aligns every sample ID, and macro-averages exact
 sequence match plus set-based edge precision, recall, F1, and Jaccard. It has
@@ -52,3 +58,12 @@ cargo run --locked --manifest-path research/Cargo.toml --bin ewr-evaluate -- \
 
 The command always prints the strict `ewr.evaluation-summary/v1` JSON document
 to stdout. `--output` additionally replaces that artifact atomically.
+
+## Current route-baseline study
+
+The canonical Beijing comparison is
+[`experiments/route_baselines_full_test_20260719/`](experiments/route_baselines_full_test_20260719/README.md).
+It evaluates Project, SP-Length, Markov-SP, NeuroMLR-G, DRNCS-LG,
+DRPK-static, and DRP-TP on all 248,233 eligible test routes. That directory
+contains the frozen protocol, the resumable sequential pipeline, and the
+tracked paper-style result.

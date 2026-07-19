@@ -3,29 +3,27 @@ requires = ["setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ewr-neuromlr-adapter"
+name = "ewr-drncs-lg-adapter"
 version = "0.2.0"
-description = "Protocol adapter for the pinned NeuroMLR research baseline"
-readme = "README.md"
-requires-python = ">=3.12,<3.13"
+description = "Clean-room edge-state DRNCS baseline adapter"
+requires-python = "==3.12.*"
 dependencies = [
+  "gensim==4.4.0",
   "numpy==2.2.6",
   "pyshp==2.3.1",
   "scipy==1.15.3",
-  "termcolor==1.1.0",
   "torch==2.7.1",
-  "torch-geometric==2.6.1",
 ]
 
 [project.optional-dependencies]
 test = ["pytest==8.4.1"]
 
 [project.scripts]
-ewr-neuromlr = "neuromlr_adapter:main"
+ewr-drncs-lg = "drncs_lg_adapter:main"
+ewr-drncs-lg-resumable = "drncs_lg_resumable:main"
 
 [tool.setuptools]
-py-modules = ["neuromlr_adapter"]
+py-modules = ["drncs_lg_adapter", "drncs_lg_resumable"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-config --strict-markers"

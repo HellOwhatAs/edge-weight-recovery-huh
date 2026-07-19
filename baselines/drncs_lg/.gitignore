@@ -1,0 +1,17 @@
+.venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.coverage
+
+# Local runtime artifacts. Formal runs belong under research/generated/.
+runs/
+artifacts/
+checkpoint.pt
+preprocess.pkl
+preprocess.json
+training_diagnostics.json
+predictions.jsonl
+run.json
+diagnostics.json
+evaluation.json

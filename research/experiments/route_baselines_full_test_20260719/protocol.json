@@ -1,0 +1,111 @@
+{
+  "schema": "ewr.route-baseline-full-test-protocol/v1",
+  "status": "frozen_before_full_test",
+  "study": "beijing_full_test_route_baselines_20260719",
+  "selection": {
+    "inputs": "training and validation splits only",
+    "validation_records": 500,
+    "test_routes_or_metrics_used_for_selection": false,
+    "checkpoints_and_configurations_frozen_before_full_test": true,
+    "rule": "select each learned method using its method-specific validation-only rule defined below; no test-dependent selection"
+  },
+  "data": {
+    "network_id": "beijing-roads-v1",
+    "filter": {
+      "minimum_raw_edges": 5,
+      "continuity": "head(previous)==tail(next)",
+      "cycle_policy": "drop_if_any_original_node_repeats",
+      "edge_identity": "zero_based_unmodified_shapefile_record_index",
+      "parallel_edges": "preserved"
+    },
+    "train": {
+      "role": "training_and_model_fitting",
+      "source_records": 785709,
+      "eligible_records": 605935,
+      "records_sha256": "244496f31e906ebbde8d60c8cac34bb018230410e6d3c718d117a1c20cf752df"
+    },
+    "validation": {
+      "role": "checkpoint_and_configuration_selection",
+      "records": 500,
+      "records_sha256": "186fc142edd1cf1eb32d5cfb1542467ccfbc3a7d4987dcfe286167ea25a24596"
+    },
+    "test": {
+      "source": "data/beijing_data/preprocessed_test_trips_all.pkl",
+      "source_sha256": "a22bb2245962c1a9c8fda7d8ee008cb411ea7dcb1fb3aa31562b072cb37864f4",
+      "source_records": 322433,
+      "eligible_records": 248233,
+      "too_short": 7544,
+      "cyclic": 66656,
+      "discontinuous": 0,
+      "invalid_edge_id": 0,
+      "manifest_sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+      "records_sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+      "audit_sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5",
+      "records_bytes": 60410780
+    }
+  },
+  "methods": {
+    "included": [
+      "project",
+      "sp_length",
+      "markov_sp",
+      "neuromlr_greedy",
+      "drncs_lg",
+      "drpk_static",
+      "drp_tp"
+    ],
+    "definitions": {
+      "project": "inverse shortest-path transition-weight recovery",
+      "sp_length": "untrained shortest path using physical road length",
+      "markov_sp": "first-order transition-probability shortest path with validation-selected additive smoothing",
+      "neuromlr_greedy": "NeuroMLR model with greedy raw-edge decoding",
+      "drncs_lg": "clean-room DRNCS edge-state adaptation on the directed raw-edge line graph",
+      "drpk_static": "clean-room equal-information, time-collapsed DRPK adaptation",
+      "drp_tp": "non-learned DRPK trajectory-planning component"
+    },
+    "selection_rules": {
+      "project": "maximum validation macro edge F1, then exact match, then earliest update",
+      "sp_length": "no learned parameter",
+      "markov_sp": "maximum validation macro edge F1, then exact match, then smaller smoothing alpha",
+      "neuromlr_greedy": "existing validation-selected epoch 45",
+      "drncs_lg": "maximum validation macro edge F1, then exact match, then earliest epoch",
+      "drpk_static": "maximum validation key-segment accuracy, then weighted BCE, then earliest epoch",
+      "drp_tp": "no learned parameter"
+    }
+  },
+  "quality": {
+    "query": "true_first_raw_edge_to_true_last_raw_edge",
+    "output": "complete_generated_raw_edge_sequence",
+    "truth_repair": "forbidden",
+    "aggregation": "unweighted_macro_over_all_248233_eligible_test_routes",
+    "point_estimator": "ewr-research-evaluator",
+    "confidence": {
+      "level": 0.95,
+      "method": "route_level_normal_mean_interval",
+      "paired_reference": "project",
+      "justification": "large fixed test sample; intervals use route-level sample variance and paired differences preserve within-route correlation"
+    }
+  },
+  "efficiency": {
+    "source": "same complete 248233-query formal prediction task as quality evaluation",
+    "outer_boundary": "cumulative active-attempt GNU time wall around the complete prediction task, including input/model loading, shard materialization and reloads where applicable, prediction, validation, and final assembly; downtime between attempts excluded",
+    "warmup_repetitions": 0,
+    "measured_repetitions": 1,
+    "full_test_prediction_repetitions": 1,
+    "full_test_warmup_repetitions": 0,
+    "cpu_threads": 16,
+    "interruption_accounting": "sum all active attempt walls; separately report the successful final attempt and wasted interrupted active wall",
+    "decomposition": "direct and sharded internal adapter timings are supplementary; sharded sum_adapter_process_seconds and sum_adapter_prediction_seconds must not replace the uniform outer wall",
+    "rule": "the full-test single-pass outer wall, derived from receipt-bound task timing evidence, is the primary operational inference cost"
+  },
+  "execution": {
+    "runtime_root": "research/generated/full_test_comparison_20260719",
+    "sequential_tasks": true,
+    "memory_high": "8G",
+    "memory_max": "10G",
+    "memory_swap_max": "4G",
+    "cuda_device": 0,
+    "formal_gate": "all 500-route equivalence smoke tests must pass before any full-test predictor starts",
+    "resume": "receipt-driven task skipping plus adapter shard/chunk recovery for neural and mixed predictors"
+  }
+}

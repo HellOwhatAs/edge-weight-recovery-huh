@@ -1,0 +1,30 @@
+{
+  "audit_date": "2026-07-18",
+  "implementation": "clean-room; no upstream imports or copied source",
+  "license": "MIT",
+  "official_commit": "2f65eaeb784d7266b591196c795d72cf909294d8",
+  "official_repository": "https://github.com/derekwtian/DRPK",
+  "files": {
+    "LICENSE": "sha256:de9c77fc39385c8fcc209808935c4f3c7e44d00ee1eb6f89a54f063582649b09",
+    "inference.py": "sha256:491a38c8018b8865df36a85c641ee7560bcf710a3aa3ba4022bc0e2bfc5cbff7",
+    "models/key_segs.py": "sha256:53cbfd2fbc1fb31fbfd41fd934600b32a5a9cb3f35007a68d313a00766790a16",
+    "preprocess/dam.py": "sha256:25a64409c24761b785229da69d02600706e31e81cf78653518b3e16fa58b0fa6",
+    "preprocess/graph_embedding.py": "sha256:5c7341f7a18784aca9da564eb24c1678bb6bbc509bf2e0056cea127a14f5fbd6",
+    "preprocess/key_segs_labeling.py": "sha256:f3e2e19f88eb842cc34319534171c0d6c1cc42599e3c1f24775ab814e6aedb31"
+  },
+  "audited_behaviors": [
+    "query source and destination are path[0] and path[-1]",
+    "directed association counts every ordered segment pair in each training route",
+    "candidate rank is min(association(source,key), association(key,destination))",
+    "KSD mask size is 100 and key_num is 1",
+    "DRP-TP is key_num=0 with wotp tie behavior",
+    "failed planning returns a partial route without truth repair"
+  ],
+  "declared_adaptation": "training-only global segment occurrence counts min-max normalized to [0,1] and replicated over 48 identical slots; fixed source/destination offsets 0.0/1.0; no query-time input",
+  "specification_precedence": "published paper equations and experimental settings take precedence where the official release conflicts",
+  "release_conflicts": [
+    "paper Eq. (6)-(9) uses a candidate ID embedding and 65->512->256 candidate MLP followed by a query/candidate dot product; release models/key_segs.py instead indexes a global classifier row, appends a four-dimensional cosine/popularity projection, and adds a candidate bias",
+    "paper uses exp(normalized importance) positive weights; release train_keyseg.py uses 10**normalized_importance",
+    "paper reports 300 epochs; release conf.py and train_keyseg.py default to 1000"
+  ]
+}

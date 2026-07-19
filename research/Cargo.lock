@@ -244,6 +244,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ewr-research-static-baselines"
+version = "0.1.0"
+dependencies = [
+ "ewr-cch",
+ "ewr-core",
+ "ewr-io",
+ "ewr-research-evaluator",
+ "ewr-research-protocol",
+ "rayon",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

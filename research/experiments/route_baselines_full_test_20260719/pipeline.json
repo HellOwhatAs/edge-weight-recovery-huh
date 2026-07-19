@@ -1,0 +1,3296 @@
+{
+  "schema": "ewr.route-baseline-pipeline/v1",
+  "workspace_root": "../../..",
+  "runtime_root": "research/generated/full_test_comparison_20260719",
+  "state_dir": ".pipeline",
+  "launcher_unit": "ewr-route-baselines-full-test-20260719",
+  "cpu_threads": 16,
+  "variables": {
+    "artifacts": "research/generated/full_data_comparison_20260718",
+    "neuromlr_source_revision": "sha256:cf4f8a3da2c2487e2a1cdb46069f1cb81c98baccdaaee13e137ebf2c3751c776",
+    "drncs_source_revision": "899af184065ff8133d8dabc26041601532bd6733+drncs-b857a2c04646",
+    "drpk_source_revision": "899af184065ff8133d8dabc26041601532bd6733+drpk-static-69986ba156af"
+  },
+  "environment": {
+    "LC_ALL": "C",
+    "PYTHONUNBUFFERED": "1"
+  },
+  "resources": {
+    "MemoryHigh": "8G",
+    "MemoryMax": "10G",
+    "MemorySwapMax": "4G",
+    "OOMPolicy": "stop"
+  },
+  "tasks": [
+    {
+      "id": "verify-frozen-inputs",
+      "description": "Verify immutable full-test data, frozen selected artifacts, map components, adapters, entry points, and 500-route reference predictions by exact hash.",
+      "profiles": [
+        "smoke"
+      ],
+      "action": "verify",
+      "device": "cpu",
+      "outputs": [
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "${artifacts}/manifests/test.jsonl",
+          "sha256": "60d3fe13b74b9c7ad63eb1613580e2bdf2e0e1dc22317861388d63a96b2300e4"
+        },
+        {
+          "path": "${artifacts}/manifests/test.manifest.json",
+          "sha256": "2e7c6c390bedd279ff302d36a2b4658a3c0a385d1a16402e6deb7727254c4ece"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        },
+        {
+          "path": "${artifacts}/project/formal-14g/checkpoint-200.json",
+          "sha256": "043c152bf5a868dec6f696c2fdf26da17f909107058ef7e680248ecd81f95454"
+        },
+        {
+          "path": "${artifacts}/project/formal-14g/training-summary.json",
+          "sha256": "158e5538d5a9e9b29f7b693209093aed24c16846c402299ddf4cc790caadcd0a"
+        },
+        {
+          "path": "${artifacts}/static-network-only/sp-length.artifact.json",
+          "sha256": "fc846c340798dc23b145e93d95c36279f19db53a47223bb09ac485e5dfece0cd"
+        },
+        {
+          "path": "${artifacts}/static-network-only/sp-length.train.json",
+          "sha256": "2c4af4231700209e850faeafc6391f08b4d0c41c8e12d9c8011c6ece4811f4d7"
+        },
+        {
+          "path": "${artifacts}/static-network-only/markov-sp.artifact.json",
+          "sha256": "add01edc626b8c2a1a86dd383ebc7602d905732a9894f729bd3402945ac76dcd"
+        },
+        {
+          "path": "${artifacts}/static-network-only/markov-sp.train.json",
+          "sha256": "e2894b69cb29d3d16e3a6b375c4cffb417a2b29b5a5659a49167a0195d1d62b0"
+        },
+        {
+          "path": "${artifacts}/neuromlr/checkpoint-epoch-45-migrated.pt",
+          "sha256": "8ce1043d4908d86b50f282600cda1937d283a1b219700834148b09299f60b6dd"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/preprocess/preprocess.pkl",
+          "sha256": "9f3ecc5130fda1fe24bda8425232eed361b26995e33c92f0abc4ce3fd805a65f"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/preprocess/preprocess.json",
+          "sha256": "6d1d391484e871d0d771fd9f7262bf4d198d97de5fd5c1621a28b859bfc2f53e"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/train/checkpoint.pt",
+          "sha256": "d4e16bfb6cfb7fa4fba0f8a9a8e449ace259b32a86fcc61f3ae45ee9ee3f9fdf"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/routing-artifacts.json",
+          "sha256": "1a21c5d1d62c41c6ed445b5750da03129e474d3e9f0e98f614c444f257d0d96d"
+        },
+        {
+          "path": "${artifacts}/drpk-static/train/checkpoint-best-accuracy.pt",
+          "sha256": "e34441cbc671135823eb3543d565352a5ae65d3057acfce1511129a4802dddd7"
+        },
+        {
+          "path": "${artifacts}/project/test-formal-14g/predictions.jsonl",
+          "sha256": "a0b0d3492dc75b3b6bcb14ce95703b81022ecd3d72569e690204d483212e87a8"
+        },
+        {
+          "path": "${artifacts}/static-network-only/sp-length.test.predictions.jsonl",
+          "sha256": "28a5a58007ec865f13158fdbcad6eae683fd2408f69880d502a3c8bb4c68e7ca"
+        },
+        {
+          "path": "${artifacts}/static-network-only/markov-sp.test.predictions.jsonl",
+          "sha256": "8f2060829e22a9882f957f9f53ed22c48544b1884d233f632a03a7ac7fbc6ba1"
+        },
+        {
+          "path": "${artifacts}/neuromlr/greedy.test.predictions.jsonl",
+          "sha256": "22baa50d15d60746a912f01b747f179ee168e8f2bc20124c5d2a8418492a716b"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/test/predictions.jsonl",
+          "sha256": "168b704a9d5596fed9073d4b6db5237a44fb305e67306943e7b47d32c30fd943"
+        },
+        {
+          "path": "${artifacts}/drpk-static/test/predictions.jsonl",
+          "sha256": "20bfbc8d636abb052bc3e682f82cc4bdb47ee2777bcc37ae57d467efa2f8a080"
+        },
+        {
+          "path": "${artifacts}/drpk-static/drp-tp-test/predictions.jsonl",
+          "sha256": "d8542027d8f13ded4236df057220ef0d9aaf70e74620e79d0c02f2ab74f0272d"
+        },
+        {
+          "path": "research/target/release/ewr-project-experiment",
+          "sha256": "1677e027fc1235e1706d86c9eee0587626f9a1ae5dd14efd3b1ed3c5d2276b3c"
+        },
+        {
+          "path": "research/target/release/ewr-static-baseline",
+          "sha256": "2804bf1c5f3b022b7512c549dc6c16703d0578219cd9eb171fa666a1b0b3b597"
+        },
+        {
+          "path": "research/target/release/ewr-evaluate",
+          "sha256": "cad93a90de5b96bd8d62a7adc8006c6a800280e0766efbe971a240c2ab0f4d22"
+        },
+        {
+          "path": "baselines/neuromlr/neuromlr_adapter.py",
+          "sha256": "cf4f8a3da2c2487e2a1cdb46069f1cb81c98baccdaaee13e137ebf2c3751c776"
+        },
+        {
+          "path": "baselines/drncs_lg/drncs_lg_adapter.py",
+          "sha256": "b857a2c04646bf711484e57bfcb6156dee75bc0a1b31945f6e947c881e2f8df3"
+        },
+        {
+          "path": "baselines/drpk_static/drpk_static_adapter.py",
+          "sha256": "69986ba156af4a47df5fc0e4bf801f770087ee358d019384f2a1f8d415fe6def"
+        },
+        {
+          "path": "research/scripts/run_sharded_route_predictions.py",
+          "sha256": "75a2b74a2546a4cacc1132c107db9e950480df85a9ba40c1a3530e02656396c6"
+        },
+        {
+          "path": "baselines/neuromlr/.venv/bin/ewr-drncs-lg",
+          "sha256": "47bf8d190fd643a548105588886d8a418daafc4daba0ecef94e49f7a04fe6165"
+        },
+        {
+          "path": "baselines/neuromlr/.venv/bin/ewr-drpk-static",
+          "sha256": "f89120bc13bfa88aade41070b9165b2d4ff7a337be79018cd5b2fad5b7b5b03f"
+        },
+        {
+          "path": "${runtime}/upstream/neuromlr/model_all.py",
+          "sha256": "091d18e83c618a3dcc3676c4fb63d68737bd3d872f45732547298fa995e6c2af"
+        },
+        {
+          "path": "${runtime}/upstream/neuromlr/models_general.py",
+          "sha256": "180af33516fc21c7572b20db95367246a35d1017fe194d6848de261b59e172d5"
+        }
+      ]
+    },
+    {
+      "id": "smoke-cuda",
+      "description": "Require real CUDA:0 execution before any GPU adapter gate.",
+      "profiles": [
+        "smoke"
+      ],
+      "depends_on": [
+        "verify-frozen-inputs"
+      ],
+      "action": "command",
+      "always_run": true,
+      "device": "cuda:0",
+      "command": [
+        "baselines/neuromlr/.venv/bin/python",
+        "research/scripts/check_route_baseline_cuda.py",
+        "--device",
+        "cuda"
+      ],
+      "requires": [
+        {
+          "path": "research/scripts/check_route_baseline_cuda.py"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "id": "smoke-project",
+      "description": "Reproduce the frozen 500-route regression prediction byte-for-byte before formal full-test prediction.",
+      "profiles": [
+        "smoke"
+      ],
+      "depends_on": [
+        "smoke-cuda"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "research/target/release/ewr-project-experiment",
+        "predict",
+        "--artifact",
+        "${artifacts}/project/formal-14g/checkpoint-200.json",
+        "--dataset-jsonl",
+        "${artifacts}/manifests/test.jsonl",
+        "--nodes",
+        "data/beijing_data/map/nodes.shp",
+        "--edges",
+        "data/beijing_data/map/edges.shp",
+        "--predictions",
+        "${runtime}/smoke/project/predictions.jsonl",
+        "--diagnostics",
+        "${runtime}/smoke/project/diagnostics.json",
+        "--threads",
+        "16",
+        "--warmup-repetitions",
+        "0",
+        "--measured-repetitions",
+        "1"
+      ],
+      "requires": [
+        {
+          "path": "research/target/release/ewr-project-experiment",
+          "sha256": "1677e027fc1235e1706d86c9eee0587626f9a1ae5dd14efd3b1ed3c5d2276b3c"
+        },
+        {
+          "path": "${artifacts}/project/formal-14g/checkpoint-200.json",
+          "sha256": "043c152bf5a868dec6f696c2fdf26da17f909107058ef7e680248ecd81f95454"
+        },
+        {
+          "path": "${artifacts}/manifests/test.jsonl",
+          "sha256": "60d3fe13b74b9c7ad63eb1613580e2bdf2e0e1dc22317861388d63a96b2300e4"
+        },
+        {
+          "path": "${artifacts}/manifests/test.manifest.json",
+          "sha256": "2e7c6c390bedd279ff302d36a2b4658a3c0a385d1a16402e6deb7727254c4ece"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/smoke/project/predictions.jsonl",
+          "sha256": "a0b0d3492dc75b3b6bcb14ce95703b81022ecd3d72569e690204d483212e87a8"
+        },
+        {
+          "path": "${runtime}/smoke/project/diagnostics.json",
+          "min_bytes": 100
+        }
+      ]
+    },
+    {
+      "id": "smoke-sp-length",
+      "description": "Reproduce the frozen 500-route regression prediction byte-for-byte before formal full-test prediction.",
+      "profiles": [
+        "smoke"
+      ],
+      "depends_on": [
+        "smoke-project"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "research/target/release/ewr-static-baseline",
+        "predict",
+        "--artifact",
+        "${artifacts}/static-network-only/sp-length.artifact.json",
+        "--dataset-jsonl",
+        "${artifacts}/manifests/test.jsonl",
+        "--nodes",
+        "data/beijing_data/map/nodes.shp",
+        "--edges",
+        "data/beijing_data/map/edges.shp",
+        "--predictions",
+        "${runtime}/smoke/sp-length/predictions.jsonl",
+        "--diagnostics",
+        "${runtime}/smoke/sp-length/diagnostics.json",
+        "--threads",
+        "16",
+        "--warmup-repetitions",
+        "0",
+        "--measured-repetitions",
+        "1"
+      ],
+      "requires": [
+        {
+          "path": "research/target/release/ewr-static-baseline",
+          "sha256": "2804bf1c5f3b022b7512c549dc6c16703d0578219cd9eb171fa666a1b0b3b597"
+        },
+        {
+          "path": "${artifacts}/static-network-only/sp-length.artifact.json",
+          "sha256": "fc846c340798dc23b145e93d95c36279f19db53a47223bb09ac485e5dfece0cd"
+        },
+        {
+          "path": "${artifacts}/manifests/test.jsonl",
+          "sha256": "60d3fe13b74b9c7ad63eb1613580e2bdf2e0e1dc22317861388d63a96b2300e4"
+        },
+        {
+          "path": "${artifacts}/manifests/test.manifest.json",
+          "sha256": "2e7c6c390bedd279ff302d36a2b4658a3c0a385d1a16402e6deb7727254c4ece"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/smoke/sp-length/predictions.jsonl",
+          "sha256": "28a5a58007ec865f13158fdbcad6eae683fd2408f69880d502a3c8bb4c68e7ca"
+        },
+        {
+          "path": "${runtime}/smoke/sp-length/diagnostics.json",
+          "min_bytes": 100
+        }
+      ]
+    },
+    {
+      "id": "smoke-markov-sp",
+      "description": "Reproduce the frozen 500-route regression prediction byte-for-byte before formal full-test prediction.",
+      "profiles": [
+        "smoke"
+      ],
+      "depends_on": [
+        "smoke-sp-length"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "research/target/release/ewr-static-baseline",
+        "predict",
+        "--artifact",
+        "${artifacts}/static-network-only/markov-sp.artifact.json",
+        "--dataset-jsonl",
+        "${artifacts}/manifests/test.jsonl",
+        "--nodes",
+        "data/beijing_data/map/nodes.shp",
+        "--edges",
+        "data/beijing_data/map/edges.shp",
+        "--predictions",
+        "${runtime}/smoke/markov-sp/predictions.jsonl",
+        "--diagnostics",
+        "${runtime}/smoke/markov-sp/diagnostics.json",
+        "--threads",
+        "16",
+        "--warmup-repetitions",
+        "0",
+        "--measured-repetitions",
+        "1"
+      ],
+      "requires": [
+        {
+          "path": "research/target/release/ewr-static-baseline",
+          "sha256": "2804bf1c5f3b022b7512c549dc6c16703d0578219cd9eb171fa666a1b0b3b597"
+        },
+        {
+          "path": "${artifacts}/static-network-only/markov-sp.artifact.json",
+          "sha256": "add01edc626b8c2a1a86dd383ebc7602d905732a9894f729bd3402945ac76dcd"
+        },
+        {
+          "path": "${artifacts}/manifests/test.jsonl",
+          "sha256": "60d3fe13b74b9c7ad63eb1613580e2bdf2e0e1dc22317861388d63a96b2300e4"
+        },
+        {
+          "path": "${artifacts}/manifests/test.manifest.json",
+          "sha256": "2e7c6c390bedd279ff302d36a2b4658a3c0a385d1a16402e6deb7727254c4ece"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/smoke/markov-sp/predictions.jsonl",
+          "sha256": "8f2060829e22a9882f957f9f53ed22c48544b1884d233f632a03a7ac7fbc6ba1"
+        },
+        {
+          "path": "${runtime}/smoke/markov-sp/diagnostics.json",
+          "min_bytes": 100
+        }
+      ]
+    },
+    {
+      "id": "smoke-neuromlr-g",
+      "description": "Reproduce the frozen 500-route regression prediction byte-for-byte before formal full-test prediction.",
+      "profiles": [
+        "smoke"
+      ],
+      "depends_on": [
+        "smoke-markov-sp"
+      ],
+      "action": "command",
+      "device": "cuda:0",
+      "command": [
+        "baselines/neuromlr/.venv/bin/python",
+        "baselines/neuromlr/neuromlr_adapter.py",
+        "predict",
+        "--upstream-dir",
+        "${runtime}/upstream/neuromlr",
+        "--map-dir",
+        "data/beijing_data/map",
+        "--checkpoint",
+        "${artifacts}/neuromlr/checkpoint-epoch-45-migrated.pt",
+        "--dataset-manifest",
+        "${artifacts}/manifests/test.manifest.json",
+        "--method",
+        "greedy",
+        "--device",
+        "cuda:0",
+        "--predictions",
+        "${runtime}/smoke/neuromlr-g/predictions.jsonl",
+        "--run-receipt",
+        "${runtime}/smoke/neuromlr-g/run.json",
+        "--diagnostics",
+        "${runtime}/smoke/neuromlr-g/diagnostics.json",
+        "--source-revision",
+        "${neuromlr_source_revision}",
+        "--route-chunk-size",
+        "500",
+        "--resume",
+        "auto",
+        "--resume-dir",
+        "${runtime}/smoke/neuromlr-g/resume",
+        "--progress",
+        "${runtime}/smoke/neuromlr-g/progress.json",
+        "--warmup-repetitions",
+        "0",
+        "--measured-repetitions",
+        "1"
+      ],
+      "requires": [
+        {
+          "path": "baselines/neuromlr/neuromlr_adapter.py",
+          "sha256": "cf4f8a3da2c2487e2a1cdb46069f1cb81c98baccdaaee13e137ebf2c3751c776"
+        },
+        {
+          "path": "${artifacts}/neuromlr/checkpoint-epoch-45-migrated.pt",
+          "sha256": "8ce1043d4908d86b50f282600cda1937d283a1b219700834148b09299f60b6dd"
+        },
+        {
+          "path": "${artifacts}/manifests/test.jsonl",
+          "sha256": "60d3fe13b74b9c7ad63eb1613580e2bdf2e0e1dc22317861388d63a96b2300e4"
+        },
+        {
+          "path": "${artifacts}/manifests/test.manifest.json",
+          "sha256": "2e7c6c390bedd279ff302d36a2b4658a3c0a385d1a16402e6deb7727254c4ece"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        },
+        {
+          "path": "${runtime}/upstream/neuromlr/model_all.py",
+          "sha256": "091d18e83c618a3dcc3676c4fb63d68737bd3d872f45732547298fa995e6c2af"
+        },
+        {
+          "path": "${runtime}/upstream/neuromlr/models_general.py",
+          "sha256": "180af33516fc21c7572b20db95367246a35d1017fe194d6848de261b59e172d5"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/smoke/neuromlr-g/predictions.jsonl",
+          "sha256": "22baa50d15d60746a912f01b747f179ee168e8f2bc20124c5d2a8418492a716b"
+        },
+        {
+          "path": "${runtime}/smoke/neuromlr-g/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/neuromlr-g/run.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/neuromlr-g/progress.json",
+          "min_bytes": 100
+        }
+      ],
+      "progress_path": "${runtime}/smoke/neuromlr-g/progress.json"
+    },
+    {
+      "id": "smoke-drncs-lg",
+      "description": "Reproduce the frozen 500-route regression prediction byte-for-byte before formal full-test prediction.",
+      "profiles": [
+        "smoke"
+      ],
+      "depends_on": [
+        "smoke-neuromlr-g"
+      ],
+      "action": "command",
+      "device": "mixed:cuda:0+cpu",
+      "command": [
+        "python3",
+        "research/scripts/run_sharded_route_predictions.py",
+        "--method",
+        "drncs_lg",
+        "--dataset-manifest",
+        "${artifacts}/manifests/test.manifest.json",
+        "--output-dir",
+        "${runtime}/smoke/drncs-lg",
+        "--adapter-executable",
+        "baselines/neuromlr/.venv/bin/ewr-drncs-lg",
+        "--adapter-source",
+        "baselines/drncs_lg/drncs_lg_adapter.py",
+        "--source-revision",
+        "${drncs_source_revision}",
+        "--shard-size",
+        "127",
+        "--workers",
+        "16",
+        "--device",
+        "cuda",
+        "--cuda-visible-devices",
+        "0",
+        "--checkpoint",
+        "${artifacts}/drncs-lg/train/checkpoint.pt",
+        "--map-dir",
+        "data/beijing_data/map",
+        "--inference-batch-size",
+        "1000",
+        "--max-steps",
+        "300"
+      ],
+      "requires": [
+        {
+          "path": "research/scripts/run_sharded_route_predictions.py",
+          "sha256": "75a2b74a2546a4cacc1132c107db9e950480df85a9ba40c1a3530e02656396c6"
+        },
+        {
+          "path": "baselines/drncs_lg/drncs_lg_adapter.py",
+          "sha256": "b857a2c04646bf711484e57bfcb6156dee75bc0a1b31945f6e947c881e2f8df3"
+        },
+        {
+          "path": "baselines/neuromlr/.venv/bin/ewr-drncs-lg",
+          "sha256": "47bf8d190fd643a548105588886d8a418daafc4daba0ecef94e49f7a04fe6165"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/train/checkpoint.pt",
+          "sha256": "d4e16bfb6cfb7fa4fba0f8a9a8e449ace259b32a86fcc61f3ae45ee9ee3f9fdf"
+        },
+        {
+          "path": "${artifacts}/manifests/test.jsonl",
+          "sha256": "60d3fe13b74b9c7ad63eb1613580e2bdf2e0e1dc22317861388d63a96b2300e4"
+        },
+        {
+          "path": "${artifacts}/manifests/test.manifest.json",
+          "sha256": "2e7c6c390bedd279ff302d36a2b4658a3c0a385d1a16402e6deb7727254c4ece"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/smoke/drncs-lg/predictions.jsonl",
+          "sha256": "168b704a9d5596fed9073d4b6db5237a44fb305e67306943e7b47d32c30fd943"
+        },
+        {
+          "path": "${runtime}/smoke/drncs-lg/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/drncs-lg/run-receipt.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/drncs-lg/complete.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/drncs-lg/progress.json",
+          "min_bytes": 100
+        }
+      ],
+      "progress_path": "${runtime}/smoke/drncs-lg/progress.json"
+    },
+    {
+      "id": "smoke-drpk-static",
+      "description": "Reproduce the frozen 500-route regression prediction byte-for-byte before formal full-test prediction.",
+      "profiles": [
+        "smoke"
+      ],
+      "depends_on": [
+        "smoke-drncs-lg"
+      ],
+      "action": "command",
+      "device": "cuda:0",
+      "command": [
+        "python3",
+        "research/scripts/run_sharded_route_predictions.py",
+        "--method",
+        "drpk_static",
+        "--dataset-manifest",
+        "${artifacts}/manifests/test.manifest.json",
+        "--output-dir",
+        "${runtime}/smoke/drpk-static",
+        "--adapter-executable",
+        "baselines/neuromlr/.venv/bin/ewr-drpk-static",
+        "--adapter-source",
+        "baselines/drpk_static/drpk_static_adapter.py",
+        "--source-revision",
+        "${drpk_source_revision}",
+        "--shard-size",
+        "127",
+        "--workers",
+        "16",
+        "--device",
+        "cuda:0",
+        "--cuda-visible-devices",
+        "0",
+        "--preprocess-dir",
+        "${artifacts}/drpk-static/preprocess",
+        "--inference-batch-size",
+        "32",
+        "--checkpoint",
+        "${artifacts}/drpk-static/train/checkpoint-best-accuracy.pt"
+      ],
+      "requires": [
+        {
+          "path": "${artifacts}/drpk-static/preprocess/configuration.json",
+          "sha256": "7c8b8267583fecb84eb9ca44299a205161b314b79fa450992709dc60b9087c0f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/core-artifacts.json",
+          "sha256": "a40bdaa4eff0aff7b3648c7834e9e4f9ba1704a53d3d6db2736d854a0ab9aa3f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/graph.npz",
+          "sha256": "08c4889247fc1ab65da2c58b0f77eec44de59d7bd9d13637931961d8d8bd0882"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/metadata.json",
+          "sha256": "200e7a89a0fe8b7151ed9fce925a7ac1aeea12ffac3ebf6f079bf4f4e3b02e6f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_offsets.npy",
+          "sha256": "c19f86230dc2b57b4b4864df62f5c82b69be154db7a794b9db6ad67fe22072b0"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_offsets.npy",
+          "sha256": "f80a34837829c7feea4e4bc587a4b1607e3d8bf623717082c33b7646a7b19984"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_indices.u32",
+          "sha256": "e7ab3253efed78c1060195ed6c4208f86b19a7307d3eb7dd696e3f530ccac3e1"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_values.u32",
+          "sha256": "511a8b5560fdd07ff389896a607226a14706fb2fbafa0dbe295b090fdcea22b5"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_indices.u32",
+          "sha256": "237b2f002641719925eb7a11ca7642b556bb10f0cdda485a72bb9351da2c5e26"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_values.u32",
+          "sha256": "cc3c8fe15c9c62fd8ffc9f58212a6207f086c579e8c11387bd1f4726d1aa6a75"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/node2vec.npy",
+          "sha256": "9396a461ed1bf4c149fed1cf15fe5d35619f05e243e3f2dbc4951f6917e10335"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/static_features.npz",
+          "sha256": "4189699254cf6990388c597ab63ab52f321f952e5004124c00509ab5316e1004"
+        },
+        {
+          "path": "research/scripts/run_sharded_route_predictions.py",
+          "sha256": "75a2b74a2546a4cacc1132c107db9e950480df85a9ba40c1a3530e02656396c6"
+        },
+        {
+          "path": "baselines/drpk_static/drpk_static_adapter.py",
+          "sha256": "69986ba156af4a47df5fc0e4bf801f770087ee358d019384f2a1f8d415fe6def"
+        },
+        {
+          "path": "baselines/neuromlr/.venv/bin/ewr-drpk-static",
+          "sha256": "f89120bc13bfa88aade41070b9165b2d4ff7a337be79018cd5b2fad5b7b5b03f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/routing-artifacts.json",
+          "sha256": "1a21c5d1d62c41c6ed445b5750da03129e474d3e9f0e98f614c444f257d0d96d"
+        },
+        {
+          "path": "${artifacts}/drpk-static/train/checkpoint-best-accuracy.pt",
+          "sha256": "e34441cbc671135823eb3543d565352a5ae65d3057acfce1511129a4802dddd7"
+        },
+        {
+          "path": "${artifacts}/manifests/test.jsonl",
+          "sha256": "60d3fe13b74b9c7ad63eb1613580e2bdf2e0e1dc22317861388d63a96b2300e4"
+        },
+        {
+          "path": "${artifacts}/manifests/test.manifest.json",
+          "sha256": "2e7c6c390bedd279ff302d36a2b4658a3c0a385d1a16402e6deb7727254c4ece"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/smoke/drpk-static/predictions.jsonl",
+          "sha256": "20bfbc8d636abb052bc3e682f82cc4bdb47ee2777bcc37ae57d467efa2f8a080"
+        },
+        {
+          "path": "${runtime}/smoke/drpk-static/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/drpk-static/run-receipt.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/drpk-static/complete.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/drpk-static/progress.json",
+          "min_bytes": 100
+        }
+      ],
+      "progress_path": "${runtime}/smoke/drpk-static/progress.json"
+    },
+    {
+      "id": "smoke-drp-tp",
+      "description": "Reproduce the frozen 500-route regression prediction byte-for-byte before formal full-test prediction.",
+      "profiles": [
+        "smoke"
+      ],
+      "depends_on": [
+        "smoke-drpk-static"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "python3",
+        "research/scripts/run_sharded_route_predictions.py",
+        "--method",
+        "drp_tp",
+        "--dataset-manifest",
+        "${artifacts}/manifests/test.manifest.json",
+        "--output-dir",
+        "${runtime}/smoke/drp-tp",
+        "--adapter-executable",
+        "baselines/neuromlr/.venv/bin/ewr-drpk-static",
+        "--adapter-source",
+        "baselines/drpk_static/drpk_static_adapter.py",
+        "--source-revision",
+        "${drpk_source_revision}",
+        "--shard-size",
+        "127",
+        "--workers",
+        "16",
+        "--device",
+        "cpu",
+        "--cuda-visible-devices",
+        "0",
+        "--preprocess-dir",
+        "${artifacts}/drpk-static/preprocess",
+        "--inference-batch-size",
+        "32"
+      ],
+      "requires": [
+        {
+          "path": "${artifacts}/drpk-static/preprocess/routing-configuration.json",
+          "sha256": "56abe24024b8997ec915ed78b5ac88a0bcb59b89a0c29586994f8f3d56892609"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/graph.npz",
+          "sha256": "08c4889247fc1ab65da2c58b0f77eec44de59d7bd9d13637931961d8d8bd0882"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/metadata.json",
+          "sha256": "200e7a89a0fe8b7151ed9fce925a7ac1aeea12ffac3ebf6f079bf4f4e3b02e6f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_offsets.npy",
+          "sha256": "c19f86230dc2b57b4b4864df62f5c82b69be154db7a794b9db6ad67fe22072b0"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_offsets.npy",
+          "sha256": "f80a34837829c7feea4e4bc587a4b1607e3d8bf623717082c33b7646a7b19984"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_indices.u32",
+          "sha256": "e7ab3253efed78c1060195ed6c4208f86b19a7307d3eb7dd696e3f530ccac3e1"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_values.u32",
+          "sha256": "511a8b5560fdd07ff389896a607226a14706fb2fbafa0dbe295b090fdcea22b5"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_indices.u32",
+          "sha256": "237b2f002641719925eb7a11ca7642b556bb10f0cdda485a72bb9351da2c5e26"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_values.u32",
+          "sha256": "cc3c8fe15c9c62fd8ffc9f58212a6207f086c579e8c11387bd1f4726d1aa6a75"
+        },
+        {
+          "path": "research/scripts/run_sharded_route_predictions.py",
+          "sha256": "75a2b74a2546a4cacc1132c107db9e950480df85a9ba40c1a3530e02656396c6"
+        },
+        {
+          "path": "baselines/drpk_static/drpk_static_adapter.py",
+          "sha256": "69986ba156af4a47df5fc0e4bf801f770087ee358d019384f2a1f8d415fe6def"
+        },
+        {
+          "path": "baselines/neuromlr/.venv/bin/ewr-drpk-static",
+          "sha256": "f89120bc13bfa88aade41070b9165b2d4ff7a337be79018cd5b2fad5b7b5b03f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/routing-artifacts.json",
+          "sha256": "1a21c5d1d62c41c6ed445b5750da03129e474d3e9f0e98f614c444f257d0d96d"
+        },
+        {
+          "path": "${artifacts}/manifests/test.jsonl",
+          "sha256": "60d3fe13b74b9c7ad63eb1613580e2bdf2e0e1dc22317861388d63a96b2300e4"
+        },
+        {
+          "path": "${artifacts}/manifests/test.manifest.json",
+          "sha256": "2e7c6c390bedd279ff302d36a2b4658a3c0a385d1a16402e6deb7727254c4ece"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/smoke/drp-tp/predictions.jsonl",
+          "sha256": "d8542027d8f13ded4236df057220ef0d9aaf70e74620e79d0c02f2ab74f0272d"
+        },
+        {
+          "path": "${runtime}/smoke/drp-tp/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/drp-tp/run-receipt.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/drp-tp/complete.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/smoke/drp-tp/progress.json",
+          "min_bytes": 100
+        }
+      ],
+      "progress_path": "${runtime}/smoke/drp-tp/progress.json"
+    },
+    {
+      "id": "smoke-equivalence-gate",
+      "description": "Authorize formal prediction only after all seven adapters reproduce the frozen 500-route reference outputs byte-for-byte.",
+      "profiles": [
+        "smoke"
+      ],
+      "depends_on": [
+        "smoke-drp-tp"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "python3",
+        "research/scripts/verify_route_prediction_smoke_gate.py",
+        "--reference-dataset",
+        "${artifacts}/manifests/test.jsonl",
+        "--expected-rows",
+        "500",
+        "--prediction",
+        "project",
+        "${artifacts}/project/test-formal-14g/predictions.jsonl",
+        "${runtime}/smoke/project/predictions.jsonl",
+        "--prediction",
+        "sp_length",
+        "${artifacts}/static-network-only/sp-length.test.predictions.jsonl",
+        "${runtime}/smoke/sp-length/predictions.jsonl",
+        "--prediction",
+        "markov_sp",
+        "${artifacts}/static-network-only/markov-sp.test.predictions.jsonl",
+        "${runtime}/smoke/markov-sp/predictions.jsonl",
+        "--prediction",
+        "neuromlr_greedy",
+        "${artifacts}/neuromlr/greedy.test.predictions.jsonl",
+        "${runtime}/smoke/neuromlr-g/predictions.jsonl",
+        "--prediction",
+        "drncs_lg",
+        "${artifacts}/drncs-lg/test/predictions.jsonl",
+        "${runtime}/smoke/drncs-lg/predictions.jsonl",
+        "--prediction",
+        "drpk_static",
+        "${artifacts}/drpk-static/test/predictions.jsonl",
+        "${runtime}/smoke/drpk-static/predictions.jsonl",
+        "--prediction",
+        "drp_tp",
+        "${artifacts}/drpk-static/drp-tp-test/predictions.jsonl",
+        "${runtime}/smoke/drp-tp/predictions.jsonl",
+        "--output",
+        "${runtime}/smoke/equivalence-gate.json"
+      ],
+      "requires": [
+        {
+          "path": "research/scripts/verify_route_prediction_smoke_gate.py",
+          "sha256": "c896b992d450efaf43121a54c0c969e124cc0e1229c6f8ad31d8a0db69bce508"
+        },
+        {
+          "path": "${artifacts}/manifests/test.jsonl",
+          "sha256": "60d3fe13b74b9c7ad63eb1613580e2bdf2e0e1dc22317861388d63a96b2300e4"
+        },
+        {
+          "path": "${artifacts}/manifests/test.manifest.json",
+          "sha256": "2e7c6c390bedd279ff302d36a2b4658a3c0a385d1a16402e6deb7727254c4ece"
+        },
+        {
+          "path": "${artifacts}/project/test-formal-14g/predictions.jsonl",
+          "sha256": "a0b0d3492dc75b3b6bcb14ce95703b81022ecd3d72569e690204d483212e87a8"
+        },
+        {
+          "path": "${artifacts}/static-network-only/sp-length.test.predictions.jsonl",
+          "sha256": "28a5a58007ec865f13158fdbcad6eae683fd2408f69880d502a3c8bb4c68e7ca"
+        },
+        {
+          "path": "${artifacts}/static-network-only/markov-sp.test.predictions.jsonl",
+          "sha256": "8f2060829e22a9882f957f9f53ed22c48544b1884d233f632a03a7ac7fbc6ba1"
+        },
+        {
+          "path": "${artifacts}/neuromlr/greedy.test.predictions.jsonl",
+          "sha256": "22baa50d15d60746a912f01b747f179ee168e8f2bc20124c5d2a8418492a716b"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/test/predictions.jsonl",
+          "sha256": "168b704a9d5596fed9073d4b6db5237a44fb305e67306943e7b47d32c30fd943"
+        },
+        {
+          "path": "${artifacts}/drpk-static/test/predictions.jsonl",
+          "sha256": "20bfbc8d636abb052bc3e682f82cc4bdb47ee2777bcc37ae57d467efa2f8a080"
+        },
+        {
+          "path": "${artifacts}/drpk-static/drp-tp-test/predictions.jsonl",
+          "sha256": "d8542027d8f13ded4236df057220ef0d9aaf70e74620e79d0c02f2ab74f0272d"
+        },
+        {
+          "path": "${runtime}/smoke/project/predictions.jsonl",
+          "sha256": "a0b0d3492dc75b3b6bcb14ce95703b81022ecd3d72569e690204d483212e87a8"
+        },
+        {
+          "path": "${runtime}/smoke/sp-length/predictions.jsonl",
+          "sha256": "28a5a58007ec865f13158fdbcad6eae683fd2408f69880d502a3c8bb4c68e7ca"
+        },
+        {
+          "path": "${runtime}/smoke/markov-sp/predictions.jsonl",
+          "sha256": "8f2060829e22a9882f957f9f53ed22c48544b1884d233f632a03a7ac7fbc6ba1"
+        },
+        {
+          "path": "${runtime}/smoke/neuromlr-g/predictions.jsonl",
+          "sha256": "22baa50d15d60746a912f01b747f179ee168e8f2bc20124c5d2a8418492a716b"
+        },
+        {
+          "path": "${runtime}/smoke/drncs-lg/predictions.jsonl",
+          "sha256": "168b704a9d5596fed9073d4b6db5237a44fb305e67306943e7b47d32c30fd943"
+        },
+        {
+          "path": "${runtime}/smoke/drpk-static/predictions.jsonl",
+          "sha256": "20bfbc8d636abb052bc3e682f82cc4bdb47ee2777bcc37ae57d467efa2f8a080"
+        },
+        {
+          "path": "${runtime}/smoke/drp-tp/predictions.jsonl",
+          "sha256": "d8542027d8f13ded4236df057220ef0d9aaf70e74620e79d0c02f2ab74f0272d"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/smoke/equivalence-gate.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.full-test-route-smoke-gate/v3",
+            "expected_rows": 500,
+            "reference_dataset.records": 500,
+            "formal_full_test_prediction_authorized": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "verify-frozen-protocol",
+      "description": "Block every formal full-test prediction until the reviewed protocol is frozen and the exact seven-method smoke gate is authorized.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "smoke-equivalence-gate"
+      ],
+      "action": "verify",
+      "device": "cpu",
+      "outputs": [
+        {
+          "path": "research/experiments/route_baselines_full_test_20260719/protocol.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.route-baseline-full-test-protocol/v1",
+            "status": "frozen_before_full_test"
+          }
+        },
+        {
+          "path": "${runtime}/smoke/equivalence-gate.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.full-test-route-smoke-gate/v3",
+            "formal_full_test_prediction_authorized": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "predict-project-full",
+      "method": "project",
+      "stage": "formal_prediction",
+      "description": "Single full-test production prediction pass; quality output and uniform outer GNU-time operational inference evidence.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "verify-frozen-protocol"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "systemd_scope": true,
+      "adopt_outputs": false,
+      "command": [
+        "research/target/release/ewr-project-experiment",
+        "predict",
+        "--artifact",
+        "${artifacts}/project/formal-14g/checkpoint-200.json",
+        "--dataset-jsonl",
+        "${runtime}/manifests/test.jsonl",
+        "--nodes",
+        "data/beijing_data/map/nodes.shp",
+        "--edges",
+        "data/beijing_data/map/edges.shp",
+        "--predictions",
+        "${runtime}/project/full/predictions.jsonl",
+        "--diagnostics",
+        "${runtime}/project/full/diagnostics.json",
+        "--threads",
+        "16",
+        "--warmup-repetitions",
+        "0",
+        "--measured-repetitions",
+        "1"
+      ],
+      "requires": [
+        {
+          "path": "${runtime}/smoke/equivalence-gate.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.full-test-route-smoke-gate/v3",
+            "formal_full_test_prediction_authorized": true
+          }
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "research/target/release/ewr-project-experiment",
+          "sha256": "1677e027fc1235e1706d86c9eee0587626f9a1ae5dd14efd3b1ed3c5d2276b3c"
+        },
+        {
+          "path": "${artifacts}/project/formal-14g/checkpoint-200.json",
+          "sha256": "043c152bf5a868dec6f696c2fdf26da17f909107058ef7e680248ecd81f95454"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/project/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/project/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/project/full/external-time.txt",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/project/full/time-evidence.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.route-baseline-task-time-evidence/v1"
+          }
+        }
+      ],
+      "time_output": "${runtime}/project/full/external-time.txt",
+      "time_aggregate_output": "${runtime}/project/full/time-evidence.json"
+    },
+    {
+      "id": "predict-sp-length-full",
+      "method": "sp_length",
+      "stage": "formal_prediction",
+      "description": "Single full-test production prediction pass; quality output and uniform outer GNU-time operational inference evidence.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "predict-project-full"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "systemd_scope": true,
+      "adopt_outputs": false,
+      "command": [
+        "research/target/release/ewr-static-baseline",
+        "predict",
+        "--artifact",
+        "${artifacts}/static-network-only/sp-length.artifact.json",
+        "--dataset-jsonl",
+        "${runtime}/manifests/test.jsonl",
+        "--nodes",
+        "data/beijing_data/map/nodes.shp",
+        "--edges",
+        "data/beijing_data/map/edges.shp",
+        "--predictions",
+        "${runtime}/sp-length/full/predictions.jsonl",
+        "--diagnostics",
+        "${runtime}/sp-length/full/diagnostics.json",
+        "--threads",
+        "16",
+        "--warmup-repetitions",
+        "0",
+        "--measured-repetitions",
+        "1"
+      ],
+      "requires": [
+        {
+          "path": "${runtime}/smoke/equivalence-gate.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.full-test-route-smoke-gate/v3",
+            "formal_full_test_prediction_authorized": true
+          }
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "research/target/release/ewr-static-baseline",
+          "sha256": "2804bf1c5f3b022b7512c549dc6c16703d0578219cd9eb171fa666a1b0b3b597"
+        },
+        {
+          "path": "${artifacts}/static-network-only/sp-length.artifact.json",
+          "sha256": "fc846c340798dc23b145e93d95c36279f19db53a47223bb09ac485e5dfece0cd"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/sp-length/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/sp-length/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/sp-length/full/external-time.txt",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/sp-length/full/time-evidence.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.route-baseline-task-time-evidence/v1"
+          }
+        }
+      ],
+      "time_output": "${runtime}/sp-length/full/external-time.txt",
+      "time_aggregate_output": "${runtime}/sp-length/full/time-evidence.json"
+    },
+    {
+      "id": "predict-markov-sp-full",
+      "method": "markov_sp",
+      "stage": "formal_prediction",
+      "description": "Single full-test production prediction pass; quality output and uniform outer GNU-time operational inference evidence.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "predict-sp-length-full"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "systemd_scope": true,
+      "adopt_outputs": false,
+      "command": [
+        "research/target/release/ewr-static-baseline",
+        "predict",
+        "--artifact",
+        "${artifacts}/static-network-only/markov-sp.artifact.json",
+        "--dataset-jsonl",
+        "${runtime}/manifests/test.jsonl",
+        "--nodes",
+        "data/beijing_data/map/nodes.shp",
+        "--edges",
+        "data/beijing_data/map/edges.shp",
+        "--predictions",
+        "${runtime}/markov-sp/full/predictions.jsonl",
+        "--diagnostics",
+        "${runtime}/markov-sp/full/diagnostics.json",
+        "--threads",
+        "16",
+        "--warmup-repetitions",
+        "0",
+        "--measured-repetitions",
+        "1"
+      ],
+      "requires": [
+        {
+          "path": "${runtime}/smoke/equivalence-gate.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.full-test-route-smoke-gate/v3",
+            "formal_full_test_prediction_authorized": true
+          }
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "research/target/release/ewr-static-baseline",
+          "sha256": "2804bf1c5f3b022b7512c549dc6c16703d0578219cd9eb171fa666a1b0b3b597"
+        },
+        {
+          "path": "${artifacts}/static-network-only/markov-sp.artifact.json",
+          "sha256": "add01edc626b8c2a1a86dd383ebc7602d905732a9894f729bd3402945ac76dcd"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/markov-sp/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/markov-sp/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/markov-sp/full/external-time.txt",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/markov-sp/full/time-evidence.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.route-baseline-task-time-evidence/v1"
+          }
+        }
+      ],
+      "time_output": "${runtime}/markov-sp/full/external-time.txt",
+      "time_aggregate_output": "${runtime}/markov-sp/full/time-evidence.json"
+    },
+    {
+      "id": "predict-neuromlr-g-full",
+      "method": "neuromlr_greedy",
+      "stage": "formal_prediction",
+      "description": "Single full-test production prediction pass; quality output and uniform outer GNU-time operational inference evidence.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "predict-markov-sp-full"
+      ],
+      "action": "command",
+      "device": "cuda:0",
+      "systemd_scope": true,
+      "adopt_outputs": true,
+      "command": [
+        "baselines/neuromlr/.venv/bin/python",
+        "baselines/neuromlr/neuromlr_adapter.py",
+        "predict",
+        "--upstream-dir",
+        "${runtime}/upstream/neuromlr",
+        "--map-dir",
+        "data/beijing_data/map",
+        "--checkpoint",
+        "${artifacts}/neuromlr/checkpoint-epoch-45-migrated.pt",
+        "--dataset-manifest",
+        "${runtime}/manifests/test.manifest.json",
+        "--method",
+        "greedy",
+        "--device",
+        "cuda:0",
+        "--predictions",
+        "${runtime}/neuromlr-g/full/predictions.jsonl",
+        "--run-receipt",
+        "${runtime}/neuromlr-g/full/run.json",
+        "--diagnostics",
+        "${runtime}/neuromlr-g/full/diagnostics.json",
+        "--source-revision",
+        "${neuromlr_source_revision}",
+        "--route-chunk-size",
+        "500",
+        "--resume",
+        "auto",
+        "--resume-dir",
+        "${runtime}/neuromlr-g/full/resume",
+        "--progress",
+        "${runtime}/neuromlr-g/full/progress.json",
+        "--warmup-repetitions",
+        "0",
+        "--measured-repetitions",
+        "1"
+      ],
+      "requires": [
+        {
+          "path": "${runtime}/smoke/equivalence-gate.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.full-test-route-smoke-gate/v3",
+            "formal_full_test_prediction_authorized": true
+          }
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "baselines/neuromlr/neuromlr_adapter.py",
+          "sha256": "cf4f8a3da2c2487e2a1cdb46069f1cb81c98baccdaaee13e137ebf2c3751c776"
+        },
+        {
+          "path": "${artifacts}/neuromlr/checkpoint-epoch-45-migrated.pt",
+          "sha256": "8ce1043d4908d86b50f282600cda1937d283a1b219700834148b09299f60b6dd"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        },
+        {
+          "path": "${runtime}/upstream/neuromlr/model_all.py",
+          "sha256": "091d18e83c618a3dcc3676c4fb63d68737bd3d872f45732547298fa995e6c2af"
+        },
+        {
+          "path": "${runtime}/upstream/neuromlr/models_general.py",
+          "sha256": "180af33516fc21c7572b20db95367246a35d1017fe194d6848de261b59e172d5"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/neuromlr-g/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/run.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/progress.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/external-time.txt",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/time-evidence.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.route-baseline-task-time-evidence/v1"
+          }
+        }
+      ],
+      "time_output": "${runtime}/neuromlr-g/full/external-time.txt",
+      "time_aggregate_output": "${runtime}/neuromlr-g/full/time-evidence.json",
+      "hash_bindings": [
+        {
+          "json_path": "${runtime}/neuromlr-g/full/diagnostics.json",
+          "field": "predictions_sha256",
+          "file_path": "${runtime}/neuromlr-g/full/predictions.jsonl"
+        }
+      ],
+      "progress_path": "${runtime}/neuromlr-g/full/progress.json"
+    },
+    {
+      "id": "predict-drncs-lg-full",
+      "method": "drncs_lg",
+      "stage": "formal_prediction",
+      "description": "Single full-test production prediction pass; quality output and uniform outer GNU-time operational inference evidence.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "predict-neuromlr-g-full"
+      ],
+      "action": "command",
+      "device": "mixed:cuda:0+cpu",
+      "systemd_scope": true,
+      "adopt_outputs": true,
+      "command": [
+        "python3",
+        "research/scripts/run_sharded_route_predictions.py",
+        "--method",
+        "drncs_lg",
+        "--dataset-manifest",
+        "${runtime}/manifests/test.manifest.json",
+        "--output-dir",
+        "${runtime}/drncs-lg/full",
+        "--adapter-executable",
+        "baselines/neuromlr/.venv/bin/ewr-drncs-lg",
+        "--adapter-source",
+        "baselines/drncs_lg/drncs_lg_adapter.py",
+        "--source-revision",
+        "${drncs_source_revision}",
+        "--shard-size",
+        "4096",
+        "--workers",
+        "16",
+        "--device",
+        "cuda",
+        "--cuda-visible-devices",
+        "0",
+        "--checkpoint",
+        "${artifacts}/drncs-lg/train/checkpoint.pt",
+        "--map-dir",
+        "data/beijing_data/map",
+        "--inference-batch-size",
+        "1000",
+        "--max-steps",
+        "300"
+      ],
+      "requires": [
+        {
+          "path": "${runtime}/smoke/equivalence-gate.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.full-test-route-smoke-gate/v3",
+            "formal_full_test_prediction_authorized": true
+          }
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "research/scripts/run_sharded_route_predictions.py",
+          "sha256": "75a2b74a2546a4cacc1132c107db9e950480df85a9ba40c1a3530e02656396c6"
+        },
+        {
+          "path": "baselines/drncs_lg/drncs_lg_adapter.py",
+          "sha256": "b857a2c04646bf711484e57bfcb6156dee75bc0a1b31945f6e947c881e2f8df3"
+        },
+        {
+          "path": "baselines/neuromlr/.venv/bin/ewr-drncs-lg",
+          "sha256": "47bf8d190fd643a548105588886d8a418daafc4daba0ecef94e49f7a04fe6165"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/train/checkpoint.pt",
+          "sha256": "d4e16bfb6cfb7fa4fba0f8a9a8e449ace259b32a86fcc61f3ae45ee9ee3f9fdf"
+        },
+        {
+          "path": "data/beijing_data/map/edges.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/edges.dbf",
+          "sha256": "e096ad843154eb836cf02d49edd96ef0706c354e948a51b0fd15001c2462194c"
+        },
+        {
+          "path": "data/beijing_data/map/edges.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shp",
+          "sha256": "2d3fc7ecab7f108304abce3fad5dfcff3691a954542b16b8b62957cd97fb0d68"
+        },
+        {
+          "path": "data/beijing_data/map/edges.shx",
+          "sha256": "f789418f8ddf09f0e086be9f478a2d4f449dd85f1e75dfbeac0259eac77f7dbb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.dbf",
+          "sha256": "12298db8ebdcde963d7b2575764ffe2e7a4fb35e3d499318566a1c5ba4548c2f"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.prj",
+          "sha256": "98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shp",
+          "sha256": "c4f3ed17e2332ebf466eeecde40d8ffbf829c7541f21b5218ef13e2bb4789004"
+        },
+        {
+          "path": "data/beijing_data/map/nodes.shx",
+          "sha256": "c8c51dd5df0fade74ba76c5a8d5690c67deeff604f676f4986a87c7d78a0ece1"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/drncs-lg/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/run-receipt.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/complete.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/progress.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/external-time.txt",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/time-evidence.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.route-baseline-task-time-evidence/v1"
+          }
+        }
+      ],
+      "time_output": "${runtime}/drncs-lg/full/external-time.txt",
+      "time_aggregate_output": "${runtime}/drncs-lg/full/time-evidence.json",
+      "hash_bindings": [
+        {
+          "json_path": "${runtime}/drncs-lg/full/complete.json",
+          "field": "predictions_sha256",
+          "file_path": "${runtime}/drncs-lg/full/predictions.jsonl"
+        },
+        {
+          "json_path": "${runtime}/drncs-lg/full/complete.json",
+          "field": "diagnostics_sha256",
+          "file_path": "${runtime}/drncs-lg/full/diagnostics.json"
+        },
+        {
+          "json_path": "${runtime}/drncs-lg/full/complete.json",
+          "field": "run_receipt_sha256",
+          "file_path": "${runtime}/drncs-lg/full/run-receipt.json"
+        }
+      ],
+      "progress_path": "${runtime}/drncs-lg/full/progress.json"
+    },
+    {
+      "id": "predict-drpk-static-full",
+      "method": "drpk_static",
+      "stage": "formal_prediction",
+      "description": "Single full-test production prediction pass; quality output and uniform outer GNU-time operational inference evidence.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "predict-drncs-lg-full"
+      ],
+      "action": "command",
+      "device": "cuda:0",
+      "systemd_scope": true,
+      "adopt_outputs": true,
+      "command": [
+        "python3",
+        "research/scripts/run_sharded_route_predictions.py",
+        "--method",
+        "drpk_static",
+        "--dataset-manifest",
+        "${runtime}/manifests/test.manifest.json",
+        "--output-dir",
+        "${runtime}/drpk-static/full",
+        "--adapter-executable",
+        "baselines/neuromlr/.venv/bin/ewr-drpk-static",
+        "--adapter-source",
+        "baselines/drpk_static/drpk_static_adapter.py",
+        "--source-revision",
+        "${drpk_source_revision}",
+        "--shard-size",
+        "4096",
+        "--workers",
+        "16",
+        "--device",
+        "cuda:0",
+        "--cuda-visible-devices",
+        "0",
+        "--preprocess-dir",
+        "${artifacts}/drpk-static/preprocess",
+        "--inference-batch-size",
+        "32",
+        "--checkpoint",
+        "${artifacts}/drpk-static/train/checkpoint-best-accuracy.pt"
+      ],
+      "requires": [
+        {
+          "path": "${artifacts}/drpk-static/preprocess/configuration.json",
+          "sha256": "7c8b8267583fecb84eb9ca44299a205161b314b79fa450992709dc60b9087c0f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/core-artifacts.json",
+          "sha256": "a40bdaa4eff0aff7b3648c7834e9e4f9ba1704a53d3d6db2736d854a0ab9aa3f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/graph.npz",
+          "sha256": "08c4889247fc1ab65da2c58b0f77eec44de59d7bd9d13637931961d8d8bd0882"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/metadata.json",
+          "sha256": "200e7a89a0fe8b7151ed9fce925a7ac1aeea12ffac3ebf6f079bf4f4e3b02e6f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_offsets.npy",
+          "sha256": "c19f86230dc2b57b4b4864df62f5c82b69be154db7a794b9db6ad67fe22072b0"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_offsets.npy",
+          "sha256": "f80a34837829c7feea4e4bc587a4b1607e3d8bf623717082c33b7646a7b19984"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_indices.u32",
+          "sha256": "e7ab3253efed78c1060195ed6c4208f86b19a7307d3eb7dd696e3f530ccac3e1"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_values.u32",
+          "sha256": "511a8b5560fdd07ff389896a607226a14706fb2fbafa0dbe295b090fdcea22b5"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_indices.u32",
+          "sha256": "237b2f002641719925eb7a11ca7642b556bb10f0cdda485a72bb9351da2c5e26"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_values.u32",
+          "sha256": "cc3c8fe15c9c62fd8ffc9f58212a6207f086c579e8c11387bd1f4726d1aa6a75"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/node2vec.npy",
+          "sha256": "9396a461ed1bf4c149fed1cf15fe5d35619f05e243e3f2dbc4951f6917e10335"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/static_features.npz",
+          "sha256": "4189699254cf6990388c597ab63ab52f321f952e5004124c00509ab5316e1004"
+        },
+        {
+          "path": "${runtime}/smoke/equivalence-gate.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.full-test-route-smoke-gate/v3",
+            "formal_full_test_prediction_authorized": true
+          }
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "research/scripts/run_sharded_route_predictions.py",
+          "sha256": "75a2b74a2546a4cacc1132c107db9e950480df85a9ba40c1a3530e02656396c6"
+        },
+        {
+          "path": "baselines/drpk_static/drpk_static_adapter.py",
+          "sha256": "69986ba156af4a47df5fc0e4bf801f770087ee358d019384f2a1f8d415fe6def"
+        },
+        {
+          "path": "baselines/neuromlr/.venv/bin/ewr-drpk-static",
+          "sha256": "f89120bc13bfa88aade41070b9165b2d4ff7a337be79018cd5b2fad5b7b5b03f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/routing-artifacts.json",
+          "sha256": "1a21c5d1d62c41c6ed445b5750da03129e474d3e9f0e98f614c444f257d0d96d"
+        },
+        {
+          "path": "${artifacts}/drpk-static/train/checkpoint-best-accuracy.pt",
+          "sha256": "e34441cbc671135823eb3543d565352a5ae65d3057acfce1511129a4802dddd7"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/drpk-static/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/run-receipt.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/complete.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/progress.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/external-time.txt",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/time-evidence.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.route-baseline-task-time-evidence/v1"
+          }
+        }
+      ],
+      "time_output": "${runtime}/drpk-static/full/external-time.txt",
+      "time_aggregate_output": "${runtime}/drpk-static/full/time-evidence.json",
+      "hash_bindings": [
+        {
+          "json_path": "${runtime}/drpk-static/full/complete.json",
+          "field": "predictions_sha256",
+          "file_path": "${runtime}/drpk-static/full/predictions.jsonl"
+        },
+        {
+          "json_path": "${runtime}/drpk-static/full/complete.json",
+          "field": "diagnostics_sha256",
+          "file_path": "${runtime}/drpk-static/full/diagnostics.json"
+        },
+        {
+          "json_path": "${runtime}/drpk-static/full/complete.json",
+          "field": "run_receipt_sha256",
+          "file_path": "${runtime}/drpk-static/full/run-receipt.json"
+        }
+      ],
+      "progress_path": "${runtime}/drpk-static/full/progress.json"
+    },
+    {
+      "id": "predict-drp-tp-full",
+      "method": "drp_tp",
+      "stage": "formal_prediction",
+      "description": "Single full-test production prediction pass; quality output and uniform outer GNU-time operational inference evidence.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "predict-drpk-static-full"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "systemd_scope": true,
+      "adopt_outputs": true,
+      "command": [
+        "python3",
+        "research/scripts/run_sharded_route_predictions.py",
+        "--method",
+        "drp_tp",
+        "--dataset-manifest",
+        "${runtime}/manifests/test.manifest.json",
+        "--output-dir",
+        "${runtime}/drp-tp/full",
+        "--adapter-executable",
+        "baselines/neuromlr/.venv/bin/ewr-drpk-static",
+        "--adapter-source",
+        "baselines/drpk_static/drpk_static_adapter.py",
+        "--source-revision",
+        "${drpk_source_revision}",
+        "--shard-size",
+        "4096",
+        "--workers",
+        "16",
+        "--device",
+        "cpu",
+        "--cuda-visible-devices",
+        "0",
+        "--preprocess-dir",
+        "${artifacts}/drpk-static/preprocess",
+        "--inference-batch-size",
+        "32"
+      ],
+      "requires": [
+        {
+          "path": "${artifacts}/drpk-static/preprocess/routing-configuration.json",
+          "sha256": "56abe24024b8997ec915ed78b5ac88a0bcb59b89a0c29586994f8f3d56892609"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/graph.npz",
+          "sha256": "08c4889247fc1ab65da2c58b0f77eec44de59d7bd9d13637931961d8d8bd0882"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/metadata.json",
+          "sha256": "200e7a89a0fe8b7151ed9fce925a7ac1aeea12ffac3ebf6f079bf4f4e3b02e6f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_offsets.npy",
+          "sha256": "c19f86230dc2b57b4b4864df62f5c82b69be154db7a794b9db6ad67fe22072b0"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_offsets.npy",
+          "sha256": "f80a34837829c7feea4e4bc587a4b1607e3d8bf623717082c33b7646a7b19984"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_indices.u32",
+          "sha256": "e7ab3253efed78c1060195ed6c4208f86b19a7307d3eb7dd696e3f530ccac3e1"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_values.u32",
+          "sha256": "511a8b5560fdd07ff389896a607226a14706fb2fbafa0dbe295b090fdcea22b5"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_indices.u32",
+          "sha256": "237b2f002641719925eb7a11ca7642b556bb10f0cdda485a72bb9351da2c5e26"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_values.u32",
+          "sha256": "cc3c8fe15c9c62fd8ffc9f58212a6207f086c579e8c11387bd1f4726d1aa6a75"
+        },
+        {
+          "path": "${runtime}/smoke/equivalence-gate.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.full-test-route-smoke-gate/v3",
+            "formal_full_test_prediction_authorized": true
+          }
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "research/scripts/run_sharded_route_predictions.py",
+          "sha256": "75a2b74a2546a4cacc1132c107db9e950480df85a9ba40c1a3530e02656396c6"
+        },
+        {
+          "path": "baselines/drpk_static/drpk_static_adapter.py",
+          "sha256": "69986ba156af4a47df5fc0e4bf801f770087ee358d019384f2a1f8d415fe6def"
+        },
+        {
+          "path": "baselines/neuromlr/.venv/bin/ewr-drpk-static",
+          "sha256": "f89120bc13bfa88aade41070b9165b2d4ff7a337be79018cd5b2fad5b7b5b03f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/routing-artifacts.json",
+          "sha256": "1a21c5d1d62c41c6ed445b5750da03129e474d3e9f0e98f614c444f257d0d96d"
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/drp-tp/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/run-receipt.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/complete.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/progress.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/external-time.txt",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/time-evidence.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.route-baseline-task-time-evidence/v1"
+          }
+        }
+      ],
+      "time_output": "${runtime}/drp-tp/full/external-time.txt",
+      "time_aggregate_output": "${runtime}/drp-tp/full/time-evidence.json",
+      "hash_bindings": [
+        {
+          "json_path": "${runtime}/drp-tp/full/complete.json",
+          "field": "predictions_sha256",
+          "file_path": "${runtime}/drp-tp/full/predictions.jsonl"
+        },
+        {
+          "json_path": "${runtime}/drp-tp/full/complete.json",
+          "field": "diagnostics_sha256",
+          "file_path": "${runtime}/drp-tp/full/diagnostics.json"
+        },
+        {
+          "json_path": "${runtime}/drp-tp/full/complete.json",
+          "field": "run_receipt_sha256",
+          "file_path": "${runtime}/drp-tp/full/run-receipt.json"
+        }
+      ],
+      "progress_path": "${runtime}/drp-tp/full/progress.json"
+    },
+    {
+      "id": "summarize-operational-efficiency",
+      "description": "Use each complete 248233-query task's cumulative outer GNU-time evidence as the single primary inference-cost boundary.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "predict-drp-tp-full"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "python3",
+        "research/scripts/summarize_full_prediction_operational.py",
+        "--samples",
+        "248233",
+        "--entry",
+        "project",
+        "${runtime}/project/full/time-evidence.json",
+        "${runtime}/project/full/diagnostics.json",
+        "--entry",
+        "sp_length",
+        "${runtime}/sp-length/full/time-evidence.json",
+        "${runtime}/sp-length/full/diagnostics.json",
+        "--entry",
+        "markov_sp",
+        "${runtime}/markov-sp/full/time-evidence.json",
+        "${runtime}/markov-sp/full/diagnostics.json",
+        "--entry",
+        "neuromlr_greedy",
+        "${runtime}/neuromlr-g/full/time-evidence.json",
+        "${runtime}/neuromlr-g/full/diagnostics.json",
+        "--entry",
+        "drncs_lg",
+        "${runtime}/drncs-lg/full/time-evidence.json",
+        "${runtime}/drncs-lg/full/diagnostics.json",
+        "--entry",
+        "drpk_static",
+        "${runtime}/drpk-static/full/time-evidence.json",
+        "${runtime}/drpk-static/full/diagnostics.json",
+        "--entry",
+        "drp_tp",
+        "${runtime}/drp-tp/full/time-evidence.json",
+        "${runtime}/drp-tp/full/diagnostics.json",
+        "--output",
+        "${runtime}/operational-efficiency.json"
+      ],
+      "requires": [
+        {
+          "path": "research/scripts/summarize_full_prediction_operational.py",
+          "sha256": "94bd5d1d83cf08c2acabb97bd97e00c3941a0c4adb0559d248a1842358cfb291"
+        },
+        {
+          "path": "${runtime}/project/full/time-evidence.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/project/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/sp-length/full/time-evidence.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/sp-length/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/markov-sp/full/time-evidence.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/markov-sp/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/time-evidence.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/time-evidence.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/time-evidence.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/time-evidence.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/diagnostics.json",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/operational-efficiency.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.full-test-operational-efficiency/v1",
+            "samples": 248233
+          }
+        }
+      ]
+    },
+    {
+      "id": "evaluate-project",
+      "method": "project",
+      "stage": "formal_evaluation",
+      "description": "Evaluate all 248233 full-test routes with the common strict evaluator.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "summarize-operational-efficiency"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "research/target/release/ewr-evaluate",
+        "--dataset-jsonl",
+        "${runtime}/manifests/test.jsonl",
+        "--predictions-jsonl",
+        "${runtime}/project/full/predictions.jsonl",
+        "--output",
+        "${runtime}/project/full/evaluation.json"
+      ],
+      "requires": [
+        {
+          "path": "research/target/release/ewr-evaluate",
+          "sha256": "cad93a90de5b96bd8d62a7adc8006c6a800280e0766efbe971a240c2ab0f4d22"
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "${runtime}/project/full/predictions.jsonl",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/project/full/evaluation.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.evaluation-summary/v1",
+            "sample_count": 248233
+          }
+        }
+      ]
+    },
+    {
+      "id": "evaluate-sp-length",
+      "method": "sp_length",
+      "stage": "formal_evaluation",
+      "description": "Evaluate all 248233 full-test routes with the common strict evaluator.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "evaluate-project"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "research/target/release/ewr-evaluate",
+        "--dataset-jsonl",
+        "${runtime}/manifests/test.jsonl",
+        "--predictions-jsonl",
+        "${runtime}/sp-length/full/predictions.jsonl",
+        "--output",
+        "${runtime}/sp-length/full/evaluation.json"
+      ],
+      "requires": [
+        {
+          "path": "research/target/release/ewr-evaluate",
+          "sha256": "cad93a90de5b96bd8d62a7adc8006c6a800280e0766efbe971a240c2ab0f4d22"
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "${runtime}/sp-length/full/predictions.jsonl",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/sp-length/full/evaluation.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.evaluation-summary/v1",
+            "sample_count": 248233
+          }
+        }
+      ]
+    },
+    {
+      "id": "evaluate-markov-sp",
+      "method": "markov_sp",
+      "stage": "formal_evaluation",
+      "description": "Evaluate all 248233 full-test routes with the common strict evaluator.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "evaluate-sp-length"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "research/target/release/ewr-evaluate",
+        "--dataset-jsonl",
+        "${runtime}/manifests/test.jsonl",
+        "--predictions-jsonl",
+        "${runtime}/markov-sp/full/predictions.jsonl",
+        "--output",
+        "${runtime}/markov-sp/full/evaluation.json"
+      ],
+      "requires": [
+        {
+          "path": "research/target/release/ewr-evaluate",
+          "sha256": "cad93a90de5b96bd8d62a7adc8006c6a800280e0766efbe971a240c2ab0f4d22"
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "${runtime}/markov-sp/full/predictions.jsonl",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/markov-sp/full/evaluation.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.evaluation-summary/v1",
+            "sample_count": 248233
+          }
+        }
+      ]
+    },
+    {
+      "id": "evaluate-neuromlr-g",
+      "method": "neuromlr_greedy",
+      "stage": "formal_evaluation",
+      "description": "Evaluate all 248233 full-test routes with the common strict evaluator.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "evaluate-markov-sp"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "research/target/release/ewr-evaluate",
+        "--dataset-jsonl",
+        "${runtime}/manifests/test.jsonl",
+        "--predictions-jsonl",
+        "${runtime}/neuromlr-g/full/predictions.jsonl",
+        "--output",
+        "${runtime}/neuromlr-g/full/evaluation.json"
+      ],
+      "requires": [
+        {
+          "path": "research/target/release/ewr-evaluate",
+          "sha256": "cad93a90de5b96bd8d62a7adc8006c6a800280e0766efbe971a240c2ab0f4d22"
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/predictions.jsonl",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/neuromlr-g/full/evaluation.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.evaluation-summary/v1",
+            "sample_count": 248233
+          }
+        }
+      ]
+    },
+    {
+      "id": "evaluate-drncs-lg",
+      "method": "drncs_lg",
+      "stage": "formal_evaluation",
+      "description": "Evaluate all 248233 full-test routes with the common strict evaluator.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "evaluate-neuromlr-g"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "research/target/release/ewr-evaluate",
+        "--dataset-jsonl",
+        "${runtime}/manifests/test.jsonl",
+        "--predictions-jsonl",
+        "${runtime}/drncs-lg/full/predictions.jsonl",
+        "--output",
+        "${runtime}/drncs-lg/full/evaluation.json"
+      ],
+      "requires": [
+        {
+          "path": "research/target/release/ewr-evaluate",
+          "sha256": "cad93a90de5b96bd8d62a7adc8006c6a800280e0766efbe971a240c2ab0f4d22"
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/predictions.jsonl",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/drncs-lg/full/evaluation.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.evaluation-summary/v1",
+            "sample_count": 248233
+          }
+        }
+      ]
+    },
+    {
+      "id": "evaluate-drpk-static",
+      "method": "drpk_static",
+      "stage": "formal_evaluation",
+      "description": "Evaluate all 248233 full-test routes with the common strict evaluator.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "evaluate-drncs-lg"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "research/target/release/ewr-evaluate",
+        "--dataset-jsonl",
+        "${runtime}/manifests/test.jsonl",
+        "--predictions-jsonl",
+        "${runtime}/drpk-static/full/predictions.jsonl",
+        "--output",
+        "${runtime}/drpk-static/full/evaluation.json"
+      ],
+      "requires": [
+        {
+          "path": "research/target/release/ewr-evaluate",
+          "sha256": "cad93a90de5b96bd8d62a7adc8006c6a800280e0766efbe971a240c2ab0f4d22"
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "${runtime}/drpk-static/full/predictions.jsonl",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/drpk-static/full/evaluation.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.evaluation-summary/v1",
+            "sample_count": 248233
+          }
+        }
+      ]
+    },
+    {
+      "id": "evaluate-drp-tp",
+      "method": "drp_tp",
+      "stage": "formal_evaluation",
+      "description": "Evaluate all 248233 full-test routes with the common strict evaluator.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "evaluate-drpk-static"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "research/target/release/ewr-evaluate",
+        "--dataset-jsonl",
+        "${runtime}/manifests/test.jsonl",
+        "--predictions-jsonl",
+        "${runtime}/drp-tp/full/predictions.jsonl",
+        "--output",
+        "${runtime}/drp-tp/full/evaluation.json"
+      ],
+      "requires": [
+        {
+          "path": "research/target/release/ewr-evaluate",
+          "sha256": "cad93a90de5b96bd8d62a7adc8006c6a800280e0766efbe971a240c2ab0f4d22"
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "${runtime}/drp-tp/full/predictions.jsonl",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/drp-tp/full/evaluation.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.evaluation-summary/v1",
+            "sample_count": 248233
+          }
+        }
+      ]
+    },
+    {
+      "id": "quality-confidence",
+      "description": "Compute route-level 95% confidence intervals and paired differences versus Project over all full-test records.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "evaluate-drp-tp"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "python3",
+        "research/scripts/route_quality_confidence.py",
+        "--dataset",
+        "${runtime}/manifests/test.jsonl",
+        "--reference",
+        "project",
+        "--confidence-level",
+        "0.95",
+        "--progress-every",
+        "10000",
+        "--prediction",
+        "project=${runtime}/project/full/predictions.jsonl",
+        "--evaluation",
+        "project=${runtime}/project/full/evaluation.json",
+        "--prediction",
+        "sp_length=${runtime}/sp-length/full/predictions.jsonl",
+        "--evaluation",
+        "sp_length=${runtime}/sp-length/full/evaluation.json",
+        "--prediction",
+        "markov_sp=${runtime}/markov-sp/full/predictions.jsonl",
+        "--evaluation",
+        "markov_sp=${runtime}/markov-sp/full/evaluation.json",
+        "--prediction",
+        "neuromlr_greedy=${runtime}/neuromlr-g/full/predictions.jsonl",
+        "--evaluation",
+        "neuromlr_greedy=${runtime}/neuromlr-g/full/evaluation.json",
+        "--prediction",
+        "drncs_lg=${runtime}/drncs-lg/full/predictions.jsonl",
+        "--evaluation",
+        "drncs_lg=${runtime}/drncs-lg/full/evaluation.json",
+        "--prediction",
+        "drpk_static=${runtime}/drpk-static/full/predictions.jsonl",
+        "--evaluation",
+        "drpk_static=${runtime}/drpk-static/full/evaluation.json",
+        "--prediction",
+        "drp_tp=${runtime}/drp-tp/full/predictions.jsonl",
+        "--evaluation",
+        "drp_tp=${runtime}/drp-tp/full/evaluation.json",
+        "--output",
+        "${runtime}/quality-confidence.json"
+      ],
+      "requires": [
+        {
+          "path": "research/scripts/route_quality_confidence.py",
+          "sha256": "c8d1a86990f366b718e241e41f7274bea82edcfbf9a407c28b24e17fb2e01e5d"
+        },
+        {
+          "path": "${runtime}/manifests/test.jsonl",
+          "sha256": "50c01bc6d235706a7102db3a273a0a5428946c3eced0646dc6cfefec519211b5",
+          "bytes": 60410780
+        },
+        {
+          "path": "${runtime}/manifests/test.manifest.json",
+          "sha256": "944eca25f6e458e041da0266d8c3411e08b83621d79f476fc7fa5a16d871e0a1",
+          "bytes": 206
+        },
+        {
+          "path": "${runtime}/manifests/test.audit.json",
+          "sha256": "06ffdd1390ae7317eb35cb2925af8852b8082fdd8331f079dc761d3c910811d5"
+        },
+        {
+          "path": "${runtime}/project/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/project/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/sp-length/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/sp-length/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/markov-sp/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/markov-sp/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/predictions.jsonl",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/evaluation.json",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/quality-confidence.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.route-quality-confidence/v1",
+            "sample_count": 248233,
+            "reference_method": "project"
+          }
+        }
+      ]
+    },
+    {
+      "id": "summarize-paper-tables",
+      "description": "Build the seven-method full-test JSON/Markdown/CSV paper tables; only full-test inference rows are used.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "quality-confidence"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "python3",
+        "research/scripts/summarize_route_baselines.py",
+        "--input-manifest",
+        "research/experiments/route_baselines_full_test_20260719/summary-input.json",
+        "--summary-output",
+        "${runtime}/results.json",
+        "--markdown-output",
+        "${runtime}/results.md",
+        "--csv-output",
+        "${runtime}/results.csv"
+      ],
+      "requires": [
+        {
+          "path": "research/archive/experiments/neuromlr_cch_dijkstra_benchmarks/summary.json",
+          "sha256": "277747c0d484eea0008e3af859ea04f19cdda4ff14fceb086aa7799d9cae1bf6"
+        },
+        {
+          "path": "${artifacts}/project/formal-14g/training-summary.json",
+          "sha256": "158e5538d5a9e9b29f7b693209093aed24c16846c402299ddf4cc790caadcd0a"
+        },
+        {
+          "path": "${artifacts}/project/formal-14g/checkpoint-200.json",
+          "sha256": "043c152bf5a868dec6f696c2fdf26da17f909107058ef7e680248ecd81f95454"
+        },
+        {
+          "path": "${artifacts}/static-network-only/sp-length.train.json",
+          "sha256": "2c4af4231700209e850faeafc6391f08b4d0c41c8e12d9c8011c6ece4811f4d7"
+        },
+        {
+          "path": "${artifacts}/static-network-only/sp-length.artifact.json",
+          "sha256": "fc846c340798dc23b145e93d95c36279f19db53a47223bb09ac485e5dfece0cd"
+        },
+        {
+          "path": "${artifacts}/static-network-only/markov-sp.train.json",
+          "sha256": "e2894b69cb29d3d16e3a6b375c4cffb417a2b29b5a5659a49167a0195d1d62b0"
+        },
+        {
+          "path": "${artifacts}/static-network-only/markov-sp.artifact.json",
+          "sha256": "add01edc626b8c2a1a86dd383ebc7602d905732a9894f729bd3402945ac76dcd"
+        },
+        {
+          "path": "${artifacts}/neuromlr/checkpoint-epoch-45-migrated.pt",
+          "sha256": "8ce1043d4908d86b50f282600cda1937d283a1b219700834148b09299f60b6dd"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/preprocess/preprocess.json",
+          "sha256": "6d1d391484e871d0d771fd9f7262bf4d198d97de5fd5c1621a28b859bfc2f53e"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/train/training_diagnostics.json",
+          "sha256": "e87057009a3b39eb01052ea2c2c10d8fc564ae0029612f0206d3135c79375c8f"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/train/checkpoint.pt",
+          "sha256": "d4e16bfb6cfb7fa4fba0f8a9a8e449ace259b32a86fcc61f3ae45ee9ee3f9fdf"
+        },
+        {
+          "path": "${artifacts}/drncs-lg/preprocess/preprocess.pkl",
+          "sha256": "9f3ecc5130fda1fe24bda8425232eed361b26995e33c92f0abc4ce3fd805a65f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/diagnostics.json",
+          "sha256": "dd74d8753336b7a8260876d3608da286df351d59924709fa59ba2a9912559b44"
+        },
+        {
+          "path": "${artifacts}/drpk-static/train/selection.json",
+          "sha256": "794dd27f3023ac150e1991e4a3d9aa8d85384435edff9c4eeb24bf9a9abd2f20"
+        },
+        {
+          "path": "${artifacts}/drpk-static/train/checkpoint-best-accuracy.pt",
+          "sha256": "e34441cbc671135823eb3543d565352a5ae65d3057acfce1511129a4802dddd7"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/configuration.json",
+          "sha256": "7c8b8267583fecb84eb9ca44299a205161b314b79fa450992709dc60b9087c0f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/routing-configuration.json",
+          "sha256": "56abe24024b8997ec915ed78b5ac88a0bcb59b89a0c29586994f8f3d56892609"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/core-artifacts.json",
+          "sha256": "a40bdaa4eff0aff7b3648c7834e9e4f9ba1704a53d3d6db2736d854a0ab9aa3f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/routing-artifacts.json",
+          "sha256": "1a21c5d1d62c41c6ed445b5750da03129e474d3e9f0e98f614c444f257d0d96d"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/graph.npz",
+          "sha256": "08c4889247fc1ab65da2c58b0f77eec44de59d7bd9d13637931961d8d8bd0882"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/metadata.json",
+          "sha256": "200e7a89a0fe8b7151ed9fce925a7ac1aeea12ffac3ebf6f079bf4f4e3b02e6f"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_offsets.npy",
+          "sha256": "c19f86230dc2b57b4b4864df62f5c82b69be154db7a794b9db6ad67fe22072b0"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_offsets.npy",
+          "sha256": "f80a34837829c7feea4e4bc587a4b1607e3d8bf623717082c33b7646a7b19984"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_indices.u32",
+          "sha256": "e7ab3253efed78c1060195ed6c4208f86b19a7307d3eb7dd696e3f530ccac3e1"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/row_values.u32",
+          "sha256": "511a8b5560fdd07ff389896a607226a14706fb2fbafa0dbe295b090fdcea22b5"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_indices.u32",
+          "sha256": "237b2f002641719925eb7a11ca7642b556bb10f0cdda485a72bb9351da2c5e26"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/da/col_values.u32",
+          "sha256": "cc3c8fe15c9c62fd8ffc9f58212a6207f086c579e8c11387bd1f4726d1aa6a75"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/node2vec.npy",
+          "sha256": "9396a461ed1bf4c149fed1cf15fe5d35619f05e243e3f2dbc4951f6917e10335"
+        },
+        {
+          "path": "${artifacts}/drpk-static/preprocess/static_features.npz",
+          "sha256": "4189699254cf6990388c597ab63ab52f321f952e5004124c00509ab5316e1004"
+        },
+        {
+          "path": "research/scripts/summarize_route_baselines.py",
+          "sha256": "8113b65944c64ef541391cfc4d7a1a1357350f4f8a736f4e96f6f644246ac00c"
+        },
+        {
+          "path": "research/experiments/route_baselines_full_test_20260719/summary-input.json"
+        },
+        {
+          "path": "${runtime}/operational-efficiency.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/project/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/project/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/sp-length/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/sp-length/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/markov-sp/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/markov-sp/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/neuromlr-g/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drncs-lg/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drpk-static/full/evaluation.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/diagnostics.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/drp-tp/full/evaluation.json",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/results.json",
+          "min_bytes": 100,
+          "json_contains": {
+            "schema": "ewr.route-baseline-summary/v1"
+          }
+        },
+        {
+          "path": "${runtime}/results.md",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/results.csv",
+          "min_bytes": 100
+        }
+      ]
+    },
+    {
+      "id": "write-paper-report",
+      "description": "Render the protocol-aware full-test paper report with quality, training, and full-task operational inference evidence.",
+      "profiles": [
+        "full"
+      ],
+      "depends_on": [
+        "summarize-paper-tables"
+      ],
+      "action": "command",
+      "device": "cpu",
+      "command": [
+        "python3",
+        "research/scripts/write_full_test_route_report.py",
+        "--protocol",
+        "research/experiments/route_baselines_full_test_20260719/protocol.json",
+        "--summary",
+        "${runtime}/results.json",
+        "--confidence",
+        "${runtime}/quality-confidence.json",
+        "--output",
+        "${runtime}/paper-report.md"
+      ],
+      "requires": [
+        {
+          "path": "research/scripts/write_full_test_route_report.py",
+          "sha256": "47ebfee295f2d6bd41158bfc370bf338fbae699f801ab811e5b795df3bae7297"
+        },
+        {
+          "path": "research/experiments/route_baselines_full_test_20260719/protocol.json"
+        },
+        {
+          "path": "${runtime}/results.json",
+          "min_bytes": 100
+        },
+        {
+          "path": "${runtime}/quality-confidence.json",
+          "min_bytes": 100
+        }
+      ],
+      "outputs": [
+        {
+          "path": "${runtime}/paper-report.md",
+          "min_bytes": 100
+        }
+      ]
+    }
+  ]
+}

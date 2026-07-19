@@ -1,0 +1,22 @@
+[package]
+name = "ewr-research-static-baselines"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+ewr-cch = { path = "../../../crates/ewr-cch" }
+ewr-core = { path = "../../../crates/ewr-core" }
+ewr-io = { path = "../../../crates/ewr-io" }
+ewr-research-evaluator = { path = "../ewr-research-evaluator" }
+ewr-research-protocol = { path = "../ewr-research-protocol" }
+rayon = "1"
+serde.workspace = true
+serde_json.workspace = true
+
+[[bin]]
+name = "ewr-static-baseline"
+path = "src/main.rs"
+
+[lints]
+workspace = true

@@ -47,7 +47,7 @@ impl LoadReport {
 
 /// Load a road network and historical trajectories from explicit paths.
 pub fn load_dataset(paths: &DatasetPaths) -> Result<LoadedDataset, DatasetError> {
-    let network = load_network(paths)?;
+    let network = load_network(&paths.nodes, &paths.edges)?;
     let file =
         File::open(&paths.trajectories).map_err(|source| DatasetError::OpenTrajectories {
             path: paths.trajectories.clone(),
@@ -65,9 +65,14 @@ pub fn load_dataset(paths: &DatasetPaths) -> Result<LoadedDataset, DatasetError>
     })
 }
 
-fn load_network(paths: &DatasetPaths) -> Result<RoadNetwork, DatasetError> {
-    let edges = load_edges(&paths.edges)?;
-    let nodes = load_nodes(&paths.nodes)?;
+/// Load only the directed road network from explicit node and edge Shapefiles.
+///
+/// This adapter deliberately does not open or decode any trajectory file. It is
+/// intended for inference and research baselines whose network topology is the
+/// only dataset input they require.
+pub fn load_network(nodes: &Path, edges: &Path) -> Result<RoadNetwork, DatasetError> {
+    let edges = load_edges(edges)?;
+    let nodes = load_nodes(nodes)?;
     let arrays = build_graph_arrays(&nodes, &edges)?;
 
     let mut baseline_weights = Vec::with_capacity(arrays.weight.len());

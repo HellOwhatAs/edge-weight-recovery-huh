@@ -5,12 +5,14 @@ members = [
     "crates/ewr-research-evaluator",
     "crates/ewr-research-project-experiment",
     "crates/ewr-research-protocol",
+    "crates/ewr-research-static-baselines",
 ]
 default-members = [
     "crates/ewr-research-dijkstra",
     "crates/ewr-research-evaluator",
     "crates/ewr-research-project-experiment",
     "crates/ewr-research-protocol",
+    "crates/ewr-research-static-baselines",
 ]
 
 [workspace.package]

@@ -29,12 +29,23 @@ from types import SimpleNamespace
 from typing import Any, Iterable
 
 UPSTREAM_COMMIT = "c45e3b5811e5a59b36e4682307d2196c02dac360"
+UPSTREAM_TREE = "318d28140208ae3cfa538ed8e0fd3adcb023dae7"
+UPSTREAM_FILE_SHA256 = {
+    "model_all.py": "091d18e83c618a3dcc3676c4fb63d68737bd3d872f45732547298fa995e6c2af",
+    "models_general.py": "180af33516fc21c7572b20db95367246a35d1017fe194d6848de261b59e172d5",
+    "train.py": "b031fc272c2c776dd4bcd77539599b8fa80b1d2c0bbc555fcd140f7cb08cb1a0",
+    "eval.py": "8e78946ef9b1b0602939c09695e8610604edc944f95a005728d04820266fd19c",
+    "utils.py": "c4f54ae923e993340232ccd1a21f6ce5e711dcf127f460f70a843e89dcb04017",
+    "requirements.txt": "aa4e4644cb56597c25c4dede0dc3cbe65c1d2c5421da94b678f65be8e2639503",
+}
 MAX_GENERATION_STEPS = 300
 DATASET_MANIFEST_SCHEMA = "ewr.dataset-manifest/v1"
 DATASET_RECORD_SCHEMA = "ewr.dataset-record/v1"
 PREDICTION_RECORD_SCHEMA = "ewr.prediction-record/v1"
 RUN_RECEIPT_SCHEMA = "ewr.run-receipt/v1"
-ADAPTER_VERSION = "0.1.0"
+PREDICTION_PROGRESS_SCHEMA = "ewr.neuromlr-prediction-progress/v1"
+PREDICTION_RESUME_BINDING_SCHEMA = "ewr.neuromlr-prediction-resume-binding/v1"
+ADAPTER_VERSION = "0.2.0"
 
 # Loaded only after CLI parsing, so protocol validation and `--help` do not
 # require the heavyweight model environment.
@@ -92,6 +103,7 @@ class RoadGraph:
     edge_mapping: dict[int, tuple[int, int]]
     edge_index: torch.Tensor
     identity: str
+    coordinate_identity: str
 
 
 @dataclass
@@ -114,7 +126,31 @@ class DatasetArtifact:
     manifest: DatasetManifest
     manifest_path: Path
     manifest_sha256: str
+    records_path: Path
+    records_sha256: str
     trips: list[Trip]
+
+
+@dataclass(frozen=True)
+class RepeatedDijkstraResult:
+    generated: list[list[int]]
+    warmup_seconds: list[float]
+    measured_seconds: list[float]
+    component_totals_per_repetition: list[dict[str, float]]
+
+
+@dataclass(frozen=True)
+class ChunkedGreedyResult:
+    prediction_seconds: float
+    chunk_seconds: list[float]
+    endpoint_failures: int
+    resumed_chunks: int
+    completed_chunks: int
+    output_sha256: str
+    progress_path: Path
+    resume_dir: Path
+    peak_rss_kib: int
+    peak_cuda_memory_bytes: int
 
 
 def parse_args() -> argparse.Namespace:
@@ -144,6 +180,28 @@ def parse_args() -> argparse.Namespace:
     predict.add_argument("--score-edge-chunk", type=int, default=4096)
     predict.add_argument("--warmup-repetitions", type=int, default=0)
     predict.add_argument("--measured-repetitions", type=int, default=1)
+    predict.add_argument(
+        "--route-chunk-size",
+        type=int,
+        default=0,
+        help="bounded Greedy route batch size; zero preserves legacy full-batch prediction",
+    )
+    predict.add_argument(
+        "--resume",
+        choices=["auto", "never", "require"],
+        default="auto",
+        help="recovery policy when --route-chunk-size is positive",
+    )
+    predict.add_argument(
+        "--resume-dir",
+        type=Path,
+        help="atomic Greedy prediction shards (default: <predictions>.resume)",
+    )
+    predict.add_argument(
+        "--progress",
+        type=Path,
+        help="atomic progress JSON (default: <resume-dir>/progress.json)",
+    )
     return parser.parse_args()
 
 
@@ -178,10 +236,43 @@ def verify_upstream(upstream_dir: Path) -> None:
     ).stdout.strip()
     if actual != UPSTREAM_COMMIT:
         raise RuntimeError(f"NeuroMLR checkout is {actual}, expected {UPSTREAM_COMMIT}")
-    required = ["model_all.py", "models_general.py", "README.md"]
+    tree = subprocess.run(
+        ["git", "-C", str(upstream_dir), "rev-parse", "HEAD^{tree}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if tree != UPSTREAM_TREE:
+        raise RuntimeError(f"NeuroMLR tree is {tree}, expected {UPSTREAM_TREE}")
+    dirty = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(upstream_dir),
+            "status",
+            "--porcelain",
+            "--untracked-files=no",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if dirty:
+        raise RuntimeError("pinned NeuroMLR checkout has modified tracked files")
+    required = [*UPSTREAM_FILE_SHA256, "README.md"]
     missing = [name for name in required if not (upstream_dir / name).is_file()]
     if missing:
         raise RuntimeError(f"pinned checkout lacks {missing}")
+    actual_file_hashes = {
+        name: sha256_file(upstream_dir / name) for name in UPSTREAM_FILE_SHA256
+    }
+    mismatched = {
+        name: {"actual": actual_file_hashes[name], "expected": expected}
+        for name, expected in UPSTREAM_FILE_SHA256.items()
+        if actual_file_hashes[name] != expected
+    }
+    if mismatched:
+        raise RuntimeError(f"pinned NeuroMLR files have unexpected hashes: {mismatched}")
     sys.path.insert(0, str(upstream_dir.resolve()))
 
 
@@ -233,6 +324,10 @@ def load_road_graph(map_dir: Path) -> RoadGraph:
     for values in (tail, head):
         identity_hash.update(values.astype("<u8", copy=False).tobytes())
     identity = identity_hash.hexdigest()
+    coordinate_hash = hashlib.sha256()
+    for values in (x, y):
+        coordinate_hash.update(values.astype("<f8", copy=False).tobytes())
+    coordinate_identity = coordinate_hash.hexdigest()
     return RoadGraph(
         tail=tail,
         head=head,
@@ -245,6 +340,7 @@ def load_road_graph(map_dir: Path) -> RoadGraph:
         edge_mapping=mapping,
         edge_index=edge_index,
         identity=identity,
+        coordinate_identity=coordinate_identity,
     )
 
 
@@ -281,6 +377,14 @@ def require_nonempty_string(value: Any, field: str) -> str:
     return value
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        while block := source.read(1024 * 1024):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def load_dataset_manifest(path: Path) -> DatasetArtifact:
     manifest_bytes = path.read_bytes()
     descriptor = require_exact_fields(
@@ -311,11 +415,17 @@ def load_dataset_manifest(path: Path) -> DatasetArtifact:
     if records_path.is_absolute() or ".." in records_path.parts:
         raise RuntimeError("records_file must be a safe path relative to its manifest")
     records_path = path.parent / records_path
+    records_sha256_before = sha256_file(records_path)
     trips = load_dataset_records(records_path)
+    records_sha256_after = sha256_file(records_path)
+    if records_sha256_before != records_sha256_after:
+        raise RuntimeError("dataset records changed while they were being loaded")
     return DatasetArtifact(
         manifest=manifest,
         manifest_path=path.resolve(),
         manifest_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+        records_path=records_path.resolve(),
+        records_sha256=records_sha256_after,
         trips=trips,
     )
 
@@ -805,6 +915,600 @@ def dijkstra_path(
     return path
 
 
+def dijkstra_paths(
+    model,
+    trips: list[Trip],
+    graph: RoadGraph,
+    chunk_edges: int,
+) -> tuple[list[list[int]], list[dict[str, float | str]]]:
+    generated = []
+    timing_rows = []
+    with torch.no_grad():
+        for trip in trips:
+            costs, embedding_seconds, scoring_seconds = transition_costs(
+                model, trip.edges[-1], graph, chunk_edges
+            )
+            route_started = time.perf_counter()
+            path = dijkstra_path(trip.edges[0], trip.edges[-1], graph, costs)
+            route_seconds = time.perf_counter() - route_started
+            generated.append(path)
+            timing_rows.append(
+                {
+                    "sample_id": trip.sample_id,
+                    "embedding_seconds": embedding_seconds,
+                    "transition_scoring_seconds": scoring_seconds,
+                    "dijkstra_seconds": route_seconds,
+                }
+            )
+    return generated, timing_rows
+
+
+def synchronize_device(device: torch.device) -> None:
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+
+
+def verify_repeated_paths(
+    reference: list[list[int]] | None,
+    candidate: list[list[int]],
+    phase: str,
+    repetition: int,
+) -> list[list[int]]:
+    if reference is not None and candidate != reference:
+        raise RuntimeError(
+            f"Dijkstra {phase} repetition {repetition} produced different routes"
+        )
+    return candidate if reference is None else reference
+
+
+def repeated_dijkstra_paths(
+    model,
+    trips: list[Trip],
+    graph: RoadGraph,
+    chunk_edges: int,
+    device: torch.device,
+    warmup_repetitions: int,
+    measured_repetitions: int,
+) -> RepeatedDijkstraResult:
+    reference = None
+    warmup_seconds = []
+    for repetition in range(warmup_repetitions):
+        synchronize_device(device)
+        started = time.perf_counter()
+        candidate, _ = dijkstra_paths(model, trips, graph, chunk_edges)
+        synchronize_device(device)
+        warmup_seconds.append(time.perf_counter() - started)
+        reference = verify_repeated_paths(reference, candidate, "warm-up", repetition)
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+
+    generated = None
+    measured_seconds = []
+    component_totals_per_repetition = []
+    for repetition in range(measured_repetitions):
+        synchronize_device(device)
+        started = time.perf_counter()
+        candidate, timing_rows = dijkstra_paths(model, trips, graph, chunk_edges)
+        synchronize_device(device)
+        measured_seconds.append(time.perf_counter() - started)
+        reference = verify_repeated_paths(reference, candidate, "measured", repetition)
+        if generated is None:
+            generated = candidate
+        component_totals_per_repetition.append(sum_timing(timing_rows))
+
+    assert generated is not None
+    return RepeatedDijkstraResult(
+        generated=generated,
+        warmup_seconds=warmup_seconds,
+        measured_seconds=measured_seconds,
+        component_totals_per_repetition=component_totals_per_repetition,
+    )
+
+
+def canonical_json_sha256(value: Any) -> str:
+    encoded = json.dumps(
+        value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def build_prediction_resume_binding(
+    args: argparse.Namespace,
+    dataset: DatasetArtifact,
+    graph: RoadGraph,
+    device: torch.device,
+    checkpoint: dict[str, Any],
+    checkpoint_sha256: str,
+) -> dict[str, Any]:
+    return {
+        "schema": PREDICTION_RESUME_BINDING_SCHEMA,
+        "adapter_version": ADAPTER_VERSION,
+        "adapter_source_sha256": sha256_file(Path(__file__).resolve()),
+        "source_revision": args.source_revision,
+        "upstream_commit": UPSTREAM_COMMIT,
+        "method": "neuromlr_greedy",
+        "checkpoint": {
+            "path": str(args.checkpoint.resolve()),
+            "sha256": checkpoint_sha256,
+            "epoch": checkpoint["epoch"],
+        },
+        "dataset": {
+            "manifest_path": str(dataset.manifest_path),
+            "manifest_sha256": dataset.manifest_sha256,
+            "records_path": str(dataset.records_path),
+            "records_sha256": dataset.records_sha256,
+            "dataset_id": dataset.manifest.dataset_id,
+            "network_id": dataset.manifest.network_id,
+            "samples": len(dataset.trips),
+        },
+        "graph_identity": graph.identity,
+        "coordinate_identity": graph.coordinate_identity,
+        "model": vars(model_arguments(args)),
+        "seed": args.seed,
+        "device": str(device),
+        "environment": prediction_environment_identity(device),
+        "route_chunk_size": args.route_chunk_size,
+        "query_protocol": "fixed_true_first_edge_to_true_last_edge",
+        "predictions_path": str(args.predictions.resolve()),
+    }
+
+
+def prediction_part_name(index: int) -> str:
+    return f"parts/part-{index:06d}.jsonl"
+
+
+def require_nonnegative_number(value: Any, field: str) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise RuntimeError(f"{field} must be a finite nonnegative number")
+    return float(value)
+
+
+def validate_prediction_part(
+    path: Path,
+    trips: list[Trip],
+    graph: RoadGraph,
+    expected_sha256: str,
+) -> int:
+    if not path.is_file():
+        raise RuntimeError(f"completed prediction shard is missing: {path}")
+    actual_sha256 = sha256_file(path)
+    if actual_sha256 != expected_sha256:
+        raise RuntimeError(
+            f"prediction shard hash mismatch for {path}: "
+            f"{actual_sha256} != {expected_sha256}"
+        )
+    endpoint_failures = 0
+    row_count = 0
+    with path.open(encoding="utf-8") as source:
+        for line_number, line in enumerate(source, 1):
+            if row_count >= len(trips):
+                raise RuntimeError(f"prediction shard {path} has too many rows")
+            if not line.strip():
+                raise RuntimeError(
+                    f"blank prediction JSONL line {line_number} in {path}"
+                )
+            row = require_exact_fields(
+                decode_json(line, f"prediction JSONL line {line_number}"),
+                {"sample_id", "predicted_edge_ids"},
+                f"prediction JSONL line {line_number}",
+            )
+            trip = trips[row_count]
+            if row["sample_id"] != trip.sample_id:
+                raise RuntimeError(
+                    f"prediction shard {path} sample order differs at row {line_number}"
+                )
+            prediction = row["predicted_edge_ids"]
+            if not isinstance(prediction, list) or not prediction:
+                raise RuntimeError(
+                    f"prediction shard {path} has an empty or non-list path"
+                )
+            if any(
+                isinstance(edge, bool)
+                or not isinstance(edge, int)
+                or edge < 0
+                or edge >= len(graph.tail)
+                for edge in prediction
+            ):
+                raise RuntimeError(
+                    f"prediction shard {path} has an edge outside the raw graph"
+                )
+            if prediction[0] != trip.edges[0]:
+                raise RuntimeError(
+                    f"prediction shard {path} changes the fixed first edge for "
+                    f"sample {trip.sample_id!r}"
+                )
+            if any(
+                right not in graph.neighbors[left]
+                for left, right in zip(prediction, prediction[1:])
+            ):
+                raise RuntimeError(
+                    f"prediction shard {path} has an illegal directed transition "
+                    f"for sample {trip.sample_id!r}"
+                )
+            endpoint_failures += prediction[-1] != trip.edges[-1]
+            row_count += 1
+    if row_count != len(trips):
+        raise RuntimeError(
+            f"prediction shard {path} has {row_count} rows, expected {len(trips)}"
+        )
+    return endpoint_failures
+
+
+def validate_prediction_progress(
+    value: Any,
+    binding: dict[str, Any],
+    trips: list[Trip],
+    chunk_size: int,
+    resume_dir: Path,
+    graph: RoadGraph,
+) -> dict[str, Any]:
+    progress = require_exact_fields(
+        value,
+        {
+            "schema",
+            "binding",
+            "binding_sha256",
+            "status",
+            "total_samples",
+            "chunk_size",
+            "total_chunks",
+            "completed_samples",
+            "completed_chunks",
+            "prediction_seconds",
+            "estimated_remaining_prediction_seconds",
+            "endpoint_failures",
+            "peak_rss_kib",
+            "peak_cuda_memory_bytes",
+            "sessions",
+            "output",
+        },
+        "prediction progress",
+    )
+    if progress["schema"] != PREDICTION_PROGRESS_SCHEMA:
+        raise RuntimeError("prediction progress schema mismatch")
+    binding_sha256 = canonical_json_sha256(binding)
+    if progress["binding"] != binding or progress["binding_sha256"] != binding_sha256:
+        raise RuntimeError(
+            "prediction resume binding differs; checkpoint, dataset, graph, "
+            "configuration, device, source, or output path changed"
+        )
+    total_chunks = math.ceil(len(trips) / chunk_size)
+    expected_scalars = {
+        "total_samples": len(trips),
+        "chunk_size": chunk_size,
+        "total_chunks": total_chunks,
+    }
+    for field, expected in expected_scalars.items():
+        if progress[field] != expected:
+            raise RuntimeError(f"prediction progress {field} differs")
+    if progress["status"] not in {"running", "complete"}:
+        raise RuntimeError("prediction progress has an invalid status")
+    if (
+        isinstance(progress["sessions"], bool)
+        or not isinstance(progress["sessions"], int)
+        or progress["sessions"] < 1
+    ):
+        raise RuntimeError("prediction progress sessions must be a positive integer")
+    chunks = progress["completed_chunks"]
+    if not isinstance(chunks, list) or len(chunks) > total_chunks:
+        raise RuntimeError("prediction progress completed_chunks is invalid")
+    completed_samples = 0
+    prediction_seconds = 0.0
+    endpoint_failures = 0
+    for index, chunk_value in enumerate(chunks):
+        chunk = require_exact_fields(
+            chunk_value,
+            {
+                "index",
+                "start",
+                "stop",
+                "samples",
+                "path",
+                "sha256",
+                "prediction_seconds",
+                "endpoint_failures",
+            },
+            f"prediction progress chunk {index}",
+        )
+        start = index * chunk_size
+        stop = min(start + chunk_size, len(trips))
+        expected_path = prediction_part_name(index)
+        if chunk["index"] != index or chunk["start"] != start or chunk["stop"] != stop:
+            raise RuntimeError(f"prediction progress chunk {index} range differs")
+        if chunk["samples"] != stop - start or chunk["path"] != expected_path:
+            raise RuntimeError(f"prediction progress chunk {index} metadata differs")
+        sha256 = chunk["sha256"]
+        if (
+            not isinstance(sha256, str)
+            or len(sha256) != 64
+            or any(character not in "0123456789abcdef" for character in sha256)
+        ):
+            raise RuntimeError(f"prediction progress chunk {index} hash is invalid")
+        seconds = require_nonnegative_number(
+            chunk["prediction_seconds"],
+            f"prediction progress chunk {index} seconds",
+        )
+        failures = chunk["endpoint_failures"]
+        if (
+            isinstance(failures, bool)
+            or not isinstance(failures, int)
+            or failures < 0
+            or failures > stop - start
+        ):
+            raise RuntimeError(
+                f"prediction progress chunk {index} endpoint failures are invalid"
+            )
+        actual_failures = validate_prediction_part(
+            resume_dir / expected_path, trips[start:stop], graph, sha256
+        )
+        if actual_failures != failures:
+            raise RuntimeError(
+                f"prediction progress chunk {index} endpoint failures differ"
+            )
+        completed_samples += stop - start
+        prediction_seconds += seconds
+        endpoint_failures += failures
+    if progress["completed_samples"] != completed_samples:
+        raise RuntimeError("prediction progress completed_samples differs")
+    recorded_seconds = require_nonnegative_number(
+        progress["prediction_seconds"], "prediction progress prediction_seconds"
+    )
+    if not math.isclose(recorded_seconds, prediction_seconds, rel_tol=0, abs_tol=1e-9):
+        raise RuntimeError("prediction progress prediction_seconds differs")
+    estimated_remaining = progress["estimated_remaining_prediction_seconds"]
+    if completed_samples == 0:
+        if estimated_remaining is not None:
+            raise RuntimeError(
+                "prediction progress estimate must be null before the first chunk"
+            )
+    else:
+        recorded_estimate = require_nonnegative_number(
+            estimated_remaining,
+            "prediction progress estimated_remaining_prediction_seconds",
+        )
+        expected_estimate = prediction_seconds / completed_samples * (
+            len(trips) - completed_samples
+        )
+        if not math.isclose(
+            recorded_estimate, expected_estimate, rel_tol=0, abs_tol=1e-9
+        ):
+            raise RuntimeError("prediction progress remaining-time estimate differs")
+    if progress["endpoint_failures"] != endpoint_failures:
+        raise RuntimeError("prediction progress endpoint_failures differs")
+    for field in ("peak_rss_kib", "peak_cuda_memory_bytes"):
+        value = progress[field]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise RuntimeError(f"prediction progress {field} is invalid")
+    if progress["status"] == "complete":
+        if len(chunks) != total_chunks or not isinstance(progress["output"], dict):
+            raise RuntimeError("complete prediction progress is incomplete")
+        output = require_exact_fields(
+            progress["output"],
+            {"path", "sha256", "bytes", "samples"},
+            "prediction progress output",
+        )
+        if output["path"] != binding["predictions_path"]:
+            raise RuntimeError("prediction progress output path differs")
+        output_sha256 = output["sha256"]
+        if (
+            not isinstance(output_sha256, str)
+            or len(output_sha256) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in output_sha256
+            )
+        ):
+            raise RuntimeError("prediction progress output hash is invalid")
+        if (
+            isinstance(output["bytes"], bool)
+            or not isinstance(output["bytes"], int)
+            or output["bytes"] <= 0
+            or output["samples"] != len(trips)
+        ):
+            raise RuntimeError("prediction progress output metadata is invalid")
+    elif progress["output"] is not None:
+        raise RuntimeError("running prediction progress must not declare final output")
+    return progress
+
+
+def concatenate_prediction_parts(
+    destination: Path,
+    part_paths: list[Path],
+) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_suffix(destination.suffix + f".{os.getpid()}.tmp")
+    with temporary.open("wb") as output:
+        for part_path in part_paths:
+            with part_path.open("rb") as source:
+                while block := source.read(1024 * 1024):
+                    output.write(block)
+    os.replace(temporary, destination)
+
+
+def run_chunked_greedy_prediction(
+    model,
+    trips: list[Trip],
+    graph: RoadGraph,
+    device: torch.device,
+    predictions: Path,
+    chunk_size: int,
+    resume_dir: Path,
+    progress_path: Path,
+    resume_mode: str,
+    binding: dict[str, Any],
+) -> ChunkedGreedyResult:
+    if chunk_size <= 0:
+        raise RuntimeError("chunked Greedy prediction requires a positive chunk size")
+    if resume_mode not in {"auto", "never", "require"}:
+        raise RuntimeError("invalid prediction resume mode")
+    resume_dir = resume_dir.resolve()
+    progress_path = progress_path.resolve()
+    predictions = predictions.resolve()
+    if binding.get("predictions_path") != str(predictions):
+        raise RuntimeError(
+            "prediction resume binding must contain the resolved predictions path"
+        )
+    resume_files_exist = resume_dir.exists() and any(resume_dir.iterdir())
+    if resume_mode == "never" and (progress_path.exists() or resume_files_exist):
+        raise RuntimeError("prediction resume artifacts exist but --resume=never was used")
+    if resume_mode == "require" and not progress_path.is_file():
+        raise RuntimeError("prediction resume was required but progress does not exist")
+    if not progress_path.exists() and resume_files_exist:
+        raise RuntimeError("prediction shards exist without bound progress metadata")
+
+    resume_dir.mkdir(parents=True, exist_ok=True)
+    (resume_dir / "parts").mkdir(parents=True, exist_ok=True)
+    total_chunks = math.ceil(len(trips) / chunk_size)
+    if progress_path.is_file() and resume_mode != "never":
+        progress = validate_prediction_progress(
+            decode_json(progress_path.read_text(encoding="utf-8"), "prediction progress"),
+            binding,
+            trips,
+            chunk_size,
+            resume_dir,
+            graph,
+        )
+        resumed_chunks = len(progress["completed_chunks"])
+        if progress["status"] != "complete":
+            progress["sessions"] += 1
+            write_json(progress_path, progress)
+    else:
+        progress = {
+            "schema": PREDICTION_PROGRESS_SCHEMA,
+            "binding": binding,
+            "binding_sha256": canonical_json_sha256(binding),
+            "status": "running",
+            "total_samples": len(trips),
+            "chunk_size": chunk_size,
+            "total_chunks": total_chunks,
+            "completed_samples": 0,
+            "completed_chunks": [],
+            "prediction_seconds": 0.0,
+            "estimated_remaining_prediction_seconds": None,
+            "endpoint_failures": 0,
+            "peak_rss_kib": peak_rss_kib(),
+            "peak_cuda_memory_bytes": (
+                torch.cuda.max_memory_allocated(device)
+                if device.type == "cuda"
+                else 0
+            ),
+            "sessions": 1,
+            "output": None,
+        }
+        resumed_chunks = 0
+        write_json(progress_path, progress)
+
+    for index in range(len(progress["completed_chunks"]), total_chunks):
+        start = index * chunk_size
+        stop = min(start + chunk_size, len(trips))
+        chunk_trips = trips[start:stop]
+        synchronize_device(device)
+        started = time.perf_counter()
+        generated = greedy_paths(model, chunk_trips, graph, device)
+        synchronize_device(device)
+        seconds = time.perf_counter() - started
+        failures = sum(
+            prediction[-1] != trip.edges[-1]
+            for trip, prediction in zip(chunk_trips, generated)
+        )
+        relative_path = prediction_part_name(index)
+        part_path = resume_dir / relative_path
+        write_prediction_rows(part_path, chunk_trips, generated)
+        part_sha256 = sha256_file(part_path)
+        validated_failures = validate_prediction_part(
+            part_path, chunk_trips, graph, part_sha256
+        )
+        if validated_failures != failures:
+            raise RuntimeError(
+                f"new prediction shard {index} endpoint failures differ"
+            )
+        progress["completed_chunks"].append(
+            {
+                "index": index,
+                "start": start,
+                "stop": stop,
+                "samples": stop - start,
+                "path": relative_path,
+                "sha256": part_sha256,
+                "prediction_seconds": seconds,
+                "endpoint_failures": failures,
+            }
+        )
+        progress["completed_samples"] = stop
+        progress["prediction_seconds"] += seconds
+        progress["estimated_remaining_prediction_seconds"] = (
+            progress["prediction_seconds"] / stop * (len(trips) - stop)
+        )
+        progress["endpoint_failures"] += failures
+        progress["peak_rss_kib"] = max(progress["peak_rss_kib"], peak_rss_kib())
+        progress["peak_cuda_memory_bytes"] = max(
+            progress["peak_cuda_memory_bytes"],
+            (
+                torch.cuda.max_memory_allocated(device)
+                if device.type == "cuda"
+                else 0
+            ),
+        )
+        write_json(progress_path, progress)
+        print(
+            json.dumps(
+                {
+                    "event": "neuromlr_greedy_progress",
+                    "completed_chunks": index + 1,
+                    "total_chunks": total_chunks,
+                    "completed_samples": stop,
+                    "total_samples": len(trips),
+                    "fraction": stop / len(trips),
+                    "prediction_seconds": progress["prediction_seconds"],
+                    "estimated_remaining_prediction_seconds": progress[
+                        "estimated_remaining_prediction_seconds"
+                    ],
+                    "peak_rss_kib": progress["peak_rss_kib"],
+                    "peak_cuda_memory_bytes": progress[
+                        "peak_cuda_memory_bytes"
+                    ],
+                    "progress": str(progress_path),
+                },
+                separators=(",", ":"),
+            ),
+            flush=True,
+        )
+
+    part_paths = [
+        resume_dir / prediction_part_name(index) for index in range(total_chunks)
+    ]
+    concatenate_prediction_parts(predictions, part_paths)
+    output_sha256 = sha256_file(predictions)
+    progress["status"] = "complete"
+    progress["output"] = {
+        "path": str(predictions),
+        "sha256": output_sha256,
+        "bytes": predictions.stat().st_size,
+        "samples": len(trips),
+    }
+    write_json(progress_path, progress)
+    return ChunkedGreedyResult(
+        prediction_seconds=float(progress["prediction_seconds"]),
+        chunk_seconds=[
+            float(chunk["prediction_seconds"])
+            for chunk in progress["completed_chunks"]
+        ],
+        endpoint_failures=int(progress["endpoint_failures"]),
+        resumed_chunks=resumed_chunks,
+        completed_chunks=total_chunks,
+        output_sha256=output_sha256,
+        progress_path=progress_path,
+        resume_dir=resume_dir,
+        peak_rss_kib=int(progress["peak_rss_kib"]),
+        peak_cuda_memory_bytes=int(progress["peak_cuda_memory_bytes"]),
+    )
+
+
 def predict(args: argparse.Namespace) -> None:
     if args.warmup_repetitions < 0 or args.measured_repetitions <= 0:
         raise RuntimeError(
@@ -812,10 +1516,24 @@ def predict(args: argparse.Namespace) -> None:
         )
     if not args.source_revision.strip():
         raise RuntimeError("source revision must not be empty")
-    if args.method == "dijkstra" and (
+    if args.route_chunk_size < 0:
+        raise RuntimeError("route chunk size must be nonnegative")
+    chunked_greedy = args.route_chunk_size > 0
+    if chunked_greedy and args.method != "greedy":
+        raise RuntimeError("route chunking is supported only for NeuroMLR-Greedy")
+    if chunked_greedy and (
         args.warmup_repetitions != 0 or args.measured_repetitions != 1
     ):
-        raise RuntimeError("repeated prediction timing is implemented only for Greedy")
+        raise RuntimeError(
+            "resumable Greedy quality prediction requires zero warm-ups and one "
+            "measured repetition; use legacy mode for efficiency measurements"
+        )
+    if not chunked_greedy and (
+        args.resume_dir is not None
+        or args.progress is not None
+        or args.resume != "auto"
+    ):
+        raise RuntimeError("prediction resume options require a positive route chunk size")
     total_started = time.perf_counter()
     graph_started = time.perf_counter()
     graph = load_road_graph(args.map_dir)
@@ -823,26 +1541,84 @@ def predict(args: argparse.Namespace) -> None:
     trips = dataset.trips
     validate_trips(trips, graph)
     data_seconds = time.perf_counter() - graph_started
-    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
+    requested_device = torch.device(args.device)
+    if requested_device.type == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "prediction requested CUDA, but CUDA is unavailable; refusing an "
+                "accidental CPU fallback"
+            )
+        if requested_device.index not in {None, 0}:
+            raise RuntimeError("prediction CUDA protocol requires logical cuda:0")
+        if os.environ.get("CUDA_VISIBLE_DEVICES") != "0":
+            raise RuntimeError(
+                "prediction CUDA protocol requires CUDA_VISIBLE_DEVICES=0"
+            )
+    device = requested_device
     model_started = time.perf_counter()
+    checkpoint_sha256 = sha256_file(args.checkpoint)
     model, checkpoint = load_checkpoint_model(
         args, graph, device, dataset.manifest.network_id
     )
+    if sha256_file(args.checkpoint) != checkpoint_sha256:
+        raise RuntimeError("checkpoint changed while it was being loaded")
     model_seconds = time.perf_counter() - model_started
-    timing_rows = []
-    if args.method == "greedy":
-        for _ in range(args.warmup_repetitions):
-            greedy_paths(model, trips, graph, device)
+    if chunked_greedy:
         if device.type == "cuda":
-            torch.cuda.synchronize(device)
+            torch.cuda.reset_peak_memory_stats(device)
+        resume_dir = (
+            args.resume_dir
+            or args.predictions.with_name(args.predictions.name + ".resume")
+        )
+        progress_path = args.progress or resume_dir / "progress.json"
+        binding = build_prediction_resume_binding(
+            args, dataset, graph, device, checkpoint, checkpoint_sha256
+        )
+        chunked = run_chunked_greedy_prediction(
+            model=model,
+            trips=trips,
+            graph=graph,
+            device=device,
+            predictions=args.predictions,
+            chunk_size=args.route_chunk_size,
+            resume_dir=resume_dir,
+            progress_path=progress_path,
+            resume_mode=args.resume,
+            binding=binding,
+        )
+        prediction_seconds = chunked.prediction_seconds
+        warmup_seconds = []
+        repetition_seconds = [prediction_seconds]
+        component_totals_per_repetition = []
+        endpoint_failures = chunked.endpoint_failures
+        output_sha256 = chunked.output_sha256
+        execution = {
+            "mode": "chunked_resumable_quality_prediction",
+            "route_chunk_size": args.route_chunk_size,
+            "completed_chunks": chunked.completed_chunks,
+            "resumed_chunks": chunked.resumed_chunks,
+            "resume_dir": str(chunked.resume_dir),
+            "progress": str(chunked.progress_path),
+            "prediction_chunk_seconds": chunked.chunk_seconds,
+            "timing_scope": "sum_of_atomic_chunk_measurements_across_sessions",
+            "resource_scope": "maximum_observed_across_committed_sessions",
+        }
+    elif args.method == "greedy":
+        warmup_seconds = []
+        for _ in range(args.warmup_repetitions):
+            synchronize_device(device)
+            warmup_started = time.perf_counter()
+            greedy_paths(model, trips, graph, device)
+            synchronize_device(device)
+            warmup_seconds.append(time.perf_counter() - warmup_started)
+        if device.type == "cuda":
             torch.cuda.reset_peak_memory_stats(device)
         repetition_seconds = []
         generated = None
         for repetition in range(args.measured_repetitions):
             prediction_started = time.perf_counter()
             candidate = greedy_paths(model, trips, graph, device)
-            if device.type == "cuda":
-                torch.cuda.synchronize(device)
+            synchronize_device(device)
             repetition_seconds.append(time.perf_counter() - prediction_started)
             if generated is None:
                 generated = candidate
@@ -850,61 +1626,92 @@ def predict(args: argparse.Namespace) -> None:
                 raise RuntimeError(f"Greedy repetition {repetition} produced different routes")
         assert generated is not None
         prediction_seconds = sum(repetition_seconds) / len(repetition_seconds)
+        component_totals_per_repetition = []
+        endpoint_failures = sum(
+            prediction[-1] != trip.edges[-1]
+            for trip, prediction in zip(trips, generated)
+        )
+        write_prediction_rows(args.predictions, trips, generated)
+        output_sha256 = sha256_file(args.predictions)
+        execution = {
+            "mode": "legacy_full_batch",
+            "route_chunk_size": 0,
+        }
     else:
-        prediction_started = time.perf_counter()
-        generated = []
-        with torch.no_grad():
-            for trip in trips:
-                costs, embedding_seconds, scoring_seconds = transition_costs(
-                    model, trip.edges[-1], graph, args.score_edge_chunk
-                )
-                route_started = time.perf_counter()
-                path = dijkstra_path(trip.edges[0], trip.edges[-1], graph, costs)
-                route_seconds = time.perf_counter() - route_started
-                generated.append(path)
-                timing_rows.append(
-                    {
-                        "sample_id": trip.sample_id,
-                        "embedding_seconds": embedding_seconds,
-                        "transition_scoring_seconds": scoring_seconds,
-                        "dijkstra_seconds": route_seconds,
-                    }
-                )
-        prediction_seconds = time.perf_counter() - prediction_started
-        repetition_seconds = [prediction_seconds]
-    write_prediction_rows(args.predictions, trips, generated)
+        repeated = repeated_dijkstra_paths(
+            model,
+            trips,
+            graph,
+            args.score_edge_chunk,
+            device,
+            args.warmup_repetitions,
+            args.measured_repetitions,
+        )
+        generated = repeated.generated
+        warmup_seconds = repeated.warmup_seconds
+        repetition_seconds = repeated.measured_seconds
+        component_totals_per_repetition = repeated.component_totals_per_repetition
+        prediction_seconds = sum(repetition_seconds) / len(repetition_seconds)
+        endpoint_failures = sum(
+            prediction[-1] != trip.edges[-1]
+            for trip, prediction in zip(trips, generated)
+        )
+        write_prediction_rows(args.predictions, trips, generated)
+        output_sha256 = sha256_file(args.predictions)
+        execution = {
+            "mode": "legacy_full_batch",
+            "route_chunk_size": 0,
+        }
+    if chunked_greedy:
+        prediction_peak_rss_kib = chunked.peak_rss_kib
+        prediction_peak_cuda_memory_bytes = chunked.peak_cuda_memory_bytes
+    else:
+        prediction_peak_rss_kib = peak_rss_kib()
+        prediction_peak_cuda_memory_bytes = (
+            torch.cuda.max_memory_allocated(device) if device.type == "cuda" else 0
+        )
     diagnostics = {
         "schema": "ewr.neuromlr-diagnostics/v1",
         "method": f"neuromlr_{args.method}",
         "upstream_commit": UPSTREAM_COMMIT,
         "checkpoint": str(args.checkpoint),
+        "checkpoint_sha256": checkpoint_sha256,
         "checkpoint_epoch": checkpoint["epoch"],
         "dataset_manifest": str(dataset.manifest_path),
         "dataset_manifest_sha256": dataset.manifest_sha256,
+        "dataset_records": str(dataset.records_path),
+        "dataset_records_sha256": dataset.records_sha256,
         "dataset_id": dataset.manifest.dataset_id,
         "network_id": dataset.manifest.network_id,
+        "graph_identity": graph.identity,
+        "coordinate_identity": graph.coordinate_identity,
         "samples": len(trips),
         "query_protocol": "fixed_true_first_edge_to_true_last_edge",
+        "endpoint_failures": endpoint_failures,
+        "predictions_sha256": output_sha256,
+        "execution": execution,
         "timing": {
             "data_and_graph_seconds": data_seconds,
             "model_load_seconds": model_seconds,
             "prediction_seconds": prediction_seconds,
+            "warmup_repetition_seconds": warmup_seconds,
             "prediction_repetition_seconds": repetition_seconds,
             "mean_seconds_per_query": prediction_seconds / len(trips),
             "queries_per_second": len(trips) / prediction_seconds,
-            "component_totals": sum_timing(timing_rows),
+            "component_totals": mean_timing(component_totals_per_repetition),
+            "component_totals_per_repetition": component_totals_per_repetition,
             "total_process_seconds": time.perf_counter() - total_started,
         },
-        "peak_rss_kib": peak_rss_kib(),
-        "peak_cuda_memory_bytes": (
-            torch.cuda.max_memory_allocated(device) if device.type == "cuda" else 0
-        ),
+        "peak_rss_kib": prediction_peak_rss_kib,
+        "peak_cuda_memory_bytes": prediction_peak_cuda_memory_bytes,
         "warmup_repetitions": args.warmup_repetitions,
         "measured_repetitions": args.measured_repetitions,
         "seed": args.seed,
         "traffic": False,
     }
-    receipt = build_run_receipt(args, dataset, graph, device, checkpoint)
+    receipt = build_run_receipt(
+        args, dataset, graph, device, checkpoint, checkpoint_sha256
+    )
     write_json(args.diagnostics, diagnostics)
     write_json(args.run_receipt, receipt)
     print(json.dumps(receipt, indent=2))
@@ -916,6 +1723,7 @@ def build_run_receipt(
     graph: RoadGraph,
     device: torch.device,
     checkpoint: dict,
+    checkpoint_sha256: str,
     environment: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     if environment is None:
@@ -939,13 +1747,22 @@ def build_run_receipt(
         "prediction_records_schema": PREDICTION_RECORD_SCHEMA,
         "configuration": {
             "checkpoint": str(args.checkpoint),
+            "checkpoint_sha256": checkpoint_sha256,
             "checkpoint_epoch": checkpoint["epoch"],
+            "dataset_records_sha256": dataset.records_sha256,
             "network_id": dataset.manifest.network_id,
             "graph_identity": graph.identity,
+            "coordinate_identity": graph.coordinate_identity,
             "query_protocol": "fixed_true_first_edge_to_true_last_edge",
             "seed": args.seed,
             "model": vars(model_arguments(args)),
             "score_edge_chunk": args.score_edge_chunk,
+            "route_chunk_size": args.route_chunk_size,
+            "prediction_execution_mode": (
+                "chunked_resumable_quality_prediction"
+                if args.route_chunk_size > 0
+                else "legacy_full_batch"
+            ),
             "warmup_repetitions": args.warmup_repetitions,
             "measured_repetitions": args.measured_repetitions,
             "upstream_commit": UPSTREAM_COMMIT,
@@ -963,6 +1780,22 @@ def model_environment(device: torch.device) -> dict[str, str]:
         "python": platform.python_version(),
         "torch": str(torch.__version__),
     }
+
+
+def prediction_environment_identity(device: torch.device) -> dict[str, str]:
+    environment = model_environment(device)
+    if device.type == "cuda":
+        environment.update(
+            {
+                "cuda_visible_devices": os.environ["CUDA_VISIBLE_DEVICES"],
+                "cuda_runtime": str(torch.version.cuda),
+                "cuda_device_name": torch.cuda.get_device_name(device),
+                "cuda_compute_capability": ".".join(
+                    str(value) for value in torch.cuda.get_device_capability(device)
+                ),
+            }
+        )
+    return environment
 
 
 def route_metrics(observed: list[list[int]], predicted: list[list[int]]) -> dict[str, float | int]:
@@ -1027,6 +1860,13 @@ def sum_timing(rows: list[dict]) -> dict[str, float]:
         key: sum(float(row[key]) for row in rows)
         for key in ["embedding_seconds", "transition_scoring_seconds", "dijkstra_seconds"]
     } if rows else {}
+
+
+def mean_timing(rows: list[dict[str, float]]) -> dict[str, float]:
+    if not rows:
+        return {}
+    keys = ["embedding_seconds", "transition_scoring_seconds", "dijkstra_seconds"]
+    return {key: sum(row[key] for row in rows) / len(rows) for key in keys}
 
 
 def write_json(path: Path, value: dict) -> None:

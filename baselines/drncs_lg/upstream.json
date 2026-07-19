@@ -1,0 +1,97 @@
+{
+  "schema": "ewr.drncs-lg-upstream-audit/v1",
+  "repository": "https://github.com/iairplane/DRNCS",
+  "commit": "8847482eb507785ee5b4e145f1a5144d1737fbe0",
+  "commit_date": "2025-06-08T08:59:53+08:00",
+  "paper": "https://ecmlpkdd-storage.s3.eu-central-1.amazonaws.com/preprints/2025/research/preprint_ecml_pkdd_2025_research_132.pdf",
+  "license_file_observed_at_commit": false,
+  "implementation": "clean_room_no_upstream_imports",
+  "audited_files": {
+    "Node2Vec.py": "c740cdc94164e5a1ef4926eca7a940141d0f3fac4052b9e3f57a3e2e1b9e94ca",
+    "model.py": "63aa166dc2c40a3428da2354ad6623ec6e4adda7c215ea0210b3bfc4bb8a52c2",
+    "train.py": "8a4157c2f72f931df90666e25a0a84228ea4f96f38dce7a348ee0d67ac70cafd",
+    "train_hierarchy.py": "879db2ff13cfc6524d0554a2e50895de61dc84e9865d4129f10cd79aaabcb66e",
+    "valid_hierarchy.py": "95bd76d67711044474e6257e0ff49093256e16538ff79f192c02a746c5e4acbb"
+  },
+  "formal_choices": {
+    "epochs": {
+      "value": 200,
+      "source": "paper Section 5.4"
+    },
+    "route_batch_size": {
+      "value": 512,
+      "source": "paper Section 5.4"
+    },
+    "contraction_ratio": {
+      "value": 0.5,
+      "source": "paper Section 5.6"
+    },
+    "generation_transition_cap": {
+      "value": 300,
+      "source": "valid_hierarchy.py MAX_ITERS at pinned commit"
+    }
+  },
+  "adaptation": {
+    "name": "DRNCS-LG",
+    "reason": "published DRNCS uses intersection states, while the study protocol requires unmodified directed raw-road identities including parallel roads",
+    "state_space": "directed_line_graph_raw_edge_id",
+    "unqualified_published_node_state_reproduction_claimed": false
+  },
+  "released_implementation_audit": {
+    "scope": "public repository at the pinned commit; these findings do not establish which private code, data, or artifacts produced the paper figures",
+    "conclusion": "the released repository is not sufficient for a trustworthy independent reproduction of the paper's quality claims",
+    "findings": [
+      {
+        "severity": "critical",
+        "file": "train_hierarchy.py",
+        "lines": [92, 104, 124],
+        "observation": "the sparse-model optimizer iterates over the training-length range but constructs every optimization batch from test_data",
+        "implication": "the released sparse training path directly trains on the nominal test split"
+      },
+      {
+        "severity": "high",
+        "file": "data_preprocess_for_traj_CH.py",
+        "lines": [109, 115, 136, 157],
+        "observation": "shortcut_sequence is reset for train, test, and validation and is saved only after the loop, leaving the last (validation) split's segments; the produced filename also differs from shortcut_select.py's input filename",
+        "implication": "the released shortcut provenance is split-contaminated or incomplete, and the exact paper path cannot be reconstructed"
+      },
+      {
+        "severity": "high",
+        "file": "valid_hierarchy.py",
+        "lines": [190, 202, 204, 229, 281, 294, 399, 412],
+        "observation": "the metric ignores edge order when counting overlap, failed rollouts are truncated to the generated point closest to the known destination, and reachability uses a 50 metre tolerance",
+        "implication": "the released evaluation is materially different from strict ordered-route generation with exact endpoint failure retention"
+      },
+      {
+        "severity": "high",
+        "file": "train_hierarchy.py",
+        "lines": [79, 80],
+        "observation": "the released sparse trainer hard-codes 50 epochs although paper Section 5.4 reports 200 epochs",
+        "implication": "the public training configuration does not match the paper"
+      },
+      {
+        "severity": "high",
+        "file": "data_preprocess_for_traj_CH.py and data_preprocess_for_traj_BottomUp.py",
+        "lines": [41, 80, 124],
+        "observation": "released preprocessing variants use conflicting contraction scores and ratios 0.3 or 0.1, while paper Section 5.6 selects 0.5",
+        "implication": "there is no single released preprocessing route matching the paper configuration"
+      },
+      {
+        "severity": "medium",
+        "file": "paper Section 5.4",
+        "lines": [],
+        "observation": "the paper reports Python 3.6 with PyTorch 2.4.1, whereas the official PyTorch 2.4 support matrix requires Python 3.8 or newer",
+        "implication": "the stated software environment cannot be reproduced as written",
+        "reference": "https://github.com/pytorch/pytorch/blob/main/RELEASE.md"
+      },
+      {
+        "severity": "medium",
+        "file": "README.md",
+        "lines": [43, 58],
+        "observation": "the repository supplies only generic script order and no data, pretrained checkpoints, dependency lock, split hashes, seeds, or paper-result command",
+        "implication": "the paper tables cannot be independently regenerated from the released materials alone"
+      }
+    ],
+    "research_integrity_boundary": "The observations support an unreproducible-or-contaminated implementation finding, not an allegation of intentional fabrication. Establishing fabrication would require evidence about the actual unpublished experiment artifacts and intent."
+  }
+}

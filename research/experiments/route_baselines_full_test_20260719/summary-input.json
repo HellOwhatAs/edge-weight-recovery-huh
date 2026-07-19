@@ -1,0 +1,228 @@
+{
+  "schema": "ewr.route-baseline-summary-input/v1",
+  "runtime_root": "../../generated/full_test_comparison_20260719",
+  "archived_summary": "../../archive/experiments/neuromlr_cch_dijkstra_benchmarks/summary.json",
+  "included_methods": [
+    "project",
+    "sp_length",
+    "markov_sp",
+    "neuromlr_greedy",
+    "drncs_lg",
+    "drpk_static",
+    "drp_tp"
+  ],
+  "methods": {
+    "project": {
+      "evaluation": "project/full/evaluation.json",
+      "training": "../full_data_comparison_20260718/project/formal-14g/training-summary.json",
+      "prediction": "project/full/diagnostics.json",
+      "operational_prediction": "operational-efficiency.json",
+      "artifacts": [
+        {
+          "kind": "model",
+          "role": "selected_checkpoint",
+          "path": "../full_data_comparison_20260718/project/formal-14g/checkpoint-200.json"
+        }
+      ]
+    },
+    "sp_length": {
+      "evaluation": "sp-length/full/evaluation.json",
+      "training": "../full_data_comparison_20260718/static-network-only/sp-length.train.json",
+      "prediction": "sp-length/full/diagnostics.json",
+      "operational_prediction": "operational-efficiency.json",
+      "artifacts": [
+        {
+          "kind": "model",
+          "role": "network_length_artifact",
+          "path": "../full_data_comparison_20260718/static-network-only/sp-length.artifact.json"
+        }
+      ]
+    },
+    "markov_sp": {
+      "evaluation": "markov-sp/full/evaluation.json",
+      "training": "../full_data_comparison_20260718/static-network-only/markov-sp.train.json",
+      "prediction": "markov-sp/full/diagnostics.json",
+      "operational_prediction": "operational-efficiency.json",
+      "artifacts": [
+        {
+          "kind": "model",
+          "role": "selected_markov_cost_artifact",
+          "path": "../full_data_comparison_20260718/static-network-only/markov-sp.artifact.json"
+        }
+      ]
+    },
+    "neuromlr_greedy": {
+      "evaluation": "neuromlr-g/full/evaluation.json",
+      "prediction": "neuromlr-g/full/diagnostics.json",
+      "operational_prediction": "operational-efficiency.json",
+      "artifacts": [
+        {
+          "kind": "model",
+          "role": "selected_checkpoint",
+          "path": "../full_data_comparison_20260718/neuromlr/checkpoint-epoch-45-migrated.pt"
+        }
+      ]
+    },
+    "drncs_lg": {
+      "evaluation": "drncs-lg/full/evaluation.json",
+      "offline": "../full_data_comparison_20260718/drncs-lg/preprocess/preprocess.json",
+      "training": "../full_data_comparison_20260718/drncs-lg/train/training_diagnostics.json",
+      "prediction": "drncs-lg/full/diagnostics.json",
+      "operational_prediction": "operational-efficiency.json",
+      "artifacts": [
+        {
+          "kind": "model",
+          "role": "selected_checkpoint",
+          "path": "../full_data_comparison_20260718/drncs-lg/train/checkpoint.pt"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "line_graph_and_node2vec_preprocess",
+          "path": "../full_data_comparison_20260718/drncs-lg/preprocess/preprocess.pkl"
+        }
+      ]
+    },
+    "drpk_static": {
+      "evaluation": "drpk-static/full/evaluation.json",
+      "offline": "../full_data_comparison_20260718/drpk-static/preprocess/diagnostics.json",
+      "training": "../full_data_comparison_20260718/drpk-static/train/selection.json",
+      "prediction": "drpk-static/full/diagnostics.json",
+      "operational_prediction": "operational-efficiency.json",
+      "artifacts": [
+        {
+          "kind": "model",
+          "role": "selected_checkpoint",
+          "path": "../full_data_comparison_20260718/drpk-static/train/checkpoint-best-accuracy.pt"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "preprocess_configuration",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/configuration.json"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "routing_configuration",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/routing-configuration.json"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "core_artifact_manifest",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/core-artifacts.json"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "routing_artifact_manifest",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/routing-artifacts.json"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "raw_edge_graph",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/graph.npz"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_metadata",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/metadata.json"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_row_offsets",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/row_offsets.npy"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_col_offsets",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/col_offsets.npy"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_row_indices",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/row_indices.u32"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_row_values",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/row_values.u32"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_col_indices",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/col_indices.u32"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_col_values",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/col_values.u32"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "node2vec_embeddings",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/node2vec.npy"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "static_features",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/static_features.npz"
+        }
+      ]
+    },
+    "drp_tp": {
+      "evaluation": "drp-tp/full/evaluation.json",
+      "offline": "../full_data_comparison_20260718/drpk-static/preprocess/diagnostics.json",
+      "prediction": "drp-tp/full/diagnostics.json",
+      "operational_prediction": "operational-efficiency.json",
+      "artifacts": [
+        {
+          "kind": "auxiliary",
+          "role": "routing_configuration",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/routing-configuration.json"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "routing_artifact_manifest",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/routing-artifacts.json"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "raw_edge_graph",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/graph.npz"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_metadata",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/metadata.json"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_row_offsets",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/row_offsets.npy"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_col_offsets",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/col_offsets.npy"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_row_indices",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/row_indices.u32"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_row_values",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/row_values.u32"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_col_indices",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/col_indices.u32"
+        },
+        {
+          "kind": "auxiliary",
+          "role": "da_col_values",
+          "path": "../full_data_comparison_20260718/drpk-static/preprocess/da/col_values.u32"
+        }
+      ]
+    }
+  }
+}

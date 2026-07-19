@@ -9,7 +9,7 @@ use ewr_core::{
     Trainer, TrainingOutcome,
 };
 use ewr_io::{
-    DatasetPaths, LoadedDataset, TrainConfig, load_dataset, load_training_artifact,
+    LoadedDataset, TrainConfig, load_dataset, load_network, load_training_artifact,
     save_training_artifact,
 };
 use ewr_research_protocol::{
@@ -35,14 +35,9 @@ pub const USAGE: &str = "\
 Usage:
   ewr-project-experiment train --config PATH --output-dir DIR
   ewr-project-experiment predict --artifact PATH --dataset-jsonl PATH \\
-    --nodes PATH --edges PATH --network-trajectories PATH \\
+    --nodes PATH --edges PATH \\
     --predictions PATH --diagnostics PATH [--threads N] \\
     [--warmup-repetitions N] [--measured-repetitions N]
-
-`--network-trajectories` is an existing, small, structurally valid pickle used
-only because the production dataset adapter intentionally exposes one combined
-network-and-trajectory load operation. Its trajectories are not queried or
-evaluated, and its load time is reported outside the measured routing loop.
 ";
 
 static TEMPORARY_SEQUENCE: AtomicU64 = AtomicU64::new(0);
@@ -327,12 +322,8 @@ pub fn predict_loaded(
 pub fn run_predict(arguments: &PredictArguments) -> Result<PredictionRun, ExperimentError> {
     let total_started = Instant::now();
     let input_started = Instant::now();
-    let network_adapter = load_dataset(&DatasetPaths {
-        nodes: arguments.nodes.clone(),
-        edges: arguments.edges.clone(),
-        trajectories: arguments.network_trajectories.clone(),
-    })
-    .map_err(|error| failure(format!("network adapter loading failed: {error}")))?;
+    let network = load_network(&arguments.nodes, &arguments.edges)
+        .map_err(|error| failure(format!("network loading failed: {error}")))?;
     let dataset_file = File::open(&arguments.dataset_jsonl).map_err(|error| {
         failure(format!(
             "failed to open dataset {}: {error}",
@@ -346,7 +337,7 @@ pub fn run_predict(arguments: &PredictArguments) -> Result<PredictionRun, Experi
     let input_seconds = input_started.elapsed().as_secs_f64();
 
     let mut run = predict_loaded(
-        &network_adapter.network,
+        &network,
         &dataset,
         &artifact,
         arguments.threads,
@@ -614,7 +605,6 @@ pub struct PredictArguments {
     pub dataset_jsonl: PathBuf,
     pub nodes: PathBuf,
     pub edges: PathBuf,
-    pub network_trajectories: PathBuf,
     pub predictions: PathBuf,
     pub diagnostics: PathBuf,
     pub threads: usize,
@@ -695,7 +685,6 @@ fn parse_predict(
         dataset_jsonl: required_path(&mut values, "--dataset-jsonl")?,
         nodes: required_path(&mut values, "--nodes")?,
         edges: required_path(&mut values, "--edges")?,
-        network_trajectories: required_path(&mut values, "--network-trajectories")?,
         predictions: required_path(&mut values, "--predictions")?,
         diagnostics: required_path(&mut values, "--diagnostics")?,
         threads: optional_usize(&mut values, "--threads", 16)?,
@@ -820,7 +809,7 @@ mod tests {
 
     fn config(updates: u64, checkpoint_every: u64) -> TrainConfig {
         TrainConfig {
-            dataset: DatasetPaths {
+            dataset: ewr_io::DatasetPaths {
                 nodes: "unused-nodes.shp".into(),
                 edges: "unused-edges.shp".into(),
                 trajectories: "unused.pkl".into(),
@@ -946,8 +935,6 @@ mod tests {
             "nodes.shp",
             "--edges",
             "edges.shp",
-            "--network-trajectories",
-            "small.pkl",
             "--predictions",
             "predictions.jsonl",
             "--diagnostics",
@@ -960,6 +947,29 @@ mod tests {
         assert_eq!(arguments.threads, 16);
         assert_eq!(arguments.warmup_repetitions, 1);
         assert_eq!(arguments.measured_repetitions, 5);
+
+        assert!(
+            parse_cli([
+                "predict",
+                "--artifact",
+                "model.json",
+                "--dataset-jsonl",
+                "test.jsonl",
+                "--nodes",
+                "nodes.shp",
+                "--edges",
+                "edges.shp",
+                "--network-trajectories",
+                "small.pkl",
+                "--predictions",
+                "predictions.jsonl",
+                "--diagnostics",
+                "diagnostics.json",
+            ])
+            .unwrap_err()
+            .to_string()
+            .contains("unknown option --network-trajectories")
+        );
 
         assert!(parse_cli(["train", "--config", "x"]).is_err());
         assert!(parse_cli(["train", "--config", "x", "--wat", "y"]).is_err());
